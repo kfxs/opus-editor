@@ -109,7 +109,7 @@ describe('notesInBox — GRACES are in the box (his report, 2026-09-22: "i canno
     const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const score = model.getScore()
     const [g1, g2, g3] = (['G', 'A', 'B'] as const).map(step =>
-      addGrace(score, e.id, 'before', { step, alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id)
+      addGrace(score, e.id, 'before', { step, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id)
     return { score, c: c.id, e: e.id, g1, g2, g3 }
   }
 
@@ -140,10 +140,10 @@ describe('notesInBox — BRACKETED graces are in the box (his report, 2026-09-24
     const f = model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
     const score = model.getScore()
     const [g, a] = (['G', 'A'] as const).map(step =>
-      addGrace(score, e.id, 'before', { step, alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id)
-    const bEntry = addBracketed(score, e.id, 'before', { step: 'F', alter: 0, octave: 4 })!.pitches[0].id
-    const bOnGrace = addBracketed(score, g, 'before', { step: 'D', alter: 0, octave: 4 })!.pitches[0].id
-    const bAfter = addBracketed(score, e.id, 'after', { step: 'B', alter: 0, octave: 4 })!.pitches[0].id
+      addGrace(score, e.id, 'before', { step, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id)
+    const bEntry = addBracketed(score, e.id, 'before', { step: 'F', octave: 4 })!.pitches[0].id
+    const bOnGrace = addBracketed(score, g, 'before', { step: 'D', octave: 4 })!.pitches[0].id
+    const bAfter = addBracketed(score, e.id, 'after', { step: 'B', octave: 4 })!.pitches[0].id
     return { score, c: c.id, e: e.id, next: f.id, g, a, bEntry, bOnGrace, bAfter }
   }
 

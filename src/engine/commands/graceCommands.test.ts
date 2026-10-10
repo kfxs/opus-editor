@@ -9,7 +9,7 @@ describe('graceCommands.addGrace', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const ctx = fakeCommandContext(model)
-    const grace = graceCommands(ctx).addGrace(host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' })
+    const grace = graceCommands(ctx).addGrace(host.id, 'before', { step: 'D', octave: 5 }, 'acciaccatura', { duration: '8' })
     expect(grace).not.toBeNull()
     expect(ctx.undoEntries()).toBe(1)
     expect(ctx.log[ctx.log.length - 1]).toContain('Add acciaccatura')
@@ -20,7 +20,7 @@ describe('graceCommands.addGrace', () => {
     model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
     const ctx = fakeCommandContext(model)
-    expect(graceCommands(ctx).addGrace(rest.id, 'after', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })).toBeNull()
+    expect(graceCommands(ctx).addGrace(rest.id, 'after', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })).toBeNull()
     expect(ctx.undoEntries()).toBe(0)
   })
 
@@ -29,7 +29,7 @@ describe('graceCommands.addGrace', () => {
     const measureRest = model.getMeasure(1)!.slots[0]
     expect(measureRest.type === 'rest' && measureRest.isMeasureRest).toBe(true)
     const ctx = fakeCommandContext(model)
-    const grace = graceCommands(ctx).addGrace(measureRest.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' }, frac(1, 1))
+    const grace = graceCommands(ctx).addGrace(measureRest.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' }, frac(1, 1))
     expect(grace).not.toBeNull()
     const shape = model.getMeasure(1)!.slots.map(s => `${s.type}@${fracToNumber(s.beat)}:${s.duration}${s.type === 'rest' && s.graceBefore ? '+grace' : ''}`)
     expect(shape).toEqual(['rest@0:q', 'rest@1:q+grace', 'rest@2:h'])
@@ -42,7 +42,7 @@ describe('graceCommands.previewOffset / commitOffset', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const ctx = fakeCommandContext(model)
-    const grace = graceCommands(ctx).addGrace(host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = graceCommands(ctx).addGrace(host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     ctx.log.length = 0
     return { model, host, ctx, graceId: grace.pitches[0].id }
   }
@@ -82,12 +82,12 @@ describe('graceCommands.addGracePitch', () => {
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const ctx = fakeCommandContext(model)
     const cmds = graceCommands(ctx)
-    const grace = cmds.addGrace(host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' }, undefined, ['staccato'])!
+    const grace = cmds.addGrace(host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' }, undefined, ['staccato'])!
     ctx.log.length = 0
-    expect(cmds.addGracePitch(grace.pitches[0].id, { step: 'F', alter: 0, octave: 5 }, undefined, ['staccato', 'accent'])).not.toBeNull()
+    expect(cmds.addGracePitch(grace.pitches[0].id, { step: 'F', octave: 5 }, undefined, ['staccato', 'accent'])).not.toBeNull()
     expect(grace.articulations).toEqual(['staccato', 'accent'])
     expect(ctx.log).toEqual(['mutate:Add grace chord note'])
-    expect(cmds.addGracePitch(grace.pitches[0].id, { step: 'F', alter: 0, octave: 5 })).toBeNull()
+    expect(cmds.addGracePitch(grace.pitches[0].id, { step: 'F', octave: 5 })).toBeNull()
     expect(ctx.undoEntries()).toBe(1)
   })
 })

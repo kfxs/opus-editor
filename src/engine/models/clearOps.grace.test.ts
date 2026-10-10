@@ -14,8 +14,8 @@ vi.mock('../audio/PlaybackEngine', async () => (await import('@/testing/engineSt
 describe('clearNoteRange — a grace note in the selection', () => {
   it('⭐ Delete with ONLY the grace selected removes it and keeps its note', () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
-    const grace = engine.grace.addGrace(note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
+    const grace = engine.grace.addGrace(note.id, 'before', { step: 'D', octave: 5 }, 'acciaccatura', { duration: '8' })!
     expect(engine.deleteNotes([grace.pitches[0].id])).toBe(1)
     const chord = engine.getScore().measures[0].slots.find((s): s is Chord => s.type === 'chord')!
     expect(chord.notes[0].id).toBe(note.id)

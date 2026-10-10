@@ -8,8 +8,8 @@ import { fracCreate as frac } from '@/utils/fraction'
 
 function setup() {
   const ctx = fakeCommandContext()
-  const c = ctx.score.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-  const e = ctx.score.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+  const c = ctx.score.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+  const e = ctx.score.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
   return { ctx, gliss: glissandoCommands(ctx), c, e }
 }
 

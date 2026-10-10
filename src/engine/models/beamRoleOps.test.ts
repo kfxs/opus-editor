@@ -14,7 +14,7 @@ describe('beamRoleOf', () => {
     const score = model.getScore()
     const note = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const graces = (['G', 'A', 'B'] as const).map(step =>
-      addGrace(score, note.id, 'before', { step, alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!)
+      addGrace(score, note.id, 'before', { step, octave: 4 }, 'appoggiatura', { duration: '8' })!)
     return { model, score, note, ids: graces.map(g => g.pitches[0].id) }
   }
 

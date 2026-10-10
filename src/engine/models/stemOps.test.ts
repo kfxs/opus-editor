@@ -31,8 +31,8 @@ describe('flipStems — the group is the unit', () => {
     //    ⭐ Alone, B4 reads DOWN (the middle-line convention). The GROUP reads UP, because the pitch
     //    furthest from the middle line is the G4 below it — and the group is what is drawn.
     model = new ScoreModel()
-    model.addNote({ step: 'B', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(0, 1) } as never)
-    model.addNote({ step: 'G', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(1, 2) } as never)
+    model.addNote({ step: 'B', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) } as never)
+    model.addNote({ step: 'G', octave: 4, duration: '8', measure: 1, beat: frac(1, 2) } as never)
     score = model.getScore()
   })
 
@@ -69,7 +69,7 @@ describe('flipStems — the group is the unit', () => {
 
   it('an UNBEAMED note still flips alone — a group of one, and the behaviour that was always there', () => {
     const model2 = new ScoreModel()
-    model2.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(0, 1) } as never)
+    model2.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) } as never)
     const score2 = model2.getScore()
     const id = score2.measures[0].slots[0].id
     expect(flipStems(score2, id)).toEqual([id])
@@ -100,7 +100,7 @@ describe('stemFlipTargets — `x` over a selection (his report, 2026-09-21)', ()
     // His bar: four quarters high on the staff, every stem DOWN by itself.
     model = new ScoreModel()
     ;(['C', 'D', 'E', 'F'] as const).forEach((step, i) =>
-      model.addNote({ step, octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(i, 1) } as never))
+      model.addNote({ step, octave: 5, duration: 'q', measure: 1, beat: frac(i, 1) } as never))
     score = model.getScore()
   })
 
@@ -114,7 +114,7 @@ describe('stemFlipTargets — `x` over a selection (his report, 2026-09-21)', ()
   })
 
   it('⚠️ ONE target per chord — two selected heads must not flip it there and back', () => {
-    const top = model.addNote({ step: 'A', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(0, 1) } as never)
+    const top = model.addNote({ step: 'A', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) } as never)
     const [first] = chords()
     expect(first.notes).toHaveLength(2)
     expect(stemFlipTargets(score, [first.notes[0].id, top.id])).toHaveLength(1)
@@ -124,8 +124,8 @@ describe('stemFlipTargets — `x` over a selection (his report, 2026-09-21)', ()
 
   it('…and ONE per BEAM — a beam has one side', () => {
     const beamed = new ScoreModel()
-    const a = beamed.addNote({ step: 'C', octave: 5, alter: 0, duration: '8', measure: 1, beat: frac(0, 1) } as never)
-    const b = beamed.addNote({ step: 'D', octave: 5, alter: 0, duration: '8', measure: 1, beat: frac(1, 2) } as never)
+    const a = beamed.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) } as never)
+    const b = beamed.addNote({ step: 'D', octave: 5, duration: '8', measure: 1, beat: frac(1, 2) } as never)
     expect(stemFlipTargets(beamed.getScore(), [a.id, b.id])).toEqual([a.id])
   })
 
@@ -149,7 +149,7 @@ describe('flipStems — CROSS-STAFF (his report, 2026-09-21: "pressing x… is n
     score = model.getScore()
   })
   const add = (step: string, octave: number, duration = 'h', beat = frac(0, 1)) =>
-    model.addNote({ step, octave, alter: 0, duration, measure: 1, beat, staff: 1 } as never)
+    model.addNote({ step, octave, duration, measure: 1, beat, staff: 1 } as never)
 
   it('🚨 HIS CHORD: A3·C4·E4 with two heads on the treble is drawn UP — so the first press writes DOWN', () => {
     const a = add('A', 3)
@@ -168,8 +168,8 @@ describe('flipStems — CROSS-STAFF (his report, 2026-09-21: "pressing x… is n
   })
 
   it('a chord split DOWNWARD (home on the upper staff) is drawn down — the press writes UP', () => {
-    const top = model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 } as never)
-    const low = model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 } as never)
+    const top = model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 } as never)
+    const low = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 } as never)
     crossPitches(score, [low.id], 1)
     flipStems(score, top.id)
     expect(chordOf(top.id).stemDirection).toBe('up')
@@ -187,8 +187,8 @@ describe('flipStems — CROSS-STAFF (his report, 2026-09-21: "pressing x… is n
 describe('beamGroupStemDirection — one side per beam', () => {
   it('⭐ an explicit stem on ANY member is the group’s — which is what makes the flip legible', () => {
     const model = new ScoreModel()
-    model.addNote({ step: 'B', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(0, 1) } as never)
-    model.addNote({ step: 'G', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(1, 2) } as never)
+    model.addNote({ step: 'B', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) } as never)
+    model.addNote({ step: 'G', octave: 4, duration: '8', measure: 1, beat: frac(1, 2) } as never)
     const slots = model.getScore().measures[0].slots.slice(0, 2)
     ;(slots[1] as Chord).stemDirection = 'down'
     expect(beamGroupStemDirection(slots, 'treble')).toBe(-1)
@@ -196,7 +196,7 @@ describe('beamGroupStemDirection — one side per beam', () => {
 
   it('⭐ …then the lane’s multi-voice default, ⛔ before the pitches', () => {
     const model = new ScoreModel()
-    model.addNote({ step: 'G', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(0, 1) } as never)
+    model.addNote({ step: 'G', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) } as never)
     const slots = model.getScore().measures[0].slots.slice(0, 1)
     expect(beamGroupStemDirection(slots, 'treble'), 'on its own the low note points up').toBe(1)
     expect(beamGroupStemDirection(slots, 'treble', -1), 'voice 2 points down anyway').toBe(-1)

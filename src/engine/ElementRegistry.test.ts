@@ -161,8 +161,8 @@ describe('ElementRegistry multi-staff geometry', () => {
       // Staff 0 line 3 (y=70) is treble G4; staff 1 line 3 (y=220) is bass B2.
       const treblePitch = registry.pixelYToPitch(70, 1, undefined, 0)
       const bassPitch = registry.pixelYToPitch(220, 1, undefined, 1)
-      expect(treblePitch).toEqual({ step: 'G', alter: 0, octave: 4 })
-      expect(bassPitch).toEqual({ step: 'B', alter: 0, octave: 2 })
+      expect(treblePitch).toEqual({ step: 'G', octave: 4 })
+      expect(bassPitch).toEqual({ step: 'B', octave: 2 })
     })
 
     it('staffPositionToPixelY uses the requested staff geometry', () => {

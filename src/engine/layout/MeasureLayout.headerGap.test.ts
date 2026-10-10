@@ -14,6 +14,7 @@
  * (`reference_jsdom_cannot_measure_glyphs`), and the clef's extent here is a measured CONSTANT from
  * `headerInk`, not something the font is asked for.
  */
+import { withSigns } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '../models/ScoreModel'
 import { ScoreRenderer } from '@/engine/rendering/ScoreRenderer'
@@ -36,7 +37,7 @@ function leadIns(bars = 12, alter?: 1 | -1) {
   const model = new ScoreModel()
   for (let i = 1; i < bars; i++) model.addMeasure()
   for (let b = 1; b <= bars; b++) {
-    model.addNote({ step: 'C', alter, octave: 5, duration: 'q', measure: b, beat: frac(0, 1) })
+    model.addNote({ step: 'C', ...withSigns(alter), octave: 5, duration: 'q', measure: b, beat: frac(0, 1) })
   }
   renderer.renderScore(model.getScore())
 

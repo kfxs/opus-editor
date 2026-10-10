@@ -20,7 +20,7 @@ async function sharp(score: import('@playwright/test').Page) {
   return score.evaluate(async () => {
     const h = window.__h
     const note = h.engine.addNoteAtBeat({
-      step: 'F', octave: 4, alter: 1, duration: 'q', measure: 1, beat: h.frac(0, 1),
+      step: 'F', octave: 4, alteration: ['sharp'], duration: 'q', measure: 1, beat: h.frac(0, 1),
     } as never)!
     await h.render()
 
@@ -78,7 +78,7 @@ test('🚨 the sign is placed LEFT of its note here — what jsdom cannot see', 
   const left = await score.evaluate(async () => {
     const h = window.__h
     const note = h.engine.addNoteAtBeat({
-      step: 'F', octave: 4, alter: 1, duration: 'q', measure: 1, beat: h.frac(0, 1),
+      step: 'F', octave: 4, alteration: ['sharp'], duration: 'q', measure: 1, beat: h.frac(0, 1),
     } as never)!
     await h.render()
     const reg = h.engine.getElementRegistry()

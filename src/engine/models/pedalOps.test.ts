@@ -287,7 +287,7 @@ describe('pedalOps — resizePedalBySlot', () => {
   /** Four quarters in bar `m`. */
   const quarters = (m: number, staff?: number) =>
     [0, 1, 2, 3].map(b =>
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), ...(staff !== undefined ? { staff } : {}) }))
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1), ...(staff !== undefined ? { staff } : {}) }))
 
   const lengthOf = (id: string) => fracToNumber(getPedalById(score, id)!.length)
 
@@ -342,8 +342,8 @@ describe('pedalOps — resizePedalBySlot', () => {
     // One damper: an eighth in voice 2 between the voice-1 quarters IS a step the foot can take, and
     // it is where the renderer will read the lift x from (§5.2). Ignoring it would move the `✻`
     // somewhere nothing is drawn.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
     const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(1, 2) })!
     expect(resizePedalBySlot(score, p.id, 1)).toBe(true)
     expect(lengthOf(p.id), 'reached the voice-2 eighth at beat ½, which ends at 1').toBe(1)
@@ -352,7 +352,7 @@ describe('pedalOps — resizePedalBySlot', () => {
   it('⚠️ steps by ITS OWN staff’s slots, never the other staff’s', () => {
     const lower = model.addStaffBelow(0)
     quarters(1, 0)  // upper staff: four quarters
-    model.addNote({ step: 'C', alter: 0, octave: 3, duration: 'w', measure: 1, beat: frac(0, 1), staff: 1 })
+    model.addNote({ step: 'C', octave: 3, duration: 'w', measure: 1, beat: frac(0, 1), staff: 1 })
     const p = addPedal(score, 1, { beat: frac(0, 1), length: frac(1, 1), staffId: lower })!
 
     expect(resizePedalBySlot(score, p.id, 1)).toBe(true)
@@ -387,7 +387,7 @@ describe('pedalOps — movePedalStartBySlot', () => {
 
   const quarters = (m: number, staff?: number) =>
     [0, 1, 2, 3].map(b =>
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), ...(staff !== undefined ? { staff } : {}) }))
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1), ...(staff !== undefined ? { staff } : {}) }))
 
   /** The press and the lift as absolute quarter-beats, so "the far end held" is directly assertable
    *  (bar 1 starts at 0, bar 2 at 4 in 4/4). */
@@ -446,8 +446,8 @@ describe('pedalOps — movePedalStartBySlot', () => {
   it('⭐⭐ steps through EVERY VOICE of its staff — the same lane the lift walks', () => {
     // If the two ends walked different lanes, one square could reach a position the other could not
     // pass through, and a pedal's two signs would sit on different grids.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
     const p = addPedal(score, 1, { beat: frac(1, 1), length: frac(1, 1) })!
     expect(movePedalStartBySlot(score, p.id, -1)).toBe(true)
     expect(span(p.id), 'the voice-2 eighth at ½ is a step the foot can take').toEqual({ press: 0.5, lift: 2 })
@@ -478,7 +478,7 @@ describe('pedalOps — setPedalStartAtSlot / setPedalLiftAt', () => {
     model = new ScoreModel()
     score = model.getScore()
     for (const b of [0, 1, 2, 3]) {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
     }
   })
 
@@ -685,9 +685,9 @@ describe('setPedalAtStaffSlot — a staff is a place, and a foot', () => {
     score = model.getScore()
     // Beats 0 and 1 on the TOP staff; beat 0 only on the lower one (a half note covers 0..1 there).
     for (const b of [0, 1]) {
-      model.addNote({ step: 'C', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+      model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
     }
-    model.addNote({ step: 'C', octave: 3, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
+    model.addNote({ step: 'C', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
     id = addPedal(score, 1, { beat: frac(0, 1), length: frac(2, 1) })!.id
   })
 

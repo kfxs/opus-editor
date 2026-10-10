@@ -26,7 +26,7 @@ const G_MAJOR = keyFromFifths(1)
 function scoreWithFarBar(bars: number): ScoreModel {
   const model = new ScoreModel()
   while (model.getScore().measures.length < bars) model.addMeasure()
-  model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: bars, beat: frac(0, 1) })
+  model.addNote({ step: 'F', octave: 4, duration: 'q', measure: bars, beat: frac(0, 1) })
   return model
 }
 

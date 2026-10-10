@@ -12,7 +12,7 @@ import type { SpineSign } from '@/engine/rendering/eye/spineSignSpace'
 function setUp() {
   const m = new ScoreModel('spine')
   m.addMeasure()
-  m.addNote({ step: 'E', alter: -1, octave: 5, duration: 'q', measure: 1, beat: { num: 2, den: 1 } })
+  m.addNote({ step: 'E', alteration: ['flat'], octave: 5, duration: 'q', measure: 1, beat: { num: 2, den: 1 } })
   const placed: SpinePlacedReport = new Map()
   drawScoreOnSpine(new SceneRecorder(), m.getScore(), circleSpine(400, 400, 250), placed)
   const slot = m.getScore().measures[0].slots.find(s => s.type === 'chord')!

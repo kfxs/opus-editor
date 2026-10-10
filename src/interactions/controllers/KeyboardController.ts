@@ -1,5 +1,5 @@
 import { dbg } from '@/utils/debug'
-import type { ArticulationType, Note, PitchStep, PitchAlter, Fraction, Score } from '../../types/music'
+import type { ArticulationType, Note, PitchStep, Fraction, Score } from '../../types/music'
 import type { MusicEngine } from '../../engine/MusicEngine'
 import type { EditorState } from '../state/EditorState'
 import { activeVoiceToModel, armedTool, armedNormalSide, armedTupletM, spendArmedTuplet } from '../state/EditorState'
@@ -9,7 +9,8 @@ import { continuingStamp, gracePitchesAt, typeGraceAtCaret } from '../stamps/gra
 import { getMeasureNotes } from '../../utils/musicUtils'
 import { measureCapacityFrac } from '../../utils/measureCapacity'
 import { fracToNumber, fracEq, fracFromInt, fracSub } from '../../utils/fraction'
-import { accidentalToAlter, formatPitch } from '../../utils/pitchSpelling'
+import { formatPitch } from '../../utils/pitchSpelling'
+import { alterationCode, armedAlteration } from '../../utils/alterationSigns'
 import { octaveAbove, octaveNearest, staffPosition } from '../../utils/pitchOrder'
 import { entryAlteration } from '../../engine/models/entryAlteration'
 import { fitRestDuration } from '../../utils/durations'
@@ -70,26 +71,26 @@ export class KeyboardController {
     const selected = engine.getNote(this.state.selectedNoteId)
     // The letter lands where the selected note already is, so the key and the bar's accidentals are
     // read THERE — the same rule as entry ({@link entryAlteration}), armed accidental first.
-    const alter: PitchAlter = selected
+    const alteration = selected
       ? entryAlteration(
         engine.getScore(), { measure: selected.measure, beat: selected.beat, staff: selected.staff },
         step, octave, this.state.selectedAccidental,
       )
-      : accidentalToAlter(this.state.selectedAccidental)
+      : armedAlteration(this.state.selectedAccidental)
     const measureRestDuration = selected?.isMeasureRest
       ? { duration: this.state.selectedDuration, dots: this.state.selectedDots }
       : {}
 
     const updatedNote = engine.updateNote(this.state.selectedNoteId, {
       step,
-      alter,
+      alteration,
       octave,
       isRest: false,
       ...measureRestDuration,
       ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }),
     })
 
-    dbg(`✓ KeyboardEntry (edit-in-place) | ${formatPitch({ step, alter, octave })} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
+    dbg(`✓ KeyboardEntry (edit-in-place) | ${formatPitch({ step, alteration, octave })} dur:${updatedNote.duration} measure:${updatedNote.measure} beat:${fracToNumber(updatedNote.beat).toFixed(3)}`)
 
     this.state.selectedAccidental = null
     this.state.selectedTool = 'entry'
@@ -312,7 +313,7 @@ export class KeyboardController {
     //   running accidental, else the KEY. A typed F in G major is an F♯ that draws no sign
     //   ({@link entryAlteration}); it used to be an F♮ wearing a natural (plan §3.1).
     // ⚠️ After the octave, which the LETTER alone decides — nothing above reads the alteration.
-    const alter: PitchAlter = entryAlteration(
+    const alteration = entryAlteration(
       score, { measure: targetMeasure, beat: targetBeat, staff: cursorStaff },
       step, octave, this.state.selectedAccidental,
     )
@@ -321,7 +322,7 @@ export class KeyboardController {
     if (armedTool(this.state, 'grace')) {
       const grace = typeGraceAtCaret(engine, this.state, this.state.selectedNoteId,
         { measure: targetMeasure, beat: targetBeat, voice: cursorVoice, staff: cursorStaff },
-        { step, alter, octave, ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }) })
+        { step, alteration, octave, ...(this.state.selectedAccidental === 'n' && { forceAccidental: true }) })
       if (!grace) return
       this.state.selectedAccidental = null // one note's accidental, as for a typed note
       this.setSelectedNote(grace)
@@ -331,7 +332,7 @@ export class KeyboardController {
     }
 
     const existingTuplet = engine.getTupletAtBeat(targetMeasure, targetBeat, cursorVoice, cursorStaff)
-    dbg(`KeyboardEntry RAW | ${step}${alter !== 0 ? (alter > 0 ? '#' : 'b') : ''} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tuplet:${this.state.armedTuplet ? `${this.state.armedTuplet.numNotes}:${this.state.armedTuplet.notesOccupied}` : 'off'} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
+    dbg(`KeyboardEntry RAW | ${step}${alterationCode(alteration)} dur:${this.state.selectedDuration} measure:${targetMeasure} beat:${fracToNumber(targetBeat).toFixed(3)} tuplet:${this.state.armedTuplet ? `${this.state.armedTuplet.numNotes}:${this.state.armedTuplet.notesOccupied}` : 'off'} existingTuplet:${existingTuplet ? existingTuplet.id : 'none'}`)
 
     const measure = score.measures.find(m => m.number === targetMeasure)
     if (!measure) return
@@ -343,7 +344,7 @@ export class KeyboardController {
         targetMeasure,
         fracToNumber(targetBeat),
         this.state.selectedDuration,
-        { step, alter, octave },
+        { step, alteration, octave },
         this.state.armedTuplet.numNotes,
         // M from the METER at the caret, not from the keypress — see armedTupletM.
         armedTupletM(
@@ -371,7 +372,7 @@ export class KeyboardController {
       const entryVoice = cursorVoice
       newNote = engine.addNoteAtBeat({
         step,
-        alter,
+        alteration,
         octave,
         duration: this.state.selectedDuration,
         measure: targetMeasure,
@@ -485,19 +486,19 @@ export class KeyboardController {
     // Same rule as plain entry — a chord note is still keyboard entry (see the note below on the
     // armed accidental), so the key must default it identically or a stacked F in G major alone
     // would come out natural.
-    const alter: PitchAlter = entryAlteration(
+    const alteration = entryAlteration(
       score, { measure: note.measure, beat: note.beat, staff: noteStaff },
       step, octave, this.state.selectedAccidental,
     )
 
     const spelledForce = this.state.selectedAccidental === 'n' ? { forceAccidental: true } : {}
     const newNote = gracePitches
-      ? engine.grace.addGracePitch(this.state.selectedNoteId, { step, alter, octave, ...spelledForce })
+      ? engine.grace.addGracePitch(this.state.selectedNoteId, { step, alteration, octave, ...spelledForce })
       : memberPitches
-      ? engine.addFanMemberPitch(this.state.selectedNoteId, { step, alter, octave })
+      ? engine.addFanMemberPitch(this.state.selectedNoteId, { step, alteration, octave })
       : engine.addChordNote({
         step,
-        alter,
+        alteration,
         octave,
         duration: note.duration,
         measure: note.measure,

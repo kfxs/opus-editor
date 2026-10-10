@@ -48,7 +48,7 @@ const assertionOf = (fan?: FanMark) =>
 
 /** Every member's spelling, in order — the pitches themselves. */
 const memberPitches = (fan?: FanMark) =>
-  fan?.members?.map(m => m.pitches.map(p => `${p.step}${p.alter}${p.octave}`).join(' '))
+  fan?.members?.map(m => m.pitches.map(p => `${p.step}${p.alteration ?? ''}${p.octave}`).join(' '))
 
 /** Every member pitch id, flat — for asserting a COPY minted its own. */
 const memberIds = (fan?: FanMark) => fan?.members?.flatMap(m => m.pitches.map(p => p.id)) ?? []

@@ -129,7 +129,7 @@ export function applyTupletToNote(
     // Place the original note as the first tuplet note, then fill remainder
     resultNote = model.addNote({
       step: note.step,
-      alter: note.alter,
+      alteration: note.alteration,
       octave: note.octave,
       duration: note.duration,
       measure: note.measure,
@@ -221,7 +221,7 @@ format?: TupletFormat,
     // …then the new pitch joins it (addNote at a chord's beat adds a head to that chord)
     firstNote = model.addNote({
       step: spelling.step,
-      alter: spelling.alter,
+      alteration: spelling.alteration,
       octave: spelling.octave,
       duration,
       // The unit's dots ride on every note written in it — a dotted-quarter triplet is three
@@ -238,7 +238,7 @@ format?: TupletFormat,
   } else {
     firstNote = model.addNote({
       step: spelling.step,
-      alter: spelling.alter,
+      alteration: spelling.alteration,
       octave: spelling.octave,
       duration,
       // The unit's dots ride on every note written in it — a dotted-quarter triplet is three

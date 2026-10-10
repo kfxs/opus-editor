@@ -45,8 +45,8 @@ describe('accidental registration', () => {
     const g4 = engine.addChordNote(at({ step: 'G' }))
     const a4 = engine.addChordNote(at({ step: 'A' }))
     const c5 = engine.addChordNote(at({ step: 'C', octave: 5 }))
-    engine.updateNote(g4.id, { alter: 0, forceAccidental: true })
-    engine.updateNote(c5.id, { alter: 1 })
+    engine.updateNote(g4.id, { forceAccidental: true })
+    engine.updateNote(c5.id, { alteration: ['sharp'] })
     engine.renderScore()
     return { c4, e4, g4, a4, c5 }
   }
@@ -78,14 +78,14 @@ describe('accidental registration', () => {
   })
 
   it('⭐ a plain single note with one accidental still registers it against itself', () => {
-    const f = engine.addNoteAtBeat(at({ step: 'F', alter: 1 }))!
+    const f = engine.addNoteAtBeat(at({ step: 'F', alteration: ['sharp'] }))!
     engine.renderScore()
     expect(accidentals().map(a => a.noteId)).toEqual([f.id])
   })
 
   describe('⭐⭐ the box it files — P6b', () => {
     const sharpBox = () => {
-      engine.addNoteAtBeat(at({ step: 'F', alter: 1 }))
+      engine.addNoteAtBeat(at({ step: 'F', alteration: ['sharp'] }))
       engine.renderScore()
       return accidentals()[0].bbox
     }

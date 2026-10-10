@@ -25,7 +25,7 @@ import { placementAt, pointAt } from '@/engine/engrave/staff/staffSpine'
 import { drawSpineLines } from '@/engine/engrave/staff/spineLines'
 import { staffLineY } from '@/engine/engrave/staff/staffFrame'
 import { staveLineWidthPx } from '@/engine/engrave/staff/staffLines'
-import type { Clef, NoteDuration, PitchAlter, PitchStep } from '@/types/music'
+import type { Alteration, Clef, NoteDuration, PitchStep } from '@/types/music'
 import { middleLineDiatonicPos } from '@/utils/clefUtils'
 import { spellingDiatonicPos, spellingToNoteKey } from '@/utils/pitchSpelling'
 import { EngravedBeam, drawBeamInkThrough } from '../engraved/EngravedBeam'
@@ -47,7 +47,7 @@ import type { StaveSign } from '../staff/staveSign'
 /** One note to stand on a spine — a pitch, a length, and where along the spine its head is. */
 export interface SpineNote {
   step: PitchStep
-  alter: PitchAlter
+  alteration?: Alteration
   octave: number
   duration: NoteDuration
   /** Distance along the spine of the notehead's centre. */
@@ -360,7 +360,7 @@ function toBlockSpace(spine: Spine, middle: number, s: number, depth: number = 0
 
 export function drawSpineNote(ctx: DrawContext, spine: Spine, note: SpineNote, clef: Clef): void {
   const engraved = new EngravedNote({
-    keys: [spellingToNoteKey(note.step, note.alter, note.octave)],
+    keys: [spellingToNoteKey(note.step, note.alteration, note.octave)],
     duration: note.duration,
     clef,
     autoStem: false,

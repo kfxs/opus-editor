@@ -14,6 +14,7 @@ import type { Note, NoteParams, Tuplet, TupletFormat, NoteDuration, Articulation
 import type { PixelCoordinates } from './rendering/renderTypes'
 import { formatPitch } from '@/utils/pitchSpelling'
 import { samePitch } from '@/utils/pitchOrder'
+import { alterationField } from '@/utils/alterationSigns'
 import { entryAlteration } from './models/entryAlteration'
 import { changeNote } from './models/durationChangeOps'
 import { applyTupletToNote, buildTupletWithFirstNote, clampToTupletRemainder, landInTuplet, tupletFitsBar } from './models/tupletEntryOps'
@@ -258,11 +259,11 @@ export class NoteEntryCoordinator {
     //   ({@link entryAlteration}). Without that last fallback a click in G major enters an F♮ and
     //   the renderer draws it a natural, on every note (docs/plans/key-signature-plan.md §3.1).
     // ⚠️ Resolved AFTER the beat, because the question is positional. Nothing above reads the pitch.
-    const alter = entryAlteration(
+    const alteration = entryAlteration(
       this.getScoreModel().getScore(), { measure: measureNumber, beat: finalBeat, staff: entryStaff },
       naturalSpelling.step, naturalSpelling.octave, accidental,
     )
-    const spelling: PitchSpelling = { ...naturalSpelling, alter }
+    const spelling: PitchSpelling = { ...naturalSpelling, ...alterationField(alteration) }
 
     // When using coordinate calculation, we need to find if there's a rest at that beat
     // or if we'd be creating a new note position
@@ -278,7 +279,7 @@ export class NoteEntryCoordinator {
         const notesAtBeat = notesInMeasure.filter(n => !n.isRest && fracEq(n.beat, finalBeat))
         if (notesAtBeat.length > 0) {
           // There are notes at this beat - check for collision
-          const hasSamePitch = notesAtBeat.some(n => !n.isRest && samePitch({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling))
+          const hasSamePitch = notesAtBeat.some(n => !n.isRest && samePitch({ step: n.step!, alteration: n.alteration, octave: n.octave! }, spelling))
           if (hasSamePitch) {
             console.warn('Same pitch collision at calculated beat')
             return null
@@ -320,7 +321,7 @@ export class NoteEntryCoordinator {
 
     const noteParams: NoteParams = {
       step: spelling.step,
-      alter: spelling.alter,
+      alteration: spelling.alteration,
       octave: spelling.octave,
       duration,
       measure: measureNumber,
@@ -361,7 +362,7 @@ export class NoteEntryCoordinator {
 
     // For non-overflow cases, update existing chord notes (same beat + voice + staff) to match duration
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && voiceOf(n) === entryVoice && staffOf(n) === entryStaff && fracEq(n.beat, finalBeat) && !samePitch({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling))
+      .filter(n => !n.isRest && voiceOf(n) === entryVoice && staffOf(n) === entryStaff && fracEq(n.beat, finalBeat) && !samePitch({ step: n.step!, alteration: n.alteration, octave: n.octave! }, spelling))
     for (const chordNote of existingChordNotes) {
       if (chordNote.duration !== duration) {
         this.getScoreModel().updateNote(chordNote.id, { duration })
@@ -449,7 +450,7 @@ export class NoteEntryCoordinator {
     const splitVoice = voiceOf(noteParams)
     const splitStaff = staffOf(noteParams)
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && !samePitch({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling) && !n.tiedTo)
+      .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && !samePitch({ step: n.step!, alteration: n.alteration, octave: n.octave! }, spelling) && !n.tiedTo)
     // The slot crosses the barline as ONE chord: the heads already there, then the new one. Each
     // head's erosion of the next bar spares the others' continuations (`spanningNoteOps`).
     splitChordWithTie(this.getScoreModel(), existingChordNotes, duration, overflowAmount, dots)

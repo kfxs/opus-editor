@@ -6,7 +6,8 @@
  * and ⭐ its GRACE (D7 reversed: `./restGraceOps`).
  */
 import { v4 as uuidv4 } from 'uuid'
-import type { Chord, NoteParams, NotePitch, PitchAlter, Rest, Score } from '@/types/music'
+import type { Chord, NoteParams, NotePitch, Rest, Score } from '@/types/music'
+import { alterationField } from '@/utils/alterationSigns'
 import { fracCompare } from '@/utils/fraction'
 import { computeActualDurationForSlot, dropRestHiddenOf } from './slotPlacementOps'
 import { rehomeRestGraces, takeRestGraces } from './restGraceOps'
@@ -18,7 +19,7 @@ export function convertRestToChord(score: Score, rest: Rest, updates: Partial<No
   const notePitch: NotePitch = {
     id: rest.id,   // reuse rest ID so the caller's selectedNoteId stays valid
     step: updates.step!,
-    alter: (updates.alter ?? 0) as PitchAlter,
+    ...alterationField(updates.alteration),
     octave: updates.octave!,
     forceAccidental: updates.forceAccidental,
     tiedFrom: rest.tiedFrom,  // preserve incoming tie

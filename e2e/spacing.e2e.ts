@@ -171,7 +171,7 @@ test('⭐ a bar of ACCIDENTALS: the ink is a MINIMUM under the rule, not a repla
       { step: 'C', beat: 0 }, { step: 'D', beat: 1 }, { step: 'F', beat: 2 }, { step: 'G', beat: 3 },
     ]
     for (const { step, beat } of sharps) {
-      h.engine.addNoteAtBeat({ step, alter: 1, octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
+      h.engine.addNoteAtBeat({ step, alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })
     }
     for (const beat of [0, 1, 2, 3]) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 2, beat: h.frac(beat, 1) })
@@ -206,7 +206,7 @@ test('⭐ …and the ink WINS where the rule runs out: sharpened 16ths buy their
     // the rule gives 1.75 spaces and a sharp needs 2.88, so here the ink is what decides.
     const steps = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
     for (let i = 0; i < 16; i++) {
-      h.engine.addNoteAtBeat({ step: steps[i % 7], alter: i % 2 === 0 ? 1 : -1, octave: 4 + Math.floor(i / 7), duration: '16', measure: 1, beat: h.frac(i, 4) })
+      h.engine.addNoteAtBeat({ step: steps[i % 7], alteration: [i % 2 === 0 ? 'sharp' : 'flat'], octave: 4 + Math.floor(i / 7), duration: '16', measure: 1, beat: h.frac(i, 4) })
     }
     for (let i = 0; i < 16; i++) {
       h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '16', measure: 2, beat: h.frac(i, 4) })
@@ -266,9 +266,9 @@ test('⭐⭐ the INK TABLE still matches the drawing — the anti-drift gate', a
 
     // One sharp, then two a third apart: how far left of the head does the ink reach?
     const sharpsAt = async (steps: ('C' | 'E')[]): Promise<number> => {
-      h.engine.addNoteAtBeat({ step: steps[0], octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), alter: 1, forceAccidental: true })
+      h.engine.addNoteAtBeat({ step: steps[0], octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), alteration: ['sharp'], forceAccidental: true })
       for (const step of steps.slice(1)) {
-        h.engine.addChordNote({ step, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), alter: 1, forceAccidental: true })
+        h.engine.addChordNote({ step, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), alteration: ['sharp'], forceAccidental: true })
       }
       await h.render()
       const head = h.noteheads()[0].x

@@ -8,7 +8,7 @@ import { beamAnchorId, beamLineBand, registerBeamHitInk } from './beamHitInk'
 
 const chord = (id: string, pitches: [string, string, number][]): ChordRest => ({
   type: 'chord', id, duration: '8', beat: { num: 0, den: 1 }, measure: 1,
-  notes: pitches.map(([pid, step, octave]) => ({ id: pid, step, alter: 0, octave })),
+  notes: pitches.map(([pid, step, octave]) => ({ id: pid, step, octave })),
 } as unknown as ChordRest)
 const rest = (id: string): ChordRest => ({ type: 'rest', id, duration: '8', beat: { num: 0, den: 1 }, measure: 1 } as unknown as ChordRest)
 

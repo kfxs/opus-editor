@@ -351,13 +351,13 @@ describe('drawScoreOnSpine — GRACES, BRACKETED graces, PARENTHESIS brackets (p
     sceneGroups(scene, SPINE_BLOCK_CLASS).filter(block => sceneGroups(block, cls).length > 0)
 
   it('⭐ a grace is drawn INSIDE its host note\'s block — the page\'s own `GracePass`, turning with the note', () => {
-    const scene = withOrnament((m, host) => { addGrace(m.getScore(), host, 'before', { step: 'E', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' }) })
+    const scene = withOrnament((m, host) => { addGrace(m.getScore(), host, 'before', { step: 'E', octave: 5 }, 'acciaccatura', { duration: '8' }) })
     expect(sceneGroups(scene, GRACE_GROUP)).toHaveLength(1)
     expect(blocksHolding(scene, GRACE_GROUP)).toHaveLength(1)
   })
 
   it('⭐ a bracketed grace, and a parenthesised head\'s brackets, are drawn in their note\'s block too', () => {
-    const bracketed = withOrnament((m, host) => { addBracketed(m.getScore(), host, 'before', { step: 'E', alter: 0, octave: 5 }) })
+    const bracketed = withOrnament((m, host) => { addBracketed(m.getScore(), host, 'before', { step: 'E', octave: 5 }) })
     expect(blocksHolding(bracketed, BRACKETED_GROUP)).toHaveLength(1)
     const enclosed = withOrnament((m, host) => {
       const pitch = m.getScore().measures[0].slots.find(s => s.type === 'chord' && s.id !== undefined && s.notes.some(p => p.id === host))

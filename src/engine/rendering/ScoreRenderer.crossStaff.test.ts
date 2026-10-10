@@ -55,7 +55,7 @@ function satie(cross: boolean) {
   // ⚠️ A new staff opens in TREBLE — without this the 'bass' staff reads B2 five ledger lines down.
   model.setClef(1, 'bass', model.getScore().staves![1].id)
   const add = (step: 'B' | 'D' | 'F', octave: number, staff: number, beat: number) =>
-    model.addNote({ step, alter: 0, octave, duration: 'h', measure: 1, beat: frac(beat, 1), staff })
+    model.addNote({ step, octave, duration: 'h', measure: 1, beat: frac(beat, 1), staff })
   const b = add('B', 2, 1, 0)
   const d = add('D', 4, 1, 0)
   const f = add('F', 4, 1, 0)
@@ -136,8 +136,8 @@ describe('⭐ Phase 4 — a BEAM between the two staves (Gould pp. 314–315)', 
     const model = new ScoreModel()
     model.addStaffBelow(0)
     model.setClef(1, 'bass', model.getScore().staves![1].id)
-    const low = model.addNote({ step: 'G', alter: 0, octave: 2, duration: '8', measure: 1, beat: frac(0, 1), staff: 1 })
-    const high = model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), staff: 1 })
+    const low = model.addNote({ step: 'G', octave: 2, duration: '8', measure: 1, beat: frac(0, 1), staff: 1 })
+    const high = model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2), staff: 1 })
     if (cross) crossPitches(model.getScore(), [high.id], -1)
     void low
     return model

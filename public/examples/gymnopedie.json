@@ -1,6 +1,6 @@
 {
   "format": "opus-editor-score",
-  "version": 1,
+  "version": 2,
   "savedAt": "2026-09-21T16:46:08.524Z",
   "view": {
     "justifyLastLine": false
@@ -43,7 +43,6 @@
               {
                 "id": "2b160f86-bc3a-4ea3-b87c-4656d21fd3e2",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -89,20 +88,20 @@
               {
                 "id": "08effd37-b504-4367-8360-128c176137a0",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "eee762c0-d28b-4530-b2f2-eabde0495e0d",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "ce8685a0-c6a7-42eb-bba6-3755f9203fb6",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -127,11 +126,15 @@
               "alterations": [
                 {
                   "step": "F",
-                  "alter": 1
+                  "alteration": [
+                    "sharp"
+                  ]
                 },
                 {
                   "step": "C",
-                  "alter": 1
+                  "alteration": [
+                    "sharp"
+                  ]
                 }
               ],
               "mode": "major"
@@ -147,11 +150,15 @@
               "alterations": [
                 {
                   "step": "F",
-                  "alter": 1
+                  "alteration": [
+                    "sharp"
+                  ]
                 },
                 {
                   "step": "C",
-                  "alter": 1
+                  "alteration": [
+                    "sharp"
+                  ]
                 }
               ],
               "mode": "major"
@@ -226,7 +233,6 @@
               {
                 "id": "d5df2686-bc3b-4099-9835-269bf823fd5a",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -272,20 +278,23 @@
               {
                 "id": "042c8ec5-f174-41e6-aa80-37d2b4cbb441",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "c6c6f7dc-fb4b-4fb1-9e33-d66d96355a33",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "40327ac8-c3d3-4482-a980-58ff90bf348d",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -350,7 +359,6 @@
               {
                 "id": "a006c723-fc46-4b32-8ad9-4c00ca775931",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -376,20 +384,20 @@
               {
                 "id": "dff252c6-4738-4c9b-8f8e-eeb268af1a7c",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "ec6ca86c-f028-4321-a7a2-0a6b3b289282",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "a15cce13-a6ac-48ae-b416-1a2bcef6abc9",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -455,7 +463,6 @@
               {
                 "id": "191933cd-2baf-4bd3-b9f5-f5892b9f4834",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -481,20 +488,23 @@
               {
                 "id": "ecac06e9-35ec-4723-a49a-90bf6699a80f",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "c34ca2a8-7fde-4e8f-b34f-c63ebf6bbd5a",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "679949cd-bfbd-46c1-af26-e8eb3b414936",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -560,7 +570,6 @@
               {
                 "id": "70668c1d-ffbe-4b89-a5f8-aa7eaebe9ba1",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -586,20 +595,20 @@
               {
                 "id": "ac8661b8-86ae-4125-aeae-2c1e9ae6c98a",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "a4d42711-2366-4bcc-811d-c2146f56bf3e",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "0352c8e8-cad4-425b-8a75-2c9c3b586275",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -625,7 +634,9 @@
               {
                 "id": "5e146785-2a46-4c8b-ae3f-91c8bddf3ab8",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -648,7 +659,6 @@
               {
                 "id": "9d2b2165-b888-477b-9546-6ba61304c29f",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -723,7 +733,6 @@
               {
                 "id": "c2ec8a65-3cdb-482e-b2fd-5a54b6e7399c",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -749,7 +758,6 @@
               {
                 "id": "7598ab57-67e5-4c58-ac32-76e96e297ea7",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -772,20 +780,23 @@
               {
                 "id": "a05bb90f-2c1f-45a7-b2b6-1ba25a745d20",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "9bd1986f-9f57-42d0-a558-b6fbdbec8e23",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "c99bbd27-41c5-4d1b-8af6-734490fe8c33",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -810,7 +821,9 @@
               {
                 "id": "c75a72e1-0a70-4695-8321-274199362f68",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -833,7 +846,9 @@
               {
                 "id": "1ce50733-757f-4635-bf8e-a67054556a58",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -867,7 +882,6 @@
               {
                 "id": "e780a241-d449-4ef2-91c2-ba77ce5ffb6d",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -905,7 +919,6 @@
               {
                 "id": "4f9effe4-df34-4be2-b167-b920fa4f8c03",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -931,7 +944,9 @@
               {
                 "id": "9875db0f-7916-49be-baf8-cad6941bdd54",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -954,20 +969,20 @@
               {
                 "id": "444e9800-f119-4fc2-885c-306347084db8",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "11051f26-0a78-4cb5-a89d-989d32bf5ec3",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "7e9d098b-ea06-4cb1-ad55-2b741b785b4b",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -992,7 +1007,6 @@
               {
                 "id": "9e4ccf7f-0337-40f0-8ac0-c312ce6667e1",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -1041,7 +1055,6 @@
               {
                 "id": "1995c14c-c925-42e0-a3c4-f8a27c8512e5",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1079,7 +1092,6 @@
               {
                 "id": "82921b17-5f86-4ff6-93e7-5c534a9cc7ba",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -1105,20 +1117,23 @@
               {
                 "id": "ea9ed2fd-b22f-4cfe-9a11-afc6900524cb",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "7c493411-600a-4d81-a96f-ac710162ffe6",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "8056f00a-0b08-45af-a24c-4ca7d2fdc666",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -1169,7 +1184,6 @@
               {
                 "id": "9361863d-f603-40ec-b3f9-b1452d848c5e",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -1196,7 +1210,9 @@
               {
                 "id": "def0d5c1-1d87-4382-8ac3-92f793c0286b",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "tiedTo": "6d6c2c5c-e987-4f0d-b273-a18e9fceefa7"
               }
@@ -1219,20 +1235,20 @@
               {
                 "id": "d30bfb2e-c303-43dd-b092-ece34966373e",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "b228169b-a3a4-48f8-9667-f2ead27b0629",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "792cd745-1f03-4a96-a12c-bd49e15bbd08",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -1294,7 +1310,6 @@
               {
                 "id": "dc90063d-8720-4acb-977e-300fba4d1ce6",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -1321,7 +1336,9 @@
               {
                 "id": "6d6c2c5c-e987-4f0d-b273-a18e9fceefa7",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "tiedTo": "9dc98084-0482-4cb7-93ac-61fb929aadf6",
                 "tiedFrom": "def0d5c1-1d87-4382-8ac3-92f793c0286b"
@@ -1345,20 +1362,23 @@
               {
                 "id": "a8ef6e40-4725-4283-b641-d2e2922f0404",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "58b3e46d-4184-4402-83e3-da77d29da59f",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "df43623c-797b-4b52-afdc-3dc6eb13d6d4",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -1394,7 +1414,9 @@
               {
                 "id": "9dc98084-0482-4cb7-93ac-61fb929aadf6",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "tiedTo": "908cd71f-3b76-4ce4-980f-77201c82e43a",
                 "tiedFrom": "6d6c2c5c-e987-4f0d-b273-a18e9fceefa7"
@@ -1434,7 +1456,6 @@
               {
                 "id": "23e1fc60-7834-41b2-b43c-ffaec6463c72",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -1460,20 +1481,20 @@
               {
                 "id": "2bfbd08f-8b0e-443e-8db8-73b8a2fbf157",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "aa605c5c-aa70-4571-bb23-3b5cfe77292e",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "78454af7-a3f9-4a69-8eee-1a5855086b74",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -1509,7 +1530,9 @@
               {
                 "id": "908cd71f-3b76-4ce4-980f-77201c82e43a",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "tiedFrom": "9dc98084-0482-4cb7-93ac-61fb929aadf6"
               }
@@ -1548,7 +1571,6 @@
               {
                 "id": "c4fd7ad7-8cb8-4867-b5da-5fea097be2cd",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -1574,20 +1596,23 @@
               {
                 "id": "b169d827-e2f6-4fbd-85ad-307c4592d924",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "75486189-8125-4941-ba8a-9d0f201a3730",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "37411d25-83f1-47d9-a96b-ef157764e2d0",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -1652,7 +1677,6 @@
               {
                 "id": "b23048d7-41e3-41a8-aecd-3a4494d4ccc3",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -1678,7 +1702,9 @@
               {
                 "id": "70fdcd04-1d47-48b4-9754-40b808a9825b",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -1701,20 +1727,20 @@
               {
                 "id": "a240b2c1-4af8-4b38-baff-45a2e1d89781",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "caa4ddb2-8d5e-4213-8f72-6de067725751",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "d77dd224-4850-468a-bab1-38a15ae2d707",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -1739,7 +1765,6 @@
               {
                 "id": "3902e3b9-6626-455c-a9cf-05413b4bc291",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -1801,7 +1826,6 @@
               {
                 "id": "89a8fb1d-3644-4da9-9c7c-ade5544daab5",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -1839,7 +1863,6 @@
               {
                 "id": "2848b5d7-ef8f-461b-8b84-93d6fd942ec2",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -1865,7 +1888,9 @@
               {
                 "id": "1c6bb354-1554-4cce-a80c-e54414e33425",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -1888,20 +1913,23 @@
               {
                 "id": "65b8a49a-1d3f-44c3-8579-447f994c9731",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5cfc3026-c85d-49fd-8e1f-46329a1001e9",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "aec57a5f-142c-47ad-a2a7-d74b0879a825",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -1926,7 +1954,9 @@
               {
                 "id": "161ccec1-446a-4dc6-ba9a-923afbda1517",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -1960,7 +1990,6 @@
               {
                 "id": "a4794e60-b6dd-4efc-b15a-cf4659caf576",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1998,7 +2027,6 @@
               {
                 "id": "150cd452-aefa-49d2-9d0f-0d24583ea373",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -2024,7 +2052,9 @@
               {
                 "id": "8ef0c0eb-f02f-4025-83b5-1a815201cb32",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -2047,20 +2077,20 @@
               {
                 "id": "dee762e4-23c2-427d-8f0b-f8fbac2a224c",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "dea84d7a-13ab-4daf-b255-373ed656dcd6",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "5e220918-d293-4edb-8722-e12baec61911",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -2085,7 +2115,6 @@
               {
                 "id": "6da26852-fdc4-457f-ac82-b5a9e6ba5178",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -2135,7 +2164,6 @@
               {
                 "id": "e20f36ca-58ee-4836-8053-1dee06fc9e67",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -2173,7 +2201,6 @@
               {
                 "id": "ebb52b9c-a89c-49a6-9d47-c0799ad59932",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -2199,20 +2226,23 @@
               {
                 "id": "5c384466-5327-4ceb-8040-2272bf2cb593",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "39b4d590-0d20-4c66-895e-a917c46ea11f",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "970e3438-d894-41b6-b919-a1f57820d792",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -2248,7 +2278,9 @@
               {
                 "id": "8ec3f997-feb7-4216-89b2-0a052ccd58e4",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -2287,7 +2319,9 @@
               {
                 "id": "1521e128-c775-4dc6-a2ba-d4ff21a4f79c",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 2
               }
             ],
@@ -2313,20 +2347,23 @@
               {
                 "id": "730f8d8b-f9f5-4a72-af30-07d609ba9083",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "e17596ae-1adc-4fa6-8fbc-11dd5eaa40d4",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "c0b34ed6-90c4-4b92-ab39-a93540a1dd7f",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -2362,7 +2399,9 @@
               {
                 "id": "10984a87-c692-4df4-9281-b058469211eb",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -2401,7 +2440,6 @@
               {
                 "id": "bbff9da7-e3b6-4c6a-bb4e-e6630fb98e29",
                 "step": "B",
-                "alter": 0,
                 "octave": 1
               }
             ],
@@ -2427,20 +2465,20 @@
               {
                 "id": "988e78f9-14d8-4ce1-af11-653b800d97ce",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5f51c2fe-dc77-4762-984c-d23ec0b076b0",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "cc794412-e0d6-4222-ae81-7c9e83a74f62",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -2476,7 +2514,6 @@
               {
                 "id": "8ff96aa4-de76-405f-a930-6262dd9800b1",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "1dd255f9-3aaa-45dc-ba3a-034594eab744",
                 "tieDirection": -1
@@ -2518,7 +2555,6 @@
               {
                 "id": "fbec8ced-ee97-46b2-abe6-665f19a806a0",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -2544,13 +2580,11 @@
               {
                 "id": "fadf6f46-7481-4324-8682-752427d76050",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "b0609696-dda4-4b43-87a0-13a2c212e4f0",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -2584,7 +2618,6 @@
               {
                 "id": "1dd255f9-3aaa-45dc-ba3a-034594eab744",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "8ff96aa4-de76-405f-a930-6262dd9800b1",
                 "tiedTo": "c05a14ed-7797-4242-9836-a976c92296bc",
@@ -2627,7 +2660,6 @@
               {
                 "id": "f122678f-62a3-47d3-aa4a-acac5a0b043b",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -2653,20 +2685,17 @@
               {
                 "id": "5c58fee5-09f0-4268-86d8-9eeacc1d8c44",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "0cc9d7b8-df85-4f6e-9f3e-5449757ef7b3",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "25e26e77-22c5-495d-9b42-77917f7c7904",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -2701,7 +2730,6 @@
               {
                 "id": "c05a14ed-7797-4242-9836-a976c92296bc",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "1dd255f9-3aaa-45dc-ba3a-034594eab744"
               }
@@ -2742,7 +2770,6 @@
               {
                 "id": "5d6602f2-8c38-4263-bce8-de738e7cd8c3",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -2768,19 +2795,16 @@
               {
                 "id": "66cc43e4-b8eb-4b29-bd84-a654b6228d2c",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "de6d9117-3a5d-498d-871d-7ba1894c99f3",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "d759e732-e5ce-48c8-b61b-4917b0a3b586",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -2832,7 +2856,6 @@
               {
                 "id": "f67350b7-634d-4878-a6a4-bcd2f8940448",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -2855,7 +2878,6 @@
               {
                 "id": "c15172be-c1e1-4c1a-b6cb-01401e95dc15",
                 "step": "A",
-                "alter": 0,
                 "octave": 1
               }
             ],
@@ -2880,7 +2902,6 @@
               {
                 "id": "8e370653-b744-4b22-bee1-456433b75b1c",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -2904,20 +2925,17 @@
               {
                 "id": "0bad9072-514e-41b2-a55c-5c8b542a6150",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "d92da5a4-6721-4ecd-a2ee-2502fbfe898b",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "6d08cfa9-659f-45f4-9d57-f8ec6643dc43",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -2941,7 +2959,6 @@
               {
                 "id": "b5199893-2d19-48be-81ce-a1465fd77dfb",
                 "step": "C",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -3017,7 +3034,6 @@
               {
                 "id": "142c2800-4638-4a28-8a46-ff1440331822",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3041,7 +3057,6 @@
               {
                 "id": "f0069c61-a29a-4c0b-aa58-1ef5d28d2791",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -3066,7 +3081,6 @@
               {
                 "id": "7c64f592-a159-4581-a3e6-d7b6fd902db5",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3090,19 +3104,16 @@
               {
                 "id": "8469bc69-f958-46e1-be8c-a49f9acd91cf",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "0d5d537c-ee16-4005-9019-e834fc60bb9e",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "9ba4cf87-a837-4a9d-aa70-ab68978dbaf3",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -3126,7 +3137,6 @@
               {
                 "id": "f44fb695-f450-4d11-9e17-d6cf21a89eb0",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -3160,7 +3170,6 @@
               {
                 "id": "f861cb53-73d2-4d81-a094-ad2ace9b4183",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3199,7 +3208,6 @@
               {
                 "id": "07efd35f-ca4d-473e-83ff-065e245a4e2b",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -3224,7 +3232,6 @@
               {
                 "id": "0d0f6393-bded-4d7e-9585-2cdaee803c2e",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3247,25 +3254,21 @@
               {
                 "id": "89c0602e-02e7-46db-b9b1-62413cbbc71f",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "3e39d66f-2e39-492f-a336-d2aef7c4eec4",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "73a85c38-8177-4bd1-89cb-762531fcc1fc",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "eb721501-06fc-4d24-be15-5a05aed76d10",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -3290,7 +3293,6 @@
               {
                 "id": "c4a70a95-f70c-44bf-86af-c6f1c6d455da",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -3324,7 +3326,6 @@
               {
                 "id": "33b5eb4f-cf8e-4833-95c0-dc84337d5e3b",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "tiedTo": "1752f630-741b-442b-982d-9fcda8dce62f",
                 "tieDirection": -1
@@ -3367,7 +3368,6 @@
               {
                 "id": "dab52a36-c00b-4d6b-bae2-324d145cf116",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -3393,25 +3393,21 @@
               {
                 "id": "219f073d-4260-4ea3-b99a-4fb4d7753da1",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "870d74a6-7fb2-4bb2-9a51-3cd47b686e11",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "26723083-6a62-43cc-80e0-69746499d2d4",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "676b086d-d0b3-4a7d-8fce-dfa5f70b7719",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -3460,7 +3456,6 @@
               {
                 "id": "1752f630-741b-442b-982d-9fcda8dce62f",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "tiedFrom": "33b5eb4f-cf8e-4833-95c0-dc84337d5e3b"
               }
@@ -3501,7 +3496,6 @@
               {
                 "id": "7c6fbc6a-2861-44fe-8fad-d16bc79537f3",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -3527,26 +3521,25 @@
               {
                 "id": "c9122a71-604a-4abc-ad82-c19f096940f4",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "forceAccidental": true
               },
               {
                 "id": "6235e61d-122c-452e-bd95-9e87fab7a332",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 3
               },
               {
                 "id": "414530fc-48a2-4b4e-8a73-23f4d0c4e4da",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "45363f15-58f6-4fe1-8526-261c1f5728f8",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -3570,7 +3563,6 @@
               {
                 "id": "fd981543-ee7c-4348-a63b-cdb097f5f821",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3619,7 +3611,6 @@
               {
                 "id": "25fa0c35-b44d-4f7f-a708-fe9a8323c8ee",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3659,7 +3650,6 @@
               {
                 "id": "85adc4fc-9321-4fa1-88e5-83082439d511",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -3684,7 +3674,6 @@
               {
                 "id": "904dd347-c53a-44b7-b7c0-717f871a9e4f",
                 "step": "F",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -3709,20 +3698,17 @@
               {
                 "id": "95d993ea-0fa7-4014-8039-639fb023aaa4",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "84ad3010-521e-41bf-a64b-c1ecedf3a7ef",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "d80a3a84-5a8f-41a3-a5fc-33bf126a0584",
                 "step": "F",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -3746,7 +3732,6 @@
               {
                 "id": "24536f87-f033-4b47-9329-ab9190edfc6b",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3780,7 +3765,6 @@
               {
                 "id": "f85e9424-dea2-470e-95ec-0c4060cee41e",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3820,7 +3804,6 @@
               {
                 "id": "9a815c19-d895-4b7b-9a42-bb5febd2e713",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -3845,7 +3828,6 @@
               {
                 "id": "2c6063a8-a727-4a57-a9db-55628cf22026",
                 "step": "C",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -3870,20 +3852,17 @@
               {
                 "id": "d4145a9e-ed20-49d4-8c09-fbc48baf54ec",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "edb86a65-6246-4699-90b1-0c2e5cdb9f05",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "35150265-cba4-433c-9ab1-d1f549e60dd3",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -3907,7 +3886,6 @@
               {
                 "id": "eb82ea64-3e4b-44cd-84b0-12dd88df01ba",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3941,7 +3919,6 @@
               {
                 "id": "4d2a2b2f-4e93-4249-8b8c-24da58c7cf27",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -3981,7 +3958,6 @@
               {
                 "id": "f68393a6-87c5-4357-95d9-a246e5e11588",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -4006,7 +3982,6 @@
               {
                 "id": "f4de7440-8b40-45d7-932a-2d55e0884897",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -4030,25 +4005,21 @@
               {
                 "id": "111c2c02-840f-402d-95c7-b60a9ba8b277",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5ae14b62-c55c-460d-b882-e8008f696531",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "aafc9c69-f05c-4bfd-8a80-f1227594817f",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "144c3e8e-12a0-4e20-b6f5-9255ba10e667",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -4072,7 +4043,6 @@
               {
                 "id": "4210df3c-b0f9-4562-ae66-c15fdfa0027b",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -4121,7 +4091,6 @@
               {
                 "id": "21060252-5cf4-4c31-8909-93915904ccdc",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "tiedTo": "01a34a1b-95d1-47f5-b750-fb1300ee793e",
                 "tieDirection": -1
@@ -4164,7 +4133,6 @@
               {
                 "id": "65ba050b-ed57-4a01-9679-afc7ecd67154",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -4190,25 +4158,21 @@
               {
                 "id": "fece6996-2018-43a3-b939-cc90ae5a493f",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "8b59e75a-d279-4146-9d61-fbae28d7e0c2",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "e0ec759b-5034-4d06-9ed0-1c757f230d68",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "f3ce9e0f-2be5-4d8d-9bf0-bbe56d2b792c",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -4243,7 +4207,6 @@
               {
                 "id": "01a34a1b-95d1-47f5-b750-fb1300ee793e",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "tiedFrom": "21060252-5cf4-4c31-8909-93915904ccdc"
               }
@@ -4284,7 +4247,6 @@
               {
                 "id": "ae0973af-d545-4fe3-9312-ff3a2c50c73a",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -4310,25 +4272,24 @@
               {
                 "id": "2b6f5228-e678-4f52-9aef-0534879d571f",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "a714a486-42ad-4719-8ac9-2c3cf8cedbf8",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 3
               },
               {
                 "id": "5433d881-63d4-49d2-9b33-9ba8783e7939",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "06044ece-7fb3-450a-922e-2c3089d8fc7f",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -4352,7 +4313,6 @@
               {
                 "id": "14e6961c-4dd1-4e30-a0ad-4b271f8db5d5",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -4418,7 +4378,6 @@
               {
                 "id": "35c6bd75-472d-46ad-8242-25a47a472cf6",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -4442,7 +4401,6 @@
               {
                 "id": "b2eb6b48-3e36-46e4-96ca-116138ae6de9",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -4467,20 +4425,17 @@
               {
                 "id": "418542e6-4309-4849-b865-1dbbf6324303",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "100a132c-da5f-4cd9-9429-037d7c66c0a1",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "8d2a34b7-d45f-4d21-a6b0-bf15d929df98",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -4532,7 +4487,9 @@
               {
                 "id": "f1f99cfc-87f0-44c2-b732-7d5a519fa82e",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -4556,7 +4513,9 @@
               {
                 "id": "4cb763ce-cb88-48f2-8a37-2dbaa0c52176",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 2
               }
             ],
@@ -4582,20 +4541,23 @@
               {
                 "id": "d4522e7e-a587-469d-9986-968b8832c32a",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "67bd08f9-b27d-4c54-907b-d602f46ab347",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "51681f9a-66d8-4e92-8156-709806fa790b",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -4646,7 +4608,6 @@
               {
                 "id": "10c78641-ca18-46c5-93b9-ff3ea0e39b18",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -4670,7 +4631,6 @@
               {
                 "id": "04a43809-b4ba-47fb-9a94-b44d8f7e7d57",
                 "step": "B",
-                "alter": 0,
                 "octave": 1
               }
             ],
@@ -4695,7 +4655,6 @@
               {
                 "id": "16bef2ed-a391-4d93-a311-456031aa189a",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4718,20 +4677,20 @@
               {
                 "id": "b6038aaf-4215-40ed-b9bc-08bf8cf5300a",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "6322db1b-f947-4d2b-a89c-6e93708ba85b",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "b681e3ae-56ba-4f6d-9ae2-9121545bb929",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -4755,7 +4714,6 @@
               {
                 "id": "1b5a1870-0f96-4674-b7d7-b8004c736c00",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -4805,7 +4763,9 @@
               {
                 "id": "53ccc3fc-eec3-4e7d-80a9-05e0fd95c4f0",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -4829,7 +4789,6 @@
               {
                 "id": "0fc054f1-873d-4f59-bb3a-18483545ee66",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -4854,7 +4813,6 @@
               {
                 "id": "828d5dc6-57d1-42f1-8911-05a3c5fdcb9a",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -4878,21 +4836,21 @@
               {
                 "id": "157d1e01-a4b5-4ffd-89ef-bdf5272b6fbe",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "50718f63-83e2-45e7-9c8d-340f37eb1b7e",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "3ffa80a7-ea11-4c3e-813a-c14eedba2857",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -4916,7 +4874,6 @@
               {
                 "id": "6d9e61b2-474b-454e-bdb9-c8c04f3c8638",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -4982,7 +4939,9 @@
               {
                 "id": "a627430c-af95-4d07-ac4f-8e90960996e5",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -5006,7 +4965,6 @@
               {
                 "id": "d2ac6c5e-d698-4d16-9794-edece61f5d7f",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -5031,7 +4989,6 @@
               {
                 "id": "9a96cfb6-aea8-49ed-9560-41ecfd803c35",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -5055,27 +5012,29 @@
               {
                 "id": "a3669480-b657-4a6e-8888-dd3c8cc2bb9d",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "3486a1e5-8dcf-4b07-b75d-14c1bf7ddc54",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "4ccad18a-f137-483c-a2fc-905bd0e8e433",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "39651650-2c7e-4b16-afee-9cc9c041835c",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -5099,7 +5058,6 @@
               {
                 "id": "4660b54d-0d31-4772-9ddf-ade92efc3467",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -5150,7 +5108,9 @@
               {
                 "id": "2cc6cee6-6a12-47fa-a7b3-e9c37270b3c2",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -5173,7 +5133,6 @@
               {
                 "id": "71f6a6a3-7625-4b0d-852d-5b8f745e936a",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -5200,19 +5159,16 @@
               {
                 "id": "cbce0268-2828-4685-812a-258c4caddcba",
                 "step": "B",
-                "alter": 0,
                 "octave": 2
               },
               {
                 "id": "52c5e5e3-2bd6-43b2-ac73-91ec659b531f",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "e095c8f8-4d1d-46a8-abad-6a25b555721e",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -5237,26 +5193,22 @@
               {
                 "id": "8dcf3ba8-57ae-472f-8efc-9bc356440fcc",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5922c4ad-9e8c-4d70-82e2-2d078127a70d",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "ad089b70-ee17-4039-8c09-de2438168035",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "11aac326-4142-4f47-b9bf-dc3b2afa167c",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -5292,25 +5244,21 @@
               {
                 "id": "07859856-6031-46dd-aa6b-240dcaf152c0",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "fa17fdf7-841f-4cdb-a5d2-295366d21dd4",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "39f055e3-ba61-40f1-8cc4-55bbe8c166de",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "bd69dcc7-0039-4841-9592-6713ba01f884",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -5329,13 +5277,11 @@
               {
                 "id": "d814f7b3-0625-4941-9dfa-489ef063d6ad",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "75b117d7-fdf2-42bd-bd65-e2b6dc7806c7",
                 "step": "A",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -5374,25 +5320,24 @@
               {
                 "id": "568bdc9f-52d7-4c03-89d7-90ab9b58ddd8",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "229c8623-d88d-41b9-900c-b4f2493eca71",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               },
               {
                 "id": "6fafae1e-4181-4b90-97e0-88620cc06922",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "23a2d091-af31-46f4-a069-b350a5079182",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -5416,19 +5361,16 @@
               {
                 "id": "aeab5253-b00f-4a98-8ff9-02cb635d04f6",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               },
               {
                 "id": "0b828ded-9758-4ff0-85b7-c8e18aea9caf",
                 "step": "A",
-                "alter": 0,
                 "octave": 2
               },
               {
                 "id": "93871d15-1115-4972-afd5-3a24890f6191",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -5491,7 +5433,6 @@
               {
                 "id": "aac98ee5-4958-4258-8cb3-3c8421a9c75b",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -5517,20 +5458,20 @@
               {
                 "id": "c183538e-dbaf-4ed4-8700-6723d66954d4",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "edae920a-eb89-40c4-928f-1ad123102b08",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "227647f7-a483-4d25-9a6a-0cdc1bfeb930",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -5608,7 +5549,6 @@
               {
                 "id": "199c906f-9e47-4749-b942-5b7554a6efdb",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -5634,20 +5574,23 @@
               {
                 "id": "5a2c1b98-d0be-44a2-a21e-61341048db73",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "d13676eb-62f8-4351-8cc4-4e1b7085f331",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "c9ffceaa-3d05-4f13-8110-d25d139d7373",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -5713,7 +5656,6 @@
               {
                 "id": "f724cefd-7349-4bc2-8320-bb710e3fe386",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -5739,20 +5681,20 @@
               {
                 "id": "f2563a29-c3fe-43e1-83a1-a4342153043f",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "2b4fd9dc-949e-4c3f-b493-618d0cc3968a",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "a365af93-af79-4e3d-8de6-30c91e3bd667",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -5818,7 +5760,6 @@
               {
                 "id": "fb342302-be0c-459e-8e5f-bfbe65f8ab87",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -5844,20 +5785,23 @@
               {
                 "id": "625e2cef-6f3f-4688-b00b-14c034cb9af5",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "6ce7a68c-40e0-4bf6-a53a-eb35e7f18e7d",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "dd78ecf8-2f9a-477f-8cc0-f3f493f42da7",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -5922,7 +5866,6 @@
               {
                 "id": "d5bcc3e1-3276-4e49-a4a7-f6fc563d9d40",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -5948,7 +5891,9 @@
               {
                 "id": "2a4296c0-8dea-4970-a59c-290d05b2caf8",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -5971,20 +5916,20 @@
               {
                 "id": "3a867d65-e0bf-444c-9024-ac65eebf34c4",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "23e28c15-b1ee-48b4-8567-d14ac07e9e92",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "af1e20d1-137c-4dae-99be-1a2f8d8e1d90",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -6009,7 +5954,6 @@
               {
                 "id": "eb7bf040-25f8-4f06-aaba-d33fddba2619",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -6071,7 +6015,6 @@
               {
                 "id": "af8d4492-afc4-4f33-9ca1-db9d3ce5b5de",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -6109,7 +6052,6 @@
               {
                 "id": "13020221-a795-468b-961e-34b146c977c0",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -6135,7 +6077,9 @@
               {
                 "id": "b3d6e456-b2ca-4946-9c7d-4c80447a1472",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -6158,20 +6102,23 @@
               {
                 "id": "42cab46b-eb19-465f-9754-5a82ac79eae8",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "b51be745-4f12-40a8-bfd1-ec0df77b3b25",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "cf3118e5-673f-46bf-b7ae-9c02355d15ee",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -6196,7 +6143,9 @@
               {
                 "id": "474ac4e8-ef8c-4807-a771-d812071c8642",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -6230,7 +6179,6 @@
               {
                 "id": "887a574d-e8c7-4242-9096-efec400a73d5",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -6268,7 +6216,6 @@
               {
                 "id": "522986bf-7674-43cb-878a-4014fdc4946c",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -6294,7 +6241,9 @@
               {
                 "id": "16564674-b02d-4f6e-9284-b3b4da98f2e1",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -6317,20 +6266,20 @@
               {
                 "id": "1bc07e0a-9a85-4bdb-8cf7-094f37999d52",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "f0b4dbf2-067f-4d8b-bbad-8ac878a9a8e6",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "5407d47f-65a0-4e1f-86a5-6a83f61c6f17",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -6355,7 +6304,6 @@
               {
                 "id": "08e9e0f5-f409-42ef-a154-662cb1023db1",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -6405,7 +6353,6 @@
               {
                 "id": "452300f4-89a6-442c-876f-ab4fc339674b",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -6443,7 +6390,6 @@
               {
                 "id": "05c24d9e-db33-4b27-afa6-1c1b9e7cae24",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -6469,20 +6415,23 @@
               {
                 "id": "033f6dfb-45c3-4ded-a16c-ed9373458f75",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "63702e8e-54cc-4222-95a7-98fd8ae3cf56",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "e97c934b-1d55-4e0f-8e47-dac9fd5115b4",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -6518,7 +6467,9 @@
               {
                 "id": "8a319e44-6dea-437a-9cc7-644f0fb8e258",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "tiedTo": "59633455-3fe2-49d6-a0db-98299f9b8da6"
               }
@@ -6557,7 +6508,6 @@
               {
                 "id": "3e4bade3-6c86-4cae-b669-8cde4b578ae0",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -6583,20 +6533,20 @@
               {
                 "id": "5b4cc1ce-92de-4a01-aa37-89f2e6354043",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "117a3669-27ec-487a-8c79-8b7f7400ccbb",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "b603b07d-045d-4bf2-91c9-08083827a0f1",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -6643,7 +6593,9 @@
               {
                 "id": "59633455-3fe2-49d6-a0db-98299f9b8da6",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "tiedFrom": "8a319e44-6dea-437a-9cc7-644f0fb8e258",
                 "tiedTo": "ff30dc45-ca43-4842-b72a-79dc0b564978"
@@ -6683,7 +6635,6 @@
               {
                 "id": "1066c2c4-94cc-4ef3-b45b-09c4346c68e6",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -6709,20 +6660,23 @@
               {
                 "id": "d516ed48-7524-430d-92bb-27fd8a9d4a39",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "501e0d91-b2a2-4ecc-9c87-623ee3a4b426",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "d2efa2bc-d9ee-441d-a1b3-4490764325d2",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -6758,7 +6712,9 @@
               {
                 "id": "ff30dc45-ca43-4842-b72a-79dc0b564978",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "tiedFrom": "59633455-3fe2-49d6-a0db-98299f9b8da6",
                 "tiedTo": "8c52162f-fb5a-4032-8a42-a104103e8283"
@@ -6798,7 +6754,6 @@
               {
                 "id": "b6292dd4-67c4-48ac-804a-839855d28b44",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -6824,20 +6779,20 @@
               {
                 "id": "2e0a0e2d-a1a4-47d2-bb00-cb5263020cc0",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "55e269c6-e21e-44b4-a1d8-711b5256de2f",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "1b30854a-f6df-415f-8730-9b25b9880850",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -6873,7 +6828,9 @@
               {
                 "id": "8c52162f-fb5a-4032-8a42-a104103e8283",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "tiedFrom": "ff30dc45-ca43-4842-b72a-79dc0b564978"
               }
@@ -6912,7 +6869,6 @@
               {
                 "id": "cc707d16-9082-4f12-a132-f68dde621d94",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -6938,20 +6894,23 @@
               {
                 "id": "ecf05e1b-c583-4ac8-8fd2-a98829bec652",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "eb3501f7-99b9-4d4a-87de-d28f73254c94",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "8e2df06c-58e4-44e1-b04a-ee5ff27698af",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -7016,7 +6975,6 @@
               {
                 "id": "262dfa19-6534-4769-858f-3b0fee3d1252",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -7042,7 +7000,9 @@
               {
                 "id": "7c854087-7065-432a-b285-0ccdc99577ae",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -7065,20 +7025,20 @@
               {
                 "id": "fbb2f0df-22cb-48e6-a2dc-ec4997962017",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5664d18d-68c1-4380-acc0-9097fbf878d1",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "c0edccf4-d62d-4228-925d-7bf2f8b2b03c",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -7103,7 +7063,6 @@
               {
                 "id": "7c1f8542-b94e-41e8-8729-5eed9fa0a8db",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -7165,7 +7124,6 @@
               {
                 "id": "6672e8f9-a6cd-4d9c-ba00-8a5641d01115",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -7203,7 +7161,6 @@
               {
                 "id": "f9df67ac-2b40-43bc-8395-02b2e357e97f",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -7229,7 +7186,9 @@
               {
                 "id": "40db0491-4b5c-45e4-8323-a87fc84ed4ac",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -7252,20 +7211,23 @@
               {
                 "id": "8e355ebd-f439-479f-9779-f0060ace0d3d",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "e72e9f65-5836-4ce2-b4b6-e85077066e87",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "2b87f8a7-edd8-4f44-897f-aa7493dc26ab",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -7290,7 +7252,9 @@
               {
                 "id": "10a94aca-c756-4ea4-8bab-57e50c169d0a",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -7324,7 +7288,6 @@
               {
                 "id": "3a011e5e-ad8a-4c89-b436-4dab2e390949",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -7362,7 +7325,6 @@
               {
                 "id": "23a3a4c4-dde4-48b2-b425-b4e2f3f266c5",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -7388,7 +7350,9 @@
               {
                 "id": "73cde76e-3c1c-4618-83a9-6ec52fcf06d6",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -7411,20 +7375,20 @@
               {
                 "id": "148c1917-4d93-49bd-b452-a58e9ff82328",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "2837f39f-74d0-4066-8d62-00243391bbc1",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "847bddbe-6fb1-4fc2-9811-bf6e6fbcc2d9",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -7449,7 +7413,6 @@
               {
                 "id": "5fc081b6-c2bc-4522-b895-e488564693ba",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -7499,7 +7462,6 @@
               {
                 "id": "b3658e5a-07e4-4a2b-9a99-815b8c987b0b",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -7537,7 +7499,6 @@
               {
                 "id": "0cc05ec8-5790-43e1-ac32-e4f9c059d214",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -7563,20 +7524,23 @@
               {
                 "id": "ddcbe9cb-4aa6-4f13-8fcf-0d991232617b",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "0cc052f1-7c38-451e-b248-4ca65610dc81",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "b33925e8-0245-4c10-a5ad-862e8ec5b000",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -7612,7 +7576,9 @@
               {
                 "id": "40fd1f6d-8b26-4994-9b75-bc4981606d5a",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -7651,7 +7617,9 @@
               {
                 "id": "725e45f7-8910-4a34-bd37-b2db1501a8d3",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 2
               }
             ],
@@ -7677,20 +7645,23 @@
               {
                 "id": "8259cba2-ba01-45b8-b003-1b407d0c1f42",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "a2b0c65e-b517-46e9-a765-fb2dd32beef8",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "34c897ba-f0b0-47d6-b4c5-1993188c06bd",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -7726,7 +7697,9 @@
               {
                 "id": "cabbcf25-c111-47e7-94ee-48a918786f5f",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ],
@@ -7765,7 +7738,6 @@
               {
                 "id": "aeebc7ee-48e9-41de-ac8f-5328982e269a",
                 "step": "B",
-                "alter": 0,
                 "octave": 1
               }
             ],
@@ -7791,20 +7763,20 @@
               {
                 "id": "0183c0d2-f3ef-4992-a65d-e614adab1e38",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "e6fad1a5-b4dc-4ed5-93cb-81800f7be749",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "92a6a538-a9b6-4775-96a5-47e73e10783e",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -7840,7 +7812,6 @@
               {
                 "id": "22866e63-46dd-4fdb-a94d-0ee0b4438cec",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "aa5139b4-b6e7-4f26-b724-2a5c7f3a99cb"
               }
@@ -7879,7 +7850,6 @@
               {
                 "id": "e7b026e8-5eda-45ac-b9f2-d2a69fdf35d6",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -7905,13 +7875,11 @@
               {
                 "id": "11c890c6-c7b6-4c2e-acde-15c73ac5867d",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "b71d25a6-d8d4-4416-baa6-c466bb314127",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -7946,7 +7914,6 @@
               {
                 "id": "aa5139b4-b6e7-4f26-b724-2a5c7f3a99cb",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "22866e63-46dd-4fdb-a94d-0ee0b4438cec",
                 "tiedTo": "7519442f-d6b9-4dce-8118-0b08170778f3"
@@ -7986,7 +7953,6 @@
               {
                 "id": "d59e1972-5923-416d-90da-b3b11447b6fd",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -8012,20 +7978,17 @@
               {
                 "id": "6f5582c3-40db-4375-8efc-1539f258828d",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "6be0dfbc-c95b-43f1-8f13-a312d9b75351",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "95e48156-4cb2-4454-a88c-743ed2722670",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -8061,7 +8024,6 @@
               {
                 "id": "7519442f-d6b9-4dce-8118-0b08170778f3",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "aa5139b4-b6e7-4f26-b724-2a5c7f3a99cb"
               }
@@ -8100,7 +8062,6 @@
               {
                 "id": "7dbad741-3d5e-4c5d-90a1-90fbf2466187",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -8126,19 +8087,16 @@
               {
                 "id": "97c9bd4b-95ae-44e4-b54e-b5f342dda85d",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "bfaaffc8-e500-42cb-8193-dbd1b7b9adce",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "2c207cd6-6c34-43fd-9de0-66bd52dea7aa",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -8174,7 +8132,6 @@
               {
                 "id": "2c097af8-6ac5-496e-b83b-704b0ec30d45",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8211,7 +8168,6 @@
               {
                 "id": "6b37c9ce-36a1-4102-8646-d5a5d694811b",
                 "step": "A",
-                "alter": 0,
                 "octave": 1
               }
             ],
@@ -8237,7 +8193,6 @@
               {
                 "id": "02cf665a-501e-4030-a157-b56809fba897",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -8260,20 +8215,17 @@
               {
                 "id": "a4181a09-209f-48e2-88c2-38e245d287d6",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "786727e5-88de-49c8-8b46-7ed02cb6389c",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "ef03ec1b-cf71-4dd9-818c-d714f9e46366",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -8298,7 +8250,6 @@
               {
                 "id": "a011f92b-a5d5-48b7-9a40-91332a14cb75",
                 "step": "C",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -8360,7 +8311,6 @@
               {
                 "id": "72604428-8f8e-4468-ba6d-80f35a97754a",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -8398,7 +8348,6 @@
               {
                 "id": "27637801-c42d-4b7b-9e79-a5d7e27310c7",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -8424,7 +8373,6 @@
               {
                 "id": "57af9e5f-1ae2-40f5-b1fd-a3c79d6dc6bd",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -8447,19 +8395,16 @@
               {
                 "id": "9677f92a-5cb7-4e9e-948e-5c9a4950c3f9",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "4e891c38-40cb-406c-bc4d-f49214cd9177",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "8ef4d33f-3a7e-411b-b238-9f170e1f97b9",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -8484,7 +8429,6 @@
               {
                 "id": "a6954ce0-390c-4437-9942-f1287015fff8",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -8518,7 +8462,6 @@
               {
                 "id": "48879e11-8eec-4c68-8e95-431afa980e4d",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -8556,7 +8499,6 @@
               {
                 "id": "6c5d3f0e-ed76-474e-93a5-776e51a5c31a",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -8582,7 +8524,6 @@
               {
                 "id": "9b624650-6e3d-436d-9a54-4d7b6146c5b7",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -8605,25 +8546,21 @@
               {
                 "id": "70855503-289a-4630-9d88-f3a96d1bf4f8",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "aa5b06d9-c04d-41da-8ad7-70f36e6a4182",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "cc185d11-17c7-46da-8af0-ec781515e3ac",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "47acfe23-28f0-4e43-a9e8-54cbf3554b11",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -8648,7 +8585,6 @@
               {
                 "id": "b56567f6-6235-4a18-b329-d83ba0cfa9cf",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -8682,7 +8618,6 @@
               {
                 "id": "b97e5369-209b-4496-ae39-666baed4854b",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "tiedTo": "408b32c4-341b-49f3-9668-8b604af7b66f"
               }
@@ -8722,7 +8657,6 @@
               {
                 "id": "050bf67b-11db-4417-8baf-c2550f294223",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -8748,25 +8682,21 @@
               {
                 "id": "b657a841-a7ed-4bd1-b2d0-e3604d84b3eb",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5c0aa072-b3fe-410f-a8d5-e42fc1b43a5c",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5e15e5e0-c94c-4981-84bd-d2c73ee1c9c8",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "1535d1c8-a2ee-4e5c-9e33-82cc524b6312",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -8817,7 +8747,6 @@
               {
                 "id": "408b32c4-341b-49f3-9668-8b604af7b66f",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "tiedFrom": "b97e5369-209b-4496-ae39-666baed4854b"
               }
@@ -8856,7 +8785,6 @@
               {
                 "id": "45efba0b-ed23-4f5b-85b0-326705e203d9",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -8882,26 +8810,25 @@
               {
                 "id": "ab6ffea6-5004-4f22-b918-3dbbfd72b17a",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "forceAccidental": true
               },
               {
                 "id": "7bf53bbb-096a-401b-872f-6b3d2ac54adc",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 3
               },
               {
                 "id": "7f1825c7-e9c9-46ee-820a-be45f39c2641",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "328bedb6-3e4f-4219-bc27-6dee897af91a",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -8926,7 +8853,6 @@
               {
                 "id": "ff2f50df-c68b-40fe-b12b-500f8425bfe4",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -8976,7 +8902,6 @@
               {
                 "id": "d84e3c1e-6abc-4aec-b448-7174e85f448c",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -9014,7 +8939,6 @@
               {
                 "id": "85ece072-1b74-4991-b01f-780922af3426",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9040,7 +8964,6 @@
               {
                 "id": "07a1e744-ea4a-4f10-952a-ba2054b39b0e",
                 "step": "F",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -9064,20 +8987,17 @@
               {
                 "id": "04b078cd-da49-4c39-a52f-e08344501380",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "846aac51-5b4f-4d79-898e-e158522625dc",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "8eefb22e-9f64-4375-85ca-091f5eac7c9a",
                 "step": "F",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -9102,7 +9022,6 @@
               {
                 "id": "c3baf500-86e8-43d6-a85b-2b2bab9c61b2",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -9136,7 +9055,6 @@
               {
                 "id": "deea0b7f-cec9-4ff9-916d-f5b6ffdb10c6",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -9174,7 +9092,6 @@
               {
                 "id": "6aaa13a8-3cd0-4709-ad34-28bec36e9cc8",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9200,7 +9117,6 @@
               {
                 "id": "02086447-453f-4482-9e88-a6a3d4463050",
                 "step": "C",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -9224,20 +9140,17 @@
               {
                 "id": "6fe091cc-843f-46db-b8f2-46f7dd00cea4",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "03dacebf-592f-4ccb-a74f-d9e7111d5180",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "4aa8a63f-a82e-486f-9a1f-87b8453023f0",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -9262,7 +9175,6 @@
               {
                 "id": "ba86a52b-4569-42c3-b780-b3bdcb8f19d4",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -9296,7 +9208,6 @@
               {
                 "id": "7bc38889-7e65-4617-82bf-eeba5544b0e6",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -9334,7 +9245,6 @@
               {
                 "id": "0a596237-2ddb-4305-ae7b-64f1476f48d8",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9360,7 +9270,6 @@
               {
                 "id": "41ad0709-c125-4803-a40d-9910aaca6510",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -9383,25 +9292,21 @@
               {
                 "id": "541a530b-572b-4ad7-b4e9-5916dc88c8b5",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "ad34fc1b-607a-426d-b61e-c97929115da5",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "8977a46c-a05f-4496-a90c-07c771a093f0",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5c64e20b-8116-46ff-b3b9-e36916f64cbf",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -9426,7 +9331,6 @@
               {
                 "id": "e256dfc4-205d-4af1-953e-4c568130ce49",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -9476,7 +9380,6 @@
               {
                 "id": "528120de-d802-48f1-8f74-7809ea1276a9",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "tiedTo": "4de6ab0f-8130-48b8-953a-94f877ce5aa4"
               }
@@ -9516,7 +9419,6 @@
               {
                 "id": "7a54adb6-5605-4a1d-9ae4-03fc1d089ab0",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9542,25 +9444,21 @@
               {
                 "id": "6cbe8115-33d7-483d-8297-95be5a5b8079",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "115c73b5-c69e-4f89-929c-b38dee52be24",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "eb0155ea-d9b6-468d-93ff-d473b9c03926",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "c89b4642-8cd2-48aa-9161-489442ce9ee9",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -9596,7 +9494,6 @@
               {
                 "id": "4de6ab0f-8130-48b8-953a-94f877ce5aa4",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "tiedFrom": "528120de-d802-48f1-8f74-7809ea1276a9"
               }
@@ -9635,7 +9532,6 @@
               {
                 "id": "a24a328c-ab56-44a0-af69-0a2d398de5f4",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9661,25 +9557,24 @@
               {
                 "id": "acc5a9e7-a88d-4dea-887d-76691b955c7e",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5a630094-c481-482b-bae0-55d4e254b5e0",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 3
               },
               {
                 "id": "02e2520e-a900-4e07-abf7-e876bbb30f5c",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "9611c4ba-b8df-4bd1-ae0d-6d973d008fed",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -9704,7 +9599,6 @@
               {
                 "id": "93233d98-11a7-435d-8b9c-3c7a9c88501f",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -9771,7 +9665,6 @@
               {
                 "id": "b67b2ff6-1461-42ce-9f7b-8fe2213f623e",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -9795,7 +9688,6 @@
               {
                 "id": "4fce3b5e-1432-4fcb-b70f-efbb5b571e0b",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9821,20 +9713,17 @@
               {
                 "id": "5f00d499-fb70-4404-9a1d-2538a7ab9804",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "cd152e30-af11-4c17-b64a-a99580122072",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "783526c1-1b57-4805-b4ee-2fce3b89306e",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -9886,7 +9775,6 @@
               {
                 "id": "f97ef602-49f6-4703-8c13-da182be99b5e",
                 "step": "F",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -9911,7 +9799,6 @@
               {
                 "id": "29ab33c4-2e79-4db1-ba00-68519dd1e8b1",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9937,27 +9824,23 @@
               {
                 "id": "dc7e570b-3812-48ba-b96c-1ac919145715",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "3ef07345-b5d5-4ef8-9d90-c61fecd1e3ea",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "76d68934-12dc-4c76-b8dd-88c3f58476b8",
                 "step": "F",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "db25bf71-b5ba-47ef-930a-a02a395e91d9",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -10008,7 +9891,6 @@
               {
                 "id": "02423731-cd04-4c84-a15d-6a7615102704",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -10032,7 +9914,6 @@
               {
                 "id": "f7689199-0d3b-48b5-9bfc-5f544b95f5d0",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -10057,7 +9938,6 @@
               {
                 "id": "57c26454-7970-485f-b385-e8fc0013be12",
                 "step": "C",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -10082,20 +9962,17 @@
               {
                 "id": "15ff0f18-adb3-4b22-921c-96f6d7d7ed5d",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "144c6a86-bb97-4921-a83a-77600fb3cc61",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "3a384f58-069b-43c3-95e3-45971fed8c21",
                 "step": "F",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -10119,7 +9996,6 @@
               {
                 "id": "7620d0c1-8ab0-419f-84cd-47c217da671b",
                 "step": "F",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -10171,7 +10047,6 @@
               {
                 "id": "5bc0169d-3947-4544-84d3-47bee990d6b7",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -10195,7 +10070,6 @@
               {
                 "id": "5b6a7ed7-efda-4ea5-9c92-d47bca5c5adb",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -10219,7 +10093,6 @@
               {
                 "id": "68e58584-42ed-49d6-9541-d5aaf86c91db",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -10243,21 +10116,18 @@
               {
                 "id": "ffc1008c-ea5e-4c41-ae4b-d24fa8b66ac1",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "cf36011f-976e-49c6-ba07-b6781f295c49",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "6e59b026-a7c6-4a77-a761-ba5bd5614ede",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -10281,7 +10151,6 @@
               {
                 "id": "25e4e40c-a101-4625-9bf6-fe041ddde71b",
                 "step": "C",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -10332,7 +10201,6 @@
               {
                 "id": "d3c048fc-8ff2-40fa-86ce-586e64a00d4e",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -10356,7 +10224,6 @@
               {
                 "id": "670072cd-5525-4180-84bf-7bf43bd061d2",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -10380,7 +10247,6 @@
               {
                 "id": "a4cfbcab-6553-4986-8114-bdd5b508e25a",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -10404,27 +10270,23 @@
               {
                 "id": "e5e2ac7d-0010-4e58-a782-f6abb9ea5dbb",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "88517568-f0d8-40b4-90e6-a09ec4dcc839",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "f586d92d-3a90-4ef3-b498-0b54edb8e234",
                 "step": "F",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "b997e7f9-fe03-4b6e-bf76-27414e84345e",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -10448,7 +10310,6 @@
               {
                 "id": "6f8e95da-cd92-40d0-ad1e-ddbb0e64b699",
                 "step": "C",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -10500,7 +10361,6 @@
               {
                 "id": "943198c5-728c-460d-a46f-dd4d47cfd4f4",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10523,7 +10383,6 @@
               {
                 "id": "d8c7fe7d-2554-4996-9a7a-c2e57611eaee",
                 "step": "E",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -10549,19 +10408,16 @@
               {
                 "id": "872cf060-a4fc-49ca-9f60-65196396ee4f",
                 "step": "B",
-                "alter": 0,
                 "octave": 2
               },
               {
                 "id": "86bdaac0-0ff6-456d-969f-4b15ae7a140c",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "5ef13da9-2564-4233-a845-2b20a1f8a678",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -10586,26 +10442,22 @@
               {
                 "id": "2ba9b3f9-d78b-459b-b03a-c873e13785f1",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "bedd3939-10c8-418f-8a86-3379057ae06d",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               },
               {
                 "id": "665ad5cd-dd74-4cbf-8b94-bf8e6a8914b1",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               },
               {
                 "id": "e70fede2-d327-4b1a-aa59-7c420341accc",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "displayStaffId": "282c04f0-1d40-4aa7-b3c2-0ab9f6071de5"
               }
@@ -10656,25 +10508,21 @@
               {
                 "id": "e373e828-5045-4dcf-b0a0-b0da3acee3ed",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "4ce29597-29a5-440a-98bf-68a0ecd26a89",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "83e757b2-4529-4755-be6d-b1036fd104bd",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "2244bc12-aaa3-4b20-8935-5b2a776f0a03",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -10698,13 +10546,11 @@
               {
                 "id": "33158a81-eb33-41f8-826d-d9e8cc66afb8",
                 "step": "A",
-                "alter": 0,
                 "octave": 2
               },
               {
                 "id": "b14bb2eb-2219-477f-9bfc-9522446c15c7",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10738,25 +10584,21 @@
               {
                 "id": "0f0c59e4-8bc0-4b02-92df-536f1b588265",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "3972017a-7027-463a-a981-e0143011b459",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "d9d1af96-ce2a-4e92-8ad9-e2f772ac5865",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "dc1322bd-f72d-4eae-96fc-049bac38b0f0",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -10780,19 +10622,16 @@
               {
                 "id": "533b055e-709e-4fc2-9839-af5e5e4488b7",
                 "step": "D",
-                "alter": 0,
                 "octave": 2
               },
               {
                 "id": "f705235e-98c9-4639-9b6a-53747dee2b2b",
                 "step": "A",
-                "alter": 0,
                 "octave": 2
               },
               {
                 "id": "baac489b-631c-4f47-9170-7ed3a5d8ae18",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               }
             ]

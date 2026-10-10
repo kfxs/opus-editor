@@ -132,7 +132,7 @@ describe('ScoreModel', () => {
       it('inserts after a measure and renumbers following measures + their slots', () => {
         model.addMeasure(); model.addMeasure() // measures 1, 2, 3
         // A note in (old) measure 3 lets us verify slot.measure is renumbered.
-        const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
+        const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
         model.insertMeasureAfter(1)
         expect(model.getScore().measures).toHaveLength(4)
         expect(model.getMeasure(2)).toBeDefined()
@@ -169,7 +169,6 @@ describe('ScoreModel', () => {
   describe('note operations', () => {
     const noteParams: NoteParams = {
       step: 'C',
-      alter: 0,
       octave: 4,
       duration: 'q',
       measure: 1,
@@ -179,7 +178,7 @@ describe('ScoreModel', () => {
     it('should add a note to a measure', () => {
       const note = model.addNote(noteParams)
       expect(note.step).toBe('C')
-      expect(note.alter).toBe(0)
+      expect(note.alteration).toBeUndefined()
       expect(note.octave).toBe(4)
       expect(note.duration).toBe('q')
       expect(note.measure).toBe(1)
@@ -232,7 +231,7 @@ describe('ScoreModel', () => {
 
     it('should update a note', () => {
       const note = model.addNote(noteParams)
-      model.updateNote(note.id, { step: 'E', alter: 0, octave: 4, duration: 'h' })
+      model.updateNote(note.id, { step: 'E', octave: 4, duration: 'h' })
 
       const updated = model.getNote(note.id)
       expect(updated?.step).toBe('E')
@@ -338,7 +337,7 @@ describe('ScoreModel', () => {
         tuplets: [],
         slots: [{
           id: 'c1', type: 'chord', beat: { num: 0, den: 1 }, duration: 'w', measure: 1,
-          notes: [{ id: 'n1', step: 'C', alter: 0, octave: 4 }],
+          notes: [{ id: 'n1', step: 'C', octave: 4 }],
         }],
       }],
       staves: [{ id: 's1' }],
@@ -355,7 +354,7 @@ describe('ScoreModel', () => {
         slots: [
           {
             id: 'c1', type: 'chord', beat: { num: 0, den: 1 }, duration: 'w', measure: 1,
-            notes: [{ id: 'n1', step: 'C', alter: 0, octave: 4 }],
+            notes: [{ id: 'n1', step: 'C', octave: 4 }],
           },
           { id: 'r1', type: 'rest', beat: { num: 0, den: 1 }, duration: 'q', measure: 1 },
         ],
@@ -376,7 +375,7 @@ describe('ScoreModel', () => {
 
   describe('serialization', () => {
     it('should serialize score to JSON', () => {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const json = model.toJSON()
       const parsed = JSON.parse(json)
 
@@ -385,12 +384,12 @@ describe('ScoreModel', () => {
       const chord = parsed.measures[0].slots.find((s: any) => s.type === 'chord')
       expect(chord).toBeDefined()
       expect(chord.notes[0].step).toBe('C')
-      expect(chord.notes[0].alter).toBe(0)
+      expect(chord.notes[0].alteration).toBeUndefined()
       expect(chord.notes[0].octave).toBe(4)
     })
 
     it('should deserialize score from JSON', () => {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const json = model.toJSON()
 
       const loaded = ScoreModel.fromJSON(json)
@@ -544,7 +543,7 @@ describe('ScoreModel', () => {
 
     it('clears only its own voice, leaving other voices intact', () => {
       // Voice 1 has a note at beat 0 (with rest-fill across the bar).
-      model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+      model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
       const v1Before = model.getNotesInMeasure(1).filter(n => (n.voice ?? 0) === 1).length
       expect(v1Before).toBeGreaterThan(0)
 
@@ -594,7 +593,7 @@ describe('ScoreModel', () => {
     it('places correct filler after one full-slot note (8th in 3:2 triplet)', () => {
       const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
       // Add C4 8th — actual = 1/3 beat
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
       model.refillTupletRemainder(1, tuplet)
 
       const notes = model.getNotesInTuplet(tuplet.id)
@@ -621,11 +620,11 @@ describe('ScoreModel', () => {
       const ratio = { num: 2, den: 3 }
 
       // C4 8th: actual = 1/2 × 2/3 = 1/3
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
       // D4 16th: actual = 1/4 × 2/3 = 1/6
-      model.addNote({ step: 'D', alter: 0, octave: 4, duration: '16', measure: 1, beat: frac(1, 3), tupletId: tuplet.id, actualDuration: frac(1, 6) })
+      model.addNote({ step: 'D', octave: 4, duration: '16', measure: 1, beat: frac(1, 3), tupletId: tuplet.id, actualDuration: frac(1, 6) })
       // E4 8th at beat 1/2 (mid-slot, the bug position): actual = 1/3
-      model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2), tupletId: tuplet.id, actualDuration: frac(1, 3) })
 
       model.refillTupletRemainder(1, tuplet)
 
@@ -648,9 +647,9 @@ describe('ScoreModel', () => {
     it('does nothing when tuplet is full', () => {
       const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
       // Fill with 3 eighth notes (each actual = 1/3, total = 1)
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
-      model.addNote({ step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 3), tupletId: tuplet.id, actualDuration: frac(1, 3) })
-      model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(2, 3), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ step: 'D', octave: 4, duration: '8', measure: 1, beat: frac(1, 3), tupletId: tuplet.id, actualDuration: frac(1, 3) })
+      model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(2, 3), tupletId: tuplet.id, actualDuration: frac(1, 3) })
 
       model.refillTupletRemainder(1, tuplet)
 
@@ -1156,8 +1155,8 @@ describe('ScoreModel.setTimeSignature', () => {
 
   it('under-full bar over notes gains trailing rests, keeping the notes', () => {
     model.setTimeSignature(1, ts(2, 4))
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     model.setTimeSignature(1, ts(4, 4)) // bar grows 2 → 4 quarters
     const chords = slotsOf(model, 1).filter((s) => s.type === 'chord')
     expect(chords.map((c) => fracToNumber(c.beat))).toEqual([0, 1])
@@ -1206,7 +1205,7 @@ describe('ScoreModel.setMeasureActualDuration (pickup / anacrusis)', () => {
   })
 
   it('keeps notes that exceed a newly-shortened bar (over-full, never trimmed)', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
     model.setMeasureActualDuration(1, frac(1, 1)) // shrink under the half note
     const chords = slotsOf(model, 1).filter((s) => s.type === 'chord')
     expect(chords).toHaveLength(1) // the half note is kept (renders crowded/SOFT)
@@ -1223,7 +1222,7 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
   it('fills each voice independently up to the bar length', () => {
     const model = new ScoreModel('V')
     // Voice 0 starts as a whole-bar measure rest. Add a voice-1 quarter at beat 0.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
 
     const all = slotsOf(model, 1)
     const v0 = all.filter(s => (s.voice ?? 0) === 0)
@@ -1245,7 +1244,7 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
   it('adding a note in one voice does not remove another voice\'s rests', () => {
     const model = new ScoreModel('V')
     const before = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 0).length
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'D', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
     const after = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 0).length
     expect(after).toBe(before) // voice 0 stream untouched
   })
@@ -1255,7 +1254,7 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
     // Voice 0: a triplet at beat 0 (spans beats 0→1).
     model.createTuplet(1, frac(0, 1), '8', 3, 2)
     // Voice 1: a single 8th note at beat 0, also inside the v0 tuplet's span.
-    model.addNote({ step: 'F', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'F', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
 
     const v1 = slotsOf(model, 1).filter(s => (s.voice ?? 0) === 1)
     // The note plus filler rests must sum to the full 4/4 bar — the v0 triplet
@@ -1268,14 +1267,14 @@ describe('ScoreModel voice-aware fill (scaffolding)', () => {
   it('converting a voice-1 rest into a note keeps it in voice 1', () => {
     const model = new ScoreModel('V')
     // Voice 1 gets an 8th note, leaving filler rests in the same voice.
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'D', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
     const restAtHalf = slotsOf(model, 1).find(
       s => (s.voice ?? 0) === 1 && s.type === 'rest' && fracToNumber(s.beat) === 0.5,
     )!
     expect(restAtHalf).toBeDefined()
 
     // Edit that rest in place into a pitch (the rest→chord conversion path).
-    model.updateNote(restAtHalf.id, { step: 'C', alter: 0, octave: 5, isRest: false })
+    model.updateNote(restAtHalf.id, { step: 'C', octave: 5, isRest: false })
 
     const converted = slotsOf(model, 1).find(
       s => s.type === 'chord' && fracToNumber(s.beat) === 0.5,
@@ -1406,7 +1405,7 @@ describe('rest-shift travel (option 3)', () => {
     model.getMeasure(measureNumber)!.slots.find((s) => s.type === 'rest')!
 
   it('survives a plain same-bar edit of ANOTHER beat (position-key win)', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const m1 = model.getMeasure(1)!
     const rest = firstRest(1)
     const key = restPositionKey(m1.id, rest.voice ?? 0, rest.beat)
@@ -1414,12 +1413,12 @@ describe('rest-shift travel (option 3)', () => {
 
     // Edit a DIFFERENT beat (last beat). Rests regenerate (fresh ids) but the shifted rest
     // keeps its onset → its position key is unchanged → the shift re-attaches.
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
     expect(restShiftOverrideOf(model.getScore(), key)?.steps).toBe(2)
   })
 
   it('survives inserting a measure before it (measure-id key, not number)', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const m1 = model.getMeasure(1)!
     const rest = firstRest(1)
     const key = restPositionKey(m1.id, rest.voice ?? 0, rest.beat)
@@ -1432,14 +1431,14 @@ describe('rest-shift travel (option 3)', () => {
   })
 
   it('resurrects on a plain rest→note→rest (no prune, §4 accepted)', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const m1 = model.getMeasure(1)!
     const rest = firstRest(1)
     const key = restPositionKey(m1.id, rest.voice ?? 0, rest.beat)
     model.nudgeRestShift(key, 3)
 
     // Put a note ON the shifted rest's beat: no rebar fires, so the stored override stays.
-    const onTop = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: rest.beat })
+    const onTop = model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: rest.beat })
     expect(restShiftOverrideOf(model.getScore(), key)?.steps).toBe(3) // still stored (not drawn)
 
     // Remove the note → a rest returns at that beat → the prior shift resurrects.
@@ -1448,7 +1447,7 @@ describe('rest-shift travel (option 3)', () => {
   })
 
   it('rebar KEEPS the shift when a rest still starts at the same offset', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const m1 = model.getMeasure(1)!
     // Shift the rest on beat 1 (absolute offset 1 from the region start).
     const beat1 = frac(1, 1)
@@ -1463,7 +1462,7 @@ describe('rest-shift travel (option 3)', () => {
 
   it('rebar DROPS the shift when the new tiling has no rest START at that offset', () => {
     // 4/4: C@0(q), rest@1(q), rest@2(HALF). Shift the half rest on beat 2 (offset 2).
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const m1 = model.getMeasure(1)!
     model.nudgeRestShift(restPositionKey(m1.id, 0, frac(2, 1)), 2)
     expect(model.getScore().engravingOverrides).toBeDefined()
@@ -1526,7 +1525,7 @@ describe('rest-shift travel (option 3)', () => {
       // A rest on staff 1 at m1 beat 2 (staff 1's half note there is replaced first).
       const rest = model.addNote({ duration: 'h', measure: 1, beat: frac(2, 1), isRest: true, staff: 1 })
       expect(rest.staff).toBe(1)
-      const updated = model.updateNote(rest.id, { step: 'E', alter: 0, octave: 3, isRest: false })
+      const updated = model.updateNote(rest.id, { step: 'E', octave: 3, isRest: false })
       expect(updated.staff).toBe(1)
       const chord = model.getSlotsInMeasure(1).find(s => s.type === 'chord' && s.staffId === staff1Id && fracToNumber(s.beat) === 2)
       expect(chord).toBeDefined()

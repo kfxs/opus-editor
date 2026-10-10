@@ -1,7 +1,7 @@
 /**
  * Mutating key-signature sub-API over a `Score` — the `clefOps` idiom exactly: free functions over
  * the score they are handed, no shared instance state, and {@link ScoreModel} keeps thin delegators
- * to them. The read side (`keyAt`, `keyBefore`, `keyAlterOf`, `fifthsOf`) stays in
+ * to them. The read side (`keyAt`, `keyBefore`, `keyAlterationOf`, `fifthsOf`) stays in
  * `utils/keySignature.ts`; this module owns only the writes.
  *
  * ## ⭐⭐ A KEY CHANGE IS WRITTEN AT THE HEAD OF A BAR — there is no `beat` parameter here

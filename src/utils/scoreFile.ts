@@ -34,7 +34,21 @@ export const SCORE_FILE_FORMAT = 'opus-editor-score'
  * It is a tombstone marker, not a migration hook; we do not build migration paths
  * (docs/plans/json-io-plan.md).
  */
-export const SCORE_FILE_VERSION = 1
+export const SCORE_FILE_VERSION = 2
+
+/**
+ * Why each version below the current one is refused — the TOMBSTONES, one line each.
+ * ⭐ v2 (2026-10-10, docs/plans/alteration-signs-plan.md M2): a pitch's `alter` NUMBER became an
+ * `alteration` LIST of signs. A v1 file loaded as it stands would lose every accidental in silence.
+ */
+const REFUSED_VERSIONS: Record<number, string> = {
+  1: 'its accidentals are stored as numbers (`alter`); this build reads a list of signs (`alteration`)',
+}
+
+/** ⚠️ A bare (pre-envelope) score carries no version — so ask the SHAPE: does any pitch still say `alter`? */
+function storesAlterNumbers(score: unknown): boolean {
+  return JSON.stringify(score).includes('"alter":')
+}
 
 /**
  * Top-level keys of `Score` that this build knows about.
@@ -197,6 +211,11 @@ export function readScoreFile(text: string): ReadResult {
       return { scoreJson: null, summary: 'refused: not an opus-editor score' }
     }
     const version = typeof data.version === 'number' ? data.version : 0
+    if (version < SCORE_FILE_VERSION) {
+      const why = REFUSED_VERSIONS[version] ?? 'it predates every format this build reads'
+      console.error(`[score-file] written by an older build (v${version}, this one reads v${SCORE_FILE_VERSION}): ${why}. Refused.`)
+      return { scoreJson: null, summary: `refused: an older file (v${version}) — ${why}` }
+    }
     if (version > SCORE_FILE_VERSION) {
       // Try anyway. Optional fields mean a newer file usually still loads; if it doesn't, the
       // failure below is specific, which beats refusing on a number alone.
@@ -211,6 +230,10 @@ export function readScoreFile(text: string): ReadResult {
   } else if (Array.isArray(data.measures)) {
     // Every export taken before the envelope existed, plus all hand-written test JSON.
     console.info('[score-file] no envelope — reading as a bare Score.')
+    if (storesAlterNumbers(data)) {
+      console.error(`[score-file] a bare score whose ${REFUSED_VERSIONS[1]}. Refused.`)
+      return { scoreJson: null, summary: `refused: ${REFUSED_VERSIONS[1]}` }
+    }
     score = data
   } else {
     console.error('[score-file] no `format` and no `measures` array — not a score. Refused.')

@@ -33,7 +33,7 @@
  */
 import type {
   Clef, TimeSignature, KeySignature, TempoMark, Dynamic, ArticulationType, TremoloMark, NoteDuration, Ottava,
-  PitchStep, PitchAlter, TupletMarkRun, HeadEnclosure,
+  PitchStep, Alteration, TupletMarkRun, HeadEnclosure,
   Accidental as ScoreAccidental,
 } from '@/types/music'
 import type { PlacedBarlineSign } from '@/engine/layout/barlineSign'
@@ -146,11 +146,11 @@ export type ToolGhost =
 
 /**
  * Ghost note preview shown while hovering before note entry.
- * Pitch is stored as spelling (step/alter/octave) — same as NotePitch.
+ * Pitch is stored as spelling (step/alteration/octave) — same as NotePitch.
  */
 export interface GhostNote {
   step: PitchStep
-  alter: PitchAlter
+  alteration?: Alteration
   octave: number
   duration: NoteDuration
   measure: number
@@ -171,8 +171,8 @@ export interface GhostNote {
   enclosure?: HeadEnclosure
   /** ⭐ CUE armed for entry — the ghost is drawn at the cue size, so the preview is the note that lands. */
   cue?: true
-  /** Show a natural (♮) even though `alter` is 0 — the preview for an armed natural accidental,
-   *  which otherwise has no glyph (alter 0 draws nothing). Sharp/flat carry their own sign via alter. */
+  /** Show a natural (♮) even though there is no `alteration` — the preview for an armed natural accidental,
+   *  which otherwise has no glyph (no alteration draws nothing). Sharp/flat carry their own sign via `alteration`. */
   forceAccidental?: boolean
   /**
    * The armed tuplet's mark, drawn above the ghost — the preview for "this click starts a tuplet".

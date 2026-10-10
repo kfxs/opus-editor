@@ -39,7 +39,7 @@ describe('rebar through ScoreModel.setTimeSignature', () => {
   it('re-bars over-full music across moved barlines (rebar default)', () => {
     // Four quarters fill 4/4; shrinking to 3/4 re-bars the 4th into measure 2.
     for (let b = 0; b < 4; b++) {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
     }
     model.setTimeSignature(1, ts(3, 4))
     expect(slotsOf(model, 1).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat))).toEqual([0, 1, 2])
@@ -52,7 +52,7 @@ describe('rebar through ScoreModel.setTimeSignature', () => {
 
   it('splits a note straddling a moved barline with a tie (rebar default)', () => {
     // Half note at beat 2 in 4/4 spans [2,4); in 3/4 it crosses the bar 1/2 line at 3.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
     model.setTimeSignature(1, ts(3, 4))
     const a = slotsOf(model, 1).find((s) => s.type === 'chord') as any
     const b = slotsOf(model, 2).find((s) => s.type === 'chord') as any
@@ -82,9 +82,9 @@ describe('rebar through ScoreModel.setTimeSignature', () => {
   it('preserves a tie crossing into a re-barred region (re-attaches, no dangle)', () => {
     // C4 in measure 1 tied to C4 in measure 2; re-barring measure 2 regenerates
     // its slot ids, so the incoming tie must be re-attached to the new C4.
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     model.addMeasure()
-    const b = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
     model.updateNote(a.id, { tiedTo: b.id })
     model.updateNote(b.id, { tiedFrom: a.id })
 
@@ -121,7 +121,7 @@ describe('rebar through ScoreModel.setTimeSignature', () => {
 
   it('rewrite:"none" keeps an over-full bar crowded (no rebar)', () => {
     for (let b = 0; b < 4; b++) {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
     }
     model.setTimeSignature(1, ts(3, 4), { rewrite: 'none' })
     const chordBeats = slotsOf(model, 1).filter((s) => s.type === 'chord').map((c) => fracToNumber(c.beat))
@@ -133,7 +133,7 @@ describe('rebar through ScoreModel.setTimeSignature', () => {
     model.addMeasure() // measure 2
     for (const m of [1, 2]) {
       for (let k = 0; k < 16; k++) {
-        model.addNote({ step: 'C', alter: 0, octave: 4, duration: '16', measure: m, beat: frac(k, 4) })
+        model.addNote({ step: 'C', octave: 4, duration: '16', measure: m, beat: frac(k, 4) })
       }
     }
     // 5/8 at measure 2 → its 16 sixteenths grow to m2+m3 (10 + 6), m2 carries the change.
@@ -166,8 +166,8 @@ describe('rebar through ScoreModel.setTimeSignature', () => {
     model.setTimeSignature(3, ts(3, 4)) // explicit change pins region [m1,m2]
     model.setTimeSignature(1, ts(2, 4)) // m1, m2 → 2/4
     // Two quarters exactly fill ONE 2/4 bar.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     // Widen to 4/4: the content now fits in a single bar, freeing measure 2.
     model.setTimeSignature(1, ts(4, 4))
@@ -188,10 +188,10 @@ describe('rebar through ScoreModel.removeTimeSignatureChange', () => {
     model.addMeasure(); model.addMeasure() // 2, 3
     model.setTimeSignature(2, ts(2, 4)) // measures 2,3 → 2/4 (2 quarters each)
     // Fill measures 2 and 3 with 2 quarters each (4 quarters of content total).
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
-    model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 3, beat: frac(1, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
+    model.addNote({ step: 'F', octave: 4, duration: 'q', measure: 3, beat: frac(1, 1) })
     expect(model.removeTimeSignatureChange(2)).toBe(true)
     // Reverted to 4/4 and re-barred: the 4 quarters now fill a single 4/4 bar (measure 2).
     expect(model.getMeasure(2)!.timeSignature).toEqual(ts(4, 4))
@@ -202,8 +202,8 @@ describe('rebar through ScoreModel.removeTimeSignatureChange', () => {
   it("with rewrite 'none' reverts the meter but keeps barlines fixed", () => {
     model.addMeasure(); model.addMeasure() // 2, 3
     model.setTimeSignature(2, ts(2, 4))
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
     expect(model.removeTimeSignatureChange(2, { rewrite: 'none' })).toBe(true)
     expect(model.getMeasure(2)!.timeSignature).toEqual(ts(4, 4))
     // No rebar/merge: measure 3 keeps its own note in place.

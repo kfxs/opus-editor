@@ -5,7 +5,7 @@
  * One chapter of the score's types — import it through the barrel, `@/types/music`.
  */
 import type { Fraction } from './duration'
-import type { PitchStep, PitchAlter } from './pitch'
+import type { PitchStep, Alteration } from './pitch'
 
 /**
  * Clef types
@@ -46,12 +46,12 @@ export interface ClefChange {
  * are governed — see `utils/keySignature.ts` for the sourcing and for why per-octave *scope* is not
  * modelled.
  *
- * `alter` is in SEMITONES, MusicXML's unit and {@link PitchAlter}'s, ⛔ not LilyPond's fraction of a
- * whole tone.
+ * `alteration` is the same list of signs a note carries ({@link Alteration}) — absent = the letter
+ * unaltered, which only a CANCELLATION (the naturals a key change draws) ever holds.
  */
 export interface KeyAlteration {
   step: PitchStep
-  alter: PitchAlter
+  alteration?: Alteration
   /** PLACEMENT override — the octave the sign is printed at. Absent = the clef's standard row. */
   octave?: number
 }

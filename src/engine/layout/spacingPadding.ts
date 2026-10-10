@@ -406,7 +406,7 @@ export function restDotExtent(duration: NoteDuration, dots: number): number {
  * `signs` is one entry per sounding pitch that DRAWS a sign, as `[diatonicPosition, sign]` — the
  * position being `spellingDiatonicPos`, so "a seventh apart" is a difference of 6. Pitches whose
  * sign is suppressed by the running-accidental rule are simply not in the list, which is why the
- * caller resolves them through `displayedAccidentals` rather than looking at `alter`.
+ * caller resolves them through `displayedAccidentals` rather than looking at `alteration`.
  *
  * The stacking is VexFlow's own, greedily: take the pitches from the top down, and put each into the
  * first column whose last occupant it clears.

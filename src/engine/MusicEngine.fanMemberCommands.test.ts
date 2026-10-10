@@ -54,9 +54,9 @@ describe('a fanned member at the command layer', () => {
 
   it('⭐ ACCEPTS a re-spelling — that is the whole of what P3 buys', () => {
     // The same call `ArrowUp`, `a`–`g` and the accidental stamp all make.
-    engine.updateNote(memberId, { step: 'G', octave: 4, alter: 1 })
-    expect(chord().fan!.members![0].pitches[0]).toMatchObject({ step: 'G', octave: 4, alter: 1 })
-    expect(engine.getNote(memberId)).toMatchObject({ step: 'G', alter: 1, duration: 'h' })
+    engine.updateNote(memberId, { step: 'G', octave: 4, alteration: ['sharp'] })
+    expect(chord().fan!.members![0].pitches[0]).toMatchObject({ step: 'G', octave: 4, alteration: ['sharp'] })
+    expect(engine.getNote(memberId)).toMatchObject({ step: 'G', alteration: ['sharp'], duration: 'h' })
   })
 
   it('⛔ a TIE — it is drawn from the slot, and TieRenderer looks its id up in slot.notes', () => {
@@ -225,7 +225,7 @@ describe('a fanned member at the command layer', () => {
     })
 
     it('but one pitch of a MEMBER CHORD is just that pitch — the member stays', () => {
-      engine.addFanMemberPitch(memberId, { step: 'G', alter: 0, octave: 4 })
+      engine.addFanMemberPitch(memberId, { step: 'G', octave: 4 })
       const added = engine.fanMemberPitches(memberId)!.find(p => p.step === 'G')!
       expect(engine.deleteNote(added.id)).toBe(true)
       expect(chord().fan!.count).toBe(FAN.count)
@@ -294,8 +294,8 @@ describe('a selected fanned member in the selection machinery', () => {
     engine.setNoteAccidental(memberId, '#')
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
-    expect(slot.fan!.members![0].pitches[0].alter).toBe(1)
-    expect(slot.notes[0].alter).toBe(0)
+    expect(slot.fan!.members![0].pitches[0].alteration).toEqual(['sharp'])
+    expect(slot.notes[0].alteration).toBeUndefined()
   })
 })
 
@@ -363,7 +363,7 @@ describe('a chord note on a fanned member', () => {
   })
 
   it('⭐ lands on the member, not on the note that was typed', () => {
-    const added = engine.addFanMemberPitch(memberId, { step: 'E', alter: 0, octave: 4 })
+    const added = engine.addFanMemberPitch(memberId, { step: 'E', octave: 4 })
     expect(added).not.toBeNull()
     expect(slot().fan!.members![1].pitches.map(p => p.step)).toEqual(['C', 'E'])
     expect(slot().notes.map(p => p.step)).toEqual(['C'])  // the typed note is untouched
@@ -371,7 +371,7 @@ describe('a chord note on a fanned member', () => {
   })
 
   it('reports the member’s own pitches — what "already stacked here" means inside a fan', () => {
-    engine.addFanMemberPitch(memberId, { step: 'G', alter: 0, octave: 4 })
+    engine.addFanMemberPitch(memberId, { step: 'G', octave: 4 })
     const pitches = engine.fanMemberPitches(memberId)!
     expect(pitches.map(p => p.step)).toEqual(['C', 'G'])
     // …and null for an ordinary note, which is what sends the caller down the ordinary path.
@@ -379,7 +379,7 @@ describe('a chord note on a fanned member', () => {
   })
 
   it('is undoable, and the added pitch can be deleted again', () => {
-    const added = engine.addFanMemberPitch(memberId, { step: 'E', alter: 0, octave: 4 })!
+    const added = engine.addFanMemberPitch(memberId, { step: 'E', octave: 4 })!
     expect(engine.undo()).toBe(true)
     expect(slot().fan!.members![1].pitches).toHaveLength(1)
     expect(engine.redo()).toBe(true)
@@ -390,7 +390,7 @@ describe('a chord note on a fanned member', () => {
   })
 
   it('refuses on an ordinary note — the slot has its own door', () => {
-    expect(engine.addFanMemberPitch(noteId, { step: 'E', alter: 0, octave: 4 })).toBeNull()
+    expect(engine.addFanMemberPitch(noteId, { step: 'E', octave: 4 })).toBeNull()
   })
 })
 
@@ -446,7 +446,7 @@ describe('MusicEngine.spacingColumnOf', () => {
 
   it('two pitches of ONE member share one address — a member is a chord, and a chord is a column', () => {
     const member = fanOf().members![0]
-    engine.addFanMemberPitch(member.pitches[0].id, { step: 'E', alter: 0, octave: 4 })
+    engine.addFanMemberPitch(member.pitches[0].id, { step: 'E', octave: 4 })
     const stacked = fanOf().members![0].pitches
     expect(stacked).toHaveLength(2)
     expect(engine.spacingColumnOf(stacked[1].id)).toEqual(engine.spacingColumnOf(stacked[0].id))

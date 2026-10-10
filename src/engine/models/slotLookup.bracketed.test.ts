@@ -9,7 +9,7 @@ import { fracCreate as frac } from '@/utils/fraction'
  * Subject: `./slotLookup` — the `{ bracketed: true }` opt-in (bracketed-grace-plan P2b): a bracketed
  * pitch is found ONLY when asked for, and it is ⛔ never an attack.
  */
-const Bb4 = { step: 'B' as const, alter: -1 as const, octave: 4 }
+const Bb4 = { step: 'B' as const, alteration: ['flat'] as const, octave: 4 }
 
 describe('findSlot — bracketed pitches', () => {
   const setup = () => {
@@ -26,7 +26,7 @@ describe('findSlot — bracketed pitches', () => {
 
   it('with it: the chord, the pitch, and where it hangs — its side and place', () => {
     const { score, note } = setup()
-    addBracketed(score, note.id, 'before', { step: 'D', alter: 0, octave: 5 })
+    addBracketed(score, note.id, 'before', { step: 'D', octave: 5 })
     const made = addBracketed(score, note.id, 'before', Bb4)!
     const found = findSlot(score, made.pitches[0].id, { bracketed: true })
     expect(found?.type).toBe('chord')
@@ -37,7 +37,7 @@ describe('findSlot — bracketed pitches', () => {
 
   it('on a GRACE, it names the grace; on a REST, the rest', () => {
     const { model, score, note } = setup()
-    const grace = addGrace(score, note.id, 'before', { step: 'G', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+    const grace = addGrace(score, note.id, 'before', { step: 'G', octave: 4 }, 'appoggiatura', { duration: '8' })!
     const onGrace = addBracketed(score, grace.pitches[0].id, 'before', Bb4)!
     expect(findSlot(score, onGrace.pitches[0].id, { bracketed: true })?.bracketed?.onGrace).toBe(grace)
     const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!

@@ -60,7 +60,7 @@ export interface SpanningNoteModel {
  */
 export function placeSpanningNote(model: SpanningNoteModel, p: {
   step: NoteParams['step']
-  alter: NoteParams['alter']
+  alteration?: NoteParams['alteration']
   octave: NoteParams['octave']
   startMeasure: number
   startBeat: Fraction
@@ -128,14 +128,14 @@ export function placeSpanningNote(model: SpanningNoteModel, p: {
   // ⭐ …and CUE: the entered one, or a re-split head's own — an EDIT keeps its size (cue-size-plan).
   const cue = p.cue ?? (p.existingHeadId ? model.getNote(p.existingHeadId)?.cue : undefined)
   const pitch = {
-    step: p.step, alter: p.alter, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }),
+    step: p.step, alteration: p.alteration, octave: p.octave, ...(p.voice && { voice: p.voice }), ...(p.staff && { staff: p.staff }),
     ...(enclosure && { enclosure }),
     ...(cue && { cue }),
   }
 
   // A tremolo on the head must reach EVERY piece of the chain: a tremolo interrupted at a barline
   // is still being played across it (docs/plans/tremolo-plan.md §6). Read before the head is retitled,
-  // and applied explicitly per piece — the continuations are built from `{step, alter, octave,
+  // and applied explicitly per piece — the continuations are built from `{step, alteration, octave,
   // voice, staff}` alone, so anything not named here is dropped in silence.
   //
   // TWO sources now, one per caller: the duration-change caller reads the mark off the head it is
@@ -212,7 +212,7 @@ function ensureMeasureExists(model: SpanningNoteModel, measureNumber: number): b
 export function splitExistingNoteWithTie(model: SpanningNoteModel, existingNote: Note, newDuration: NoteParams['duration'], overflowAmount: number, newDots: number = 0): void {
   placeSpanningNote(model, {
     step: existingNote.step,
-    alter: existingNote.alter,
+    alteration: existingNote.alteration,
     octave: existingNote.octave,
     startMeasure: existingNote.measure,
     startBeat: existingNote.beat,
@@ -232,7 +232,7 @@ export function splitExistingNoteWithTie(model: SpanningNoteModel, existingNote:
 export function addSplitNoteWithTie(model: SpanningNoteModel, noteParams: NoteParams, overflowAmount: number): Note | null {
   return placeSpanningNote(model, {
     step: noteParams.step,
-    alter: noteParams.alter,
+    alteration: noteParams.alteration,
     octave: noteParams.octave,
     startMeasure: noteParams.measure,
     startBeat: noteParams.beat,
@@ -329,7 +329,7 @@ function erodeNoteAtBoundary(model: SpanningNoteModel, note: Note, overflowBeats
       const { duration, dots } = remainderDurations[i]
       const tailNote = model.addNote({
         step: note.step,
-        alter: note.alter,
+        alteration: note.alteration,
         octave: note.octave,
         duration,
         dots,

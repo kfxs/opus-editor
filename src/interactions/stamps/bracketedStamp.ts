@@ -51,10 +51,10 @@ export function stampBracketedAtClick(
   //    never show. It stays armed: a stamp is used in runs.
   const { step, octave } = position.spelling
   const hostBeat = host.type === 'rest' ? position.beat : engine.getNote(host.id)?.beat ?? position.beat
-  const alter = entryAlteration(
+  const alteration = entryAlteration(
     engine.getScore(), { measure: position.measure, beat: hostBeat, staff: position.staff }, step, octave, state.selectedAccidental,
   )
-  const spelling = { step, octave, alter, ...(state.selectedAccidental === 'n' && { forceAccidental: true }) }
+  const spelling = { step, octave, alteration, ...(state.selectedAccidental === 'n' && { forceAccidental: true }) }
   const graceTarget = inGroup ? graceAt(engine, host.id, inGroup.chordWith, inGroup.index) : null
   // ⭐ Drawn as the ARMED value, as a grace is (B7 revised: a half's head is hollow).
   const made = engine.bracketed.add(

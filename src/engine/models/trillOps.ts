@@ -526,7 +526,7 @@ export function trillEndWithoutAnEnd(score: Score, id: string): string | null {
  * rather than in either util because those two are pure and this one needs the score.
  *
  * ⭐ **The bar scope is the whole measure, every voice** (`measureAccidentalNotes`, fanned members
- * included) — the same list `MusicEngine.getPrevailingAlter` feeds, because an accidental holds at
+ * included) — the same list `MusicEngine.getPrevailingAlteration` feeds, because an accidental holds at
  * its staff position for the rest of the bar regardless of which voice wrote it. A narrower scope
  * would let the trill sound a pitch the reader can see contradicted three notes earlier.
  *

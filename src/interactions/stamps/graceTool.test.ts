@@ -59,8 +59,8 @@ describe('pressGraceTool', () => {
 describe('pressGraceTool — a SELECTED grace (his rule, 2026-09-22; plan §3 rule 2)', () => {
   const setup = (tool: 'selection' | 'entry') => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
-    const grace = engine.grace.addGrace(note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const grace = engine.grace.addGrace(note.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     const state = createEditorState()
     state.selectedTool = tool
     const id = grace.pitches[0].id
@@ -98,7 +98,7 @@ describe('pressGraceTool — a SELECTED grace (his rule, 2026-09-22; plan §3 ru
 describe('pressGraceTool — a selected NOTE becomes a grace (P4, his rule, 2026-09-22)', () => {
   it('⭐ its place becomes a rest, the grace stands before it, the grace is SELECTED — ONE undo brings the note back', () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
     const state = createEditorState()
     state.selectedTool = 'selection'
     state.selectedItems = new Map([[itemKey({ kind: 'note', id: note.id }), { kind: 'note', id: note.id }]])
@@ -127,7 +127,7 @@ describe('pressGraceTool — a selected NOTE becomes a grace (P4, his rule, 2026
 describe('pressGraceTool — a grace TOGGLED OFF (his rules, 2026-09-22)', () => {
   const setup = () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
     const state = createEditorState()
     state.selectedTool = 'selection'
     const host: SpanToolHost = {
@@ -144,7 +144,7 @@ describe('pressGraceTool — a grace TOGGLED OFF (his rules, 2026-09-22)', () =>
 
   it('⭐ its OWN form pressed: the grace becomes the note (the main slot\'s duration, the grace\'s pitch), selected', () => {
     const { engine, note, state, host, select } = setup()
-    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '16' })!
+    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '16' })!
     select(g.pitches[0].id)
     pressGraceTool(host, 'appoggiatura', 'before')
     const made = engine.getNote(g.pitches[0].id)!
@@ -158,7 +158,7 @@ describe('pressGraceTool — a grace TOGGLED OFF (his rules, 2026-09-22)', () =>
   it('the WHOLE group selected: it goes; the selection drops what is gone', () => {
     const { engine, note, state, host, select } = setup()
     const ids = (['D', 'F'] as const).map(step =>
-      engine.grace.addGrace(note.id, 'before', { step, alter: 0, octave: 5 }, 'acciaccatura', { duration: '16' })!.pitches[0].id)
+      engine.grace.addGrace(note.id, 'before', { step, octave: 5 }, 'acciaccatura', { duration: '16' })!.pitches[0].id)
     select(...ids)
     pressGraceTool(host, 'acciaccatura', 'before')
     expect(ids.some(id => engine.getNote(id))).toBe(false)
@@ -168,7 +168,7 @@ describe('pressGraceTool — a grace TOGGLED OFF (his rules, 2026-09-22)', () =>
 
   it('the OTHER form pressed still just changes the form', () => {
     const { engine, note, host, select } = setup()
-    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '16' })!
+    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '16' })!
     select(g.pitches[0].id)
     pressGraceTool(host, 'acciaccatura', 'before')
     expect(engine.isGraceNote(g.pitches[0].id)).toBe(true)
@@ -178,8 +178,8 @@ describe('pressGraceTool — a grace TOGGLED OFF (his rules, 2026-09-22)', () =>
 describe('graceToolLit — a SELECTED grace lights its group\'s form (his report, 2026-09-22)', () => {
   it('⭐ in selection mode the button of the selected grace\'s form is lit — the one that toggles it off', () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
-    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '16' })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', octave: 5 }, 'acciaccatura', { duration: '16' })!
     const state = createEditorState()
     state.selectedTool = 'selection'
     state.selectedItems = new Map([[itemKey({ kind: 'note', id: g.pitches[0].id }), { kind: 'note', id: g.pitches[0].id }]])
@@ -196,8 +196,8 @@ describe('graceToolLit — a SELECTED grace lights its group\'s form (his report
 describe('pressGraceTool — a SELECTED bracketed grace (his rule, 2026-09-23: "maintaining it targets")', () => {
   it('⭐ becomes a grace of the pressed form, joining its target\'s group — ONE undo entry, and it is the selection', () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
-    const made = engine.bracketed.add(note.id, 'before', { step: 'D', alter: 0, octave: 5 })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const made = engine.bracketed.add(note.id, 'before', { step: 'D', octave: 5 })!
     const id = made.pitches[0].id
     const state = createEditorState()
     state.selectedTool = 'selection'

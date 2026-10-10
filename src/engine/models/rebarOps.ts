@@ -19,6 +19,7 @@ import { restShiftOverrideOf, restHiddenOf, restPositionKey, noteOffsetOverrideO
 import { slotLength, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import { flattenRegion, relayEvents, type RebarPiece, type RebarEvent, type BarPlan } from '@/utils/rebar'
+import { alterationCode, sameAlteration } from '@/utils/alterationSigns'
 import type { Clip, ClipGlissando, ClipSlur, ClipSlurPitch, ClipTrill, ClipTarget } from '@/utils/clip'
 import { type Fraction, fracCreate, fracAdd, fracSub, fracCompare, fracEq, fracLt, fracGte } from '@/utils/fraction'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
@@ -100,7 +101,7 @@ type CapturedTremoloPair = { voice: number; staffId?: string; absBeat: Fraction;
 type CapturedLeadingSpace = { absBeat: Fraction; space: number }
 
 /** The pitch identity of a slur anchor (a chord pitch), used to re-find it post-rebar. */
-type SlurPitch = { step: NotePitch['step']; alter: NotePitch['alter']; octave: number }
+type SlurPitch = { step: NotePitch['step']; alteration?: NotePitch['alteration']; octave: number }
 
 /**
  * One end of a slur snapshotted before a rebar: an IN-region endpoint is keyed by its
@@ -1290,8 +1291,8 @@ function restoreLeadingSpaces(score: Score, regionNumbers: number[], captured: C
  * the rebar'd region by position/pitch.
  */
 function captureBoundaryTies(score: Score, regionMeasures: Measure[]): {
-  incoming: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number }; voice: number }>
-  outgoing: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number }; voice: number }>
+  incoming: Array<{ externalId: string; pitch: { step: Note['step']; alteration?: Note['alteration']; octave: number }; voice: number }>
+  outgoing: Array<{ externalId: string; pitch: { step: Note['step']; alteration?: Note['alteration']; octave: number }; voice: number }>
 } {
   const regionIds = new Set<string>()
   for (const m of regionMeasures) {
@@ -1302,7 +1303,7 @@ function captureBoundaryTies(score: Score, regionMeasures: Measure[]): {
   }
   const lo = regionMeasures[0].number
   const hi = regionMeasures[regionMeasures.length - 1].number
-  const incoming: Array<{ externalId: string; pitch: { step: Note['step']; alter: Note['alter']; octave: number }; voice: number }> = []
+  const incoming: Array<{ externalId: string; pitch: { step: Note['step']; alteration?: Note['alteration']; octave: number }; voice: number }> = []
   const outgoing: typeof incoming = []
   for (const m of score.measures) {
     if (m.number >= lo && m.number <= hi) continue // external notes only
@@ -1313,7 +1314,7 @@ function captureBoundaryTies(score: Score, regionMeasures: Measure[]): {
       // (a unison in another voice at the boundary must not steal the tie).
       const voice = voiceOf(s)
       for (const p of s.notes) {
-        const pitch = { step: p.step, alter: p.alter, octave: p.octave }
+        const pitch = { step: p.step, alteration: p.alteration, octave: p.octave }
         if (p.tiedTo && regionIds.has(p.tiedTo)) incoming.push({ externalId: p.id, pitch, voice })
         if (p.tiedFrom && regionIds.has(p.tiedFrom)) outgoing.push({ externalId: p.id, pitch, voice })
       }
@@ -1343,7 +1344,7 @@ function restoreBoundaryTies(
 function boundaryPitchId(
   score: Score,
   measureNumber: number,
-  pitch: { step: Note['step']; alter: Note['alter']; octave: number },
+  pitch: { step: Note['step']; alteration?: Note['alteration']; octave: number },
   which: 'first' | 'last',
   voice: number,
 ): string | undefined {
@@ -1354,7 +1355,7 @@ function boundaryPitchId(
     .sort((a, b) => fracCompare(a.beat, b.beat))
   const ordered = which === 'first' ? chords : chords.reverse()
   for (const c of ordered) {
-    const np = c.notes.find((p) => p.step === pitch.step && p.alter === pitch.alter && p.octave === pitch.octave)
+    const np = c.notes.find((p) => p.step === pitch.step && sameAlteration(p.alteration, pitch.alteration) && p.octave === pitch.octave)
     if (np) return np.id
   }
   return undefined
@@ -1388,12 +1389,12 @@ function regionAnchorsById(regionMeasures: Measure[]): Map<string, RegionAnchor>
       const offset = fracAdd(base, s.beat)
       const voice = voiceOf(s)
       for (const p of s.notes) {
-        inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice })
+        inRegion.set(p.id, { offset, pitch: { step: p.step, alteration: p.alteration, octave: p.octave }, voice })
       }
     }
   })
   forEachRegionGracePitch(regionMeasures, (p, s, offset, grace) => {
-    inRegion.set(p.id, { offset, pitch: { step: p.step, alter: p.alter, octave: p.octave }, voice: voiceOf(s), grace })
+    inRegion.set(p.id, { offset, pitch: { step: p.step, alteration: p.alteration, octave: p.octave }, voice: voiceOf(s), grace })
   })
   return inRegion
 }
@@ -1450,12 +1451,12 @@ function forEachRegionPitch(
 function capturedEndResolver(score: Score, regionNumbers: number[]): (end: CapturedSlurEnd) => string | undefined {
   const lookup = new Map<string, string>()
   forEachRegionPitch(score, regionNumbers, (p, s, offset) => {
-    const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voiceOf(s))
+    const key = slurAnchorKey(offset, { step: p.step, alteration: p.alteration, octave: p.octave }, voiceOf(s))
     if (!lookup.has(key)) lookup.set(key, p.id)
   })
   const measures = regionNumbers.map(num => getMeasure(score, num)).filter((m): m is Measure => !!m)
   forEachRegionGracePitch(measures, (p, s, offset, grace) => {
-    const key = slurAnchorKey(offset, { step: p.step, alter: p.alter, octave: p.octave }, voiceOf(s), grace)
+    const key = slurAnchorKey(offset, { step: p.step, alteration: p.alteration, octave: p.octave }, voiceOf(s), grace)
     if (!lookup.has(key)) lookup.set(key, p.id)
   })
   return end => end.externalId !== undefined
@@ -1486,11 +1487,11 @@ function clipEndResolver(
 ): (relStaff: number, endVoice: number, relOffset: Fraction, pitch: ClipSlurPitch) => string | undefined {
   const offKey = (off: Fraction): string => { const r = fracCreate(off.num, off.den); return `${r.num}/${r.den}` }
   const key = (staff: number, voice: number, off: Fraction, p: ClipSlurPitch): string =>
-    `${staff}|v${voice}|${offKey(off)}|${p.step}/${p.alter}/${p.octave}`
+    `${staff}|v${voice}|${offKey(off)}|${p.step}/${alterationCode(p.alteration)}/${p.octave}`
 
   const lookup = new Map<string, string>()
   forEachRegionPitch(score, regionNumbers, (p, s, offset) => {
-    const k = key(staffIndexOfId(score, s.staffId), voiceOf(s), offset, { step: p.step, alter: p.alter, octave: p.octave })
+    const k = key(staffIndexOfId(score, s.staffId), voiceOf(s), offset, { step: p.step, alteration: p.alteration, octave: p.octave })
     if (!lookup.has(k)) lookup.set(k, p.id)
   })
 
@@ -1530,7 +1531,7 @@ function captureSlurs(score: Score, regionMeasures: Measure[]): CapturedSlur[] {
 /** Canonical lookup key for a slur anchor: absolute onset offset + exact pitch + voice (+ which
  *  grace, for a grace anchor — see {@link forEachRegionGracePitch}). */
 function slurAnchorKey(offset: Fraction, pitch: SlurPitch, voice: number, grace?: string): string {
-  const key = `${offset.num}/${offset.den}|${pitch.step}/${pitch.alter}/${pitch.octave}|v${voice}`
+  const key = `${offset.num}/${offset.den}|${pitch.step}/${alterationCode(pitch.alteration)}/${pitch.octave}|v${voice}`
   return grace === undefined ? key : `${key}|g${grace}`
 }
 
@@ -1816,7 +1817,7 @@ function materializeVoiceBar(
       measure: measure.number,
       actualDuration: writtenLength(piece),
       notes: (piece.pitches ?? []).map((p) => {
-        const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
+        const np: NotePitch = { id: uuidv4(), step: p.step, alteration: p.alteration, octave: p.octave }
         if (p.forceAccidental) np.forceAccidental = true
         if (p.displayStaffId !== undefined) np.displayStaffId = p.displayStaffId
         if (p.enclosure) np.enclosure = p.enclosure
@@ -1949,7 +1950,7 @@ function linkRebarTies(created: Array<{ piece: RebarPiece; chord: Chord }>): voi
     if (piece.tieFromPrev && pending) {
       for (const cur of chord.notes) {
         const prev = pending.notes.find(
-          (p) => p.step === cur.step && p.alter === cur.alter && p.octave === cur.octave,
+          (p) => p.step === cur.step && sameAlteration(p.alteration, cur.alteration) && p.octave === cur.octave,
         )
         if (prev) {
           prev.tiedTo = cur.id

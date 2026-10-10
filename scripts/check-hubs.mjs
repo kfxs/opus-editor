@@ -37,10 +37,10 @@ import { readFileSync } from 'node:fs'
 // docs/plans/code-shape-plan-2026-09-19.md, *After the plan*. ⚠️ MusicEngine 489 / ScoreRenderer 717 RAISED again
 // (symbols P3, 2026-09-28) — the wiring of a new kind, same section.
 const HUBS = [
-  { file: 'src/engine/MusicEngine.ts', kinds: 489, lines: null },
+  { file: 'src/engine/MusicEngine.ts', kinds: 486, lines: null },
   { file: 'src/engine/models/ScoreModel.ts', kinds: 903, lines: null },
   { file: 'src/engine/rendering/ScoreRenderer.ts', kinds: 717, lines: null },
-  { file: 'src/interactions/controllers/MouseController.ts', kinds: 254, lines: 1029 },
+  { file: 'src/interactions/controllers/MouseController.ts', kinds: 252, lines: 1029 },
   { file: 'src/interactions/controllers/PaletteController.ts', kinds: 420, lines: null },
   { file: 'src/interactions/controllers/HighlightController.ts', kinds: 0, lines: 90 },
   { file: 'src/interactions/controllers/shortcutWiring.ts', kinds: 57, lines: 387, except: ['deleteSelected'] },

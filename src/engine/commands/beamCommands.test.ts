@@ -16,7 +16,7 @@ describe('beamCommands', () => {
 
   beforeEach(() => {
     ctx = fakeCommandContext()
-    anchor = ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
+    anchor = ctx.score.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
     beam = beamCommands(ctx)
   })
 
@@ -50,7 +50,7 @@ describe('beamCommands', () => {
 describe('beamCommands — a square dragged (his ask, 2026-09-28: the angle)', () => {
   it('⭐ every frame writes one end and flags dirty — no undo entry; the drop records ONE', () => {
     const ctx = fakeCommandContext()
-    const anchor = ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
+    const anchor = ctx.score.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
     const beam = beamCommands(ctx)
     expect(beam.previewBeamEnd(anchor, 'end', 0.5)).toBe(true)
     expect(beam.previewBeamEnd(anchor, 'end', 1.25)).toBe(true)
@@ -64,7 +64,7 @@ describe('beamCommands — a square dragged (his ask, 2026-09-28: the angle)', (
 describe('beamCommands.nudgeBeamEnd — the arrows on a PICKED square (his ask, 2026-09-28)', () => {
   const setUp = () => {
     const ctx = fakeCommandContext()
-    const anchor = ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
+    const anchor = ctx.score.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
     return { ctx, anchor, beam: beamCommands(ctx) }
   }
 
@@ -97,7 +97,7 @@ describe('beamCommands.nudgeBeamEnd — the arrows on a PICKED square (his ask, 
 describe('beamCommands — the whole beam dragged (his ask, 2026-09-28)', () => {
   it('⭐ each frame sets BOTH ends and flags dirty — no undo; the drop records ONE', () => {
     const ctx = fakeCommandContext()
-    const anchor = ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
+    const anchor = ctx.score.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
     const beam = beamCommands(ctx)
     beam.previewBeamOffset(anchor, 1, 0.5)
     beam.previewBeamOffset(anchor, 2, 1.5)
@@ -110,7 +110,7 @@ describe('beamCommands — the whole beam dragged (his ask, 2026-09-28)', () => 
 describe('beamCommands — the Properties boxes, in AWAY terms (his ask, 2026-09-28)', () => {
   it('shiftBeam moves both ends, shiftBeamEnd one — each its own undo entry', () => {
     const ctx = fakeCommandContext()
-    const anchor = ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
+    const anchor = ctx.score.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) }).id
     const beam = beamCommands(ctx)
     expect(beam.shiftBeam(anchor, 1)).toBe(true)
     expect(beam.shiftBeamEnd(anchor, 'end', -0.5)).toBe(true)

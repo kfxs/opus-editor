@@ -42,9 +42,9 @@ describe('SelectionController — multi-selection', () => {
     state.selectedTool = 'selection'
     selection = new SelectionController(() => engine, state, () => {}, () => {})
 
-    noteA = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    noteB = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
-    noteC = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    noteA = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    noteB = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    noteC = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
   })
 
   it('selectNote replaces the set and sets the anchor', () => {
@@ -129,10 +129,10 @@ describe('SelectionController — Shift range select', () => {
     selection = new SelectionController(() => engine, state, () => {}, () => {})
 
     // Fill measure 1 (4/4): a note on each of beats 0..3.
-    n0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    n1 = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
-    n2 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
-    n3 = engine.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
+    n0 = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    n1 = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    n2 = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    n3 = engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
   })
 
   it('selects the inclusive range from the pivot to the target', () => {
@@ -157,7 +157,7 @@ describe('SelectionController — Shift range select', () => {
   })
 
   it('includes the WHOLE chord at an in-range beat', () => {
-    const chordMate = engine.addChordNote({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) }).id
+    const chordMate = engine.addChordNote({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) }).id
     selection.selectNote(n0)
     selection.extendSelectionTo(n2)
     expect(selectedIds()).toEqual(new Set([noteKey(n0), noteKey(n1), noteKey(chordMate), noteKey(n2)]))
@@ -260,10 +260,10 @@ describe('Shift range + ties — every gesture is literal', () => {
     selection = new SelectionController(() => engine, state, () => {}, () => {})
 
     // Two same-pitch C4 quarters tied together (one held note), then D4, E4.
-    c1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    c2 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
-    d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
-    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+    c1 = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    c2 = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    d = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
     engine.toggleTie(c1) // c1 —tie→ c2
   })
 
@@ -305,9 +305,9 @@ describe('SelectionController — articulation group multi-selection', () => {
     state.selectedTool = 'selection'
     selection = new SelectionController(() => engine, state, () => {}, () => {})
 
-    noteA = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    noteB = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
-    noteC = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    noteA = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    noteB = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    noteC = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
   })
 
   it('selectArticulation replaces the set with one group and sets the anchor', () => {
@@ -405,8 +405,8 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
   })
 
   it('jumps up to the note in the voice above and makes that voice active', () => {
-    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    const v2 = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+    const v1 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const v2 = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
 
     selection.selectNote(v2)
     selection.navigateVoice(1) // up
@@ -415,8 +415,8 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
   })
 
   it('jumps down to the note in the voice below', () => {
-    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    const v2 = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+    const v1 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const v2 = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
 
     selection.selectNote(v1)
     selection.navigateVoice(-1) // down
@@ -425,8 +425,8 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
   })
 
   it('does nothing pressing up from the top voice (no voice above)', () => {
-    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const v1 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
 
     selection.selectNote(v1)
     selection.navigateVoice(1) // up — nothing above
@@ -434,9 +434,9 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
   })
 
   it('can land on a REST in the adjacent voice', () => {
-    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const v1 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
     // Voice 2 only has a note at beat 1, so beat 0 in voice 2 is a (gap-filled) rest.
-    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
 
     const measure = engine.getScore().measures.find(m => m.number === 1)!
     const v2Rest = getMeasureNotes(measure).find(n => n.isRest && (n.voice ?? 0) === 1 && fracEq(n.beat, frac(0, 1)))!
@@ -452,8 +452,8 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
     // default that rest sits in its below-middle lane, so from the C5 note "down" lands on it
     // and "up" finds nothing. Shift the rest well ABOVE the C5 note (engraving client #5): now
     // the hop must follow the drawn geometry — "up" from C5 lands on the rest.
-    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    const v1 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
 
     const measure = engine.getScore().measures.find(m => m.number === 1)!
     const v2Rest = getMeasureNotes(measure).find(n => n.isRest && (n.voice ?? 0) === 1 && fracEq(n.beat, frac(0, 1)))!
@@ -481,8 +481,8 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
     // rest on line 1 (its own voice's E4 is what it tracks; the G5 is far above and does not press
     // it down further) = 4 diatonic units below the middle line. Five whole spaces lift it to ten
     // units ABOVE the middle — clear of the G5. Read at half strength it lands short, below it.
-    const v1 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    const v1 = engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
 
     const measure = engine.getScore().measures.find(m => m.number === 1)!
     const v2Rest = getMeasureNotes(measure).find(n => n.isRest && (n.voice ?? 0) === 1 && fracEq(n.beat, frac(0, 1)))!
@@ -499,8 +499,8 @@ describe('SelectionController — navigateVoice (Alt+Shift+up/down voice hop)', 
   })
 
   it('hops between voices at a UNISON (same pitch) — V1 is up, V2 is down', () => {
-    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    const v2 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+    const v1 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const v2 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
 
     // From the lower voice, up lands on the upper voice (despite equal pitch)…
     selection.selectNote(v2)
@@ -528,10 +528,10 @@ describe('SelectionController — navigateChord is voice-scoped', () => {
 
   it('stays within the selected note\'s voice, ignoring the other voice at the same beat', () => {
     // Voice 1 chord C5+E5; voice 2 chord G3+B3, all at beat 0.
-    const v1lo = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    engine.addChordNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })
-    engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    engine.addChordNote({ step: 'B', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const v1lo = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    engine.addChordNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })
+    engine.addNoteAtBeat({ step: 'G', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    engine.addChordNote({ step: 'B', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
 
     // From the bottom of voice 1's chord, up → top of voice 1 (E5), NOT into voice 2.
     selection.selectNote(v1lo)
@@ -556,15 +556,15 @@ describe('SelectionController — navigateChord is voice-scoped', () => {
    * `Shift`+letter stack onto the member: a member is a chord in its own right.
    */
   it('⭐ walks the MEMBER\'s own pitches, not the slot\'s', () => {
-    const noteId = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
-    engine.addChordNote({ step: 'G', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) }) // the SLOT's second pitch
+    const noteId = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    engine.addChordNote({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) }) // the SLOT's second pitch
     engine.setFan(noteId, { direction: 'accel', count: 3, beams: 3 })
 
     const slot = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
     const member = slot.fan!.members![0]
     const low = member.pitches[0].id
-    const high = engine.addFanMemberPitch(low, { step: 'E', alter: 0, octave: 4 })!.id
+    const high = engine.addFanMemberPitch(low, { step: 'E', octave: 4 })!.id
 
     // Up from the member's lower pitch lands on the member's OWN upper pitch — never the slot's G5.
     selection.selectNote(low)
@@ -593,8 +593,8 @@ describe('SelectionController — setSelectedNote keeps the highlight set in syn
 
   it('replaces selectedItems (not just the anchor) so navigation/highlight agree', () => {
     // Chord E4 + E5 in voice 0 (entering the upper note via the keyboard path).
-    const lo = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    const hi = engine.addChordNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 }).id
+    const lo = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const hi = engine.addChordNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 }).id
 
     selection.selectNote(lo)         // lower note selected (and highlighted)
     selection.setSelectedNote(hi)    // entry lands the NEW top note
@@ -624,8 +624,8 @@ describe('SelectionController — a note selection replaces the element selectio
     state = createEditorState()
     state.selectedTool = 'selection'
     selection = new SelectionController(() => engine, state, () => {}, () => {})
-    noteA = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    noteB = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    noteA = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    noteB = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
   })
 
   // The four hand-maintained clear-lists had already diverged: `clearScalarSubSelections` named
@@ -731,8 +731,8 @@ describe('SelectionController — the palette reflects the selected note', () =>
     state.selectedTool = 'selection'
     selection = new SelectionController(() => engine, state, () => {}, () => {})
 
-    plain = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })!.id
-    beamed = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2) })!.id
+    plain = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })!.id
+    beamed = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2) })!.id
     engine.updateNote(beamed, { beam: 'begin' })
   })
 

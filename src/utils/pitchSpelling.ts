@@ -2,11 +2,11 @@
  * Pitch spelling utilities — enharmonic-aware pitch representation.
  *
  * Industry standard (MusicXML, MuseScore, music21) stores pitch as
- * step + alter + octave, not as a raw MIDI integer. This lets the system
+ * step + alteration + octave, not as a raw MIDI integer. This lets the system
  * distinguish C# from Db, D# from Eb, etc.
  *
  * These helpers are pure functions with no side effects, and they are the
- * foundation the pitch model actually stands on: a `Note` carries step/alter/
+ * foundation the pitch model actually stands on: a `Note` carries step/alteration/
  * octave. ⛔ No MIDI here: which pitch is higher, or the same, is `utils/pitchOrder`'s
  * (as WRITTEN); a key number is a TUNING's, `engine/audio/equalTemperament` (M1).
  *
@@ -14,9 +14,10 @@
  * them depend on any other editor module — safe to import anywhere.
  */
 
-import type { PitchSpelling, PitchStep, PitchAlter, Accidental } from '@/types/music'
+import type { Alteration, PitchSpelling, PitchStep, Accidental } from '@/types/music'
+import { alterationCode, alterationField, armedAlteration } from './alterationSigns'
 
-export type { PitchSpelling, PitchStep, PitchAlter }
+export type { PitchSpelling, PitchStep }
 
 // ---------------------------------------------------------------------------
 // Internal lookup tables
@@ -33,37 +34,27 @@ const STEP_INDEX: Record<PitchStep, number> = {
 
 /**
  * Convert a pitch spelling to a note key string (e.g. 'c#/4', 'db/4') — what `EngravedNote` reads:
- * lowercase step, accidental suffix, slash, then octave (VexFlow's format, kept).
+ * lowercase step, accidental suffix, slash, then octave (VexFlow's format, kept until M3).
  *
  * @example
- * spellingToNoteKey('C',  1, 4) // 'c#/4'
- * spellingToNoteKey('D', -1, 4) // 'db/4'
- * spellingToNoteKey('G',  2, 3) // 'g##/3'
- * spellingToNoteKey('A', -2, 5) // 'abb/5'
- * spellingToNoteKey('E',  0, 4) // 'e/4'
+ * spellingToNoteKey('C', ['sharp'], 4)      // 'c#/4'
+ * spellingToNoteKey('D', ['flat'], 4)       // 'db/4'
+ * spellingToNoteKey('G', ['doubleSharp'], 3) // 'g##/3'
+ * spellingToNoteKey('E', undefined, 4)      // 'e/4'
  */
-export function spellingToNoteKey(step: PitchStep, alter: PitchAlter, octave: number): string {
-  return `${step.toLowerCase()}${alterToString(alter)}/${octave}`
-}
-
-/**
- * The accidental glyph string for an alter value: `''`, `'#'`, `'##'`, `'b'`, `'bb'`.
- * The one spelling of `alter` used across the debug logs and simple pitch labels —
- * a note has at most a double sharp/flat, so anything outside ±2 reads as natural.
- */
-export function alterToString(alter: number): string {
-  return alter === 2 ? '##' : alter === 1 ? '#' : alter === -1 ? 'b' : alter === -2 ? 'bb' : ''
+export function spellingToNoteKey(step: PitchStep, alteration: Alteration | undefined, octave: number): string {
+  return `${step.toLowerCase()}${alterationCode(alteration)}/${octave}`
 }
 
 /**
  * A compact pitch label like `C#4` / `Ab3` / `E4` — step + accidental + octave.
- * The shared formatter behind the debug logs (an absent `alter` reads as natural).
+ * The shared formatter behind the debug logs and the undo labels (no alteration reads as natural).
  * Rests carry no pitch (`step`/`octave` undefined), so guard those at the call site
  * with a 'rest' label; the fields are typed optional only to accept `Note`/`NoteParams`
  * directly, and an undefined step/octave stringifies exactly as the old inline logs did.
  */
-export function formatPitch({ step, alter, octave }: { step?: PitchStep; alter?: number; octave?: number }): string {
-  return `${step}${alterToString(alter ?? 0)}${octave}`
+export function formatPitch({ step, alteration, octave }: { step?: PitchStep; alteration?: Alteration; octave?: number }): string {
+  return `${step}${alterationCode(alteration)}${octave}`
 }
 
 /**
@@ -89,27 +80,13 @@ export function spellingDiatonicPos(step: PitchStep, octave: number): number {
 }
 
 /**
- * Derive the {@link Accidental} display character from a PitchAlter — the editor's
- * sign vocabulary ('#'/'b'), which is what the keypad arms and the palette shows.
- * Returns undefined for naturals (alter === 0) when no accidental sign is needed.
- * Double-sharps/flats fall back to single (VexFlow limitation in current use).
+ * A letter and octave spelled with the ARMED Keypad key — what a click enters, or previews, when ♯ or
+ * ♭ is armed. ♮ or nothing leaves it unaltered (the natural is DRAWN by the bar's rule, never stored).
  */
-export function alterToAccidental(alter: PitchAlter): Accidental | undefined {
-  if (alter > 0) return '#'
-  if (alter < 0) return 'b'
-  return undefined
-}
-
-/**
- * Convert an {@link Accidental} sign to a PitchAlter integer — the direction the
- * editor actually travels most: the armed keypad accidental becoming stored spelling
- * (KeyboardController, MouseController, MusicEngine all enter notes through it).
- * '#' → 1, 'b' → -1, 'n' or null/undefined → 0
- */
-export function accidentalToAlter(acc: Accidental | null | undefined): PitchAlter {
-  if (acc === '#') return 1
-  if (acc === 'b') return -1
-  return 0
+export function withArmedAlteration<T extends { step: PitchStep; octave: number }>(
+  spelling: T, armed: Accidental | null | undefined,
+): T & { alteration?: Alteration } {
+  return { ...spelling, ...alterationField(armedAlteration(armed)) }
 }
 
 /**

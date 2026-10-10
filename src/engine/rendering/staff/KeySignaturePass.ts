@@ -182,7 +182,7 @@ export function keySignatureInkRight(stave: EngravedStave, clef: Clef, key: KeyS
   const space = staveFrame(stave).spacePx
   let x = builtFirstSignX(stave, clef)
   key.alterations.forEach((alteration, i) => {
-    const glyph = signGlyph(alteration.alter)
+    const glyph = signGlyph(alteration.alteration)
     if (!glyph) return
     // The last sign contributes its ink; every earlier one its advance and the gap after it.
     x += i === key.alterations.length - 1
@@ -347,7 +347,7 @@ export function drawKeySignatureRow(
   let x = startX
   let inkRight = startX
   key.alterations.forEach((alteration, i) => {
-    const glyph = signGlyph(alteration.alter)
+    const glyph = signGlyph(alteration.alteration)
     if (!glyph) return
     // ⭐ The row from the measured table, and the y from the FRAME — the table's line numbers count
     //   from the bottom up (`staffLineForSpelling`'s convention), which is the frame's NOTE line

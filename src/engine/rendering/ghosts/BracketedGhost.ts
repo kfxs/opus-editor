@@ -54,7 +54,7 @@ export function bracketedGhostHead(
 
 /** The page's layout of ONE bracketed head — the ledger and the pitch only move it vertically. */
 function ghostPlace(duration: NoteDuration, accidental: ScoreAccidental | null) {
-  return bracketedLayout([{ pitches: [{ id: 'ghost', step: 'C', alter: 0, octave: 5 }], duration }], () => accidental, 'treble', 0).places[0]
+  return bracketedLayout([{ pitches: [{ id: 'ghost', step: 'C', octave: 5 }], duration }], () => accidental, 'treble', 0).places[0]
 }
 
 /**

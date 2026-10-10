@@ -17,7 +17,7 @@ import type { Chord, ChordRest } from '@/types/music'
  * its head through the model's copies.
  */
 describe('enclosureOps', () => {
-  const D4 = { step: 'D' as const, alter: 0 as const, octave: 4 }
+  const D4 = { step: 'D' as const, octave: 4 }
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel() })
   const score = () => model.getScore()

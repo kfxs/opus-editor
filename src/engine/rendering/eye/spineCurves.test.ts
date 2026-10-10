@@ -231,7 +231,7 @@ describe('drawScoreOnSpine — a slur from a GRACE (port map #21; his report, 20
     const m = fourBars()
     const host = m.addNote({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: { num: 1, den: 1 } })
     m.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: { num: 0, den: 1 } })
-    const grace = addGrace(m.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = addGrace(m.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     m.addSlur({ startNoteId: grace.pitches[0].id, endNoteId: host.id })
     const curves = curvesOf(m)
     expect(curves).toHaveLength(1)

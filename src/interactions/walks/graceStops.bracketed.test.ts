@@ -16,10 +16,10 @@ describe('withGraceStops — bracketed graces', () => {
     const score = model.getScore()
     const a = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const b = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const g = addGrace(score, b.id, 'before', { step: 'G', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
-    const onGrace = addBracketed(score, g.pitches[0].id, 'before', { step: 'F', alter: 0, octave: 4 })!
-    const before = addBracketed(score, b.id, 'before', { step: 'D', alter: 0, octave: 5 })!
-    const after = addBracketed(score, b.id, 'after', { step: 'F', alter: 0, octave: 5 })!
+    const g = addGrace(score, b.id, 'before', { step: 'G', octave: 4 }, 'appoggiatura', { duration: '8' })!
+    const onGrace = addBracketed(score, g.pitches[0].id, 'before', { step: 'F', octave: 4 })!
+    const before = addBracketed(score, b.id, 'before', { step: 'D', octave: 5 })!
+    const after = addBracketed(score, b.id, 'after', { step: 'F', octave: 5 })!
     return { model, score, a, b, g, onGrace, before, after }
   }
 

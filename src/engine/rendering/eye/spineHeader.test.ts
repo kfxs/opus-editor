@@ -18,7 +18,7 @@ import { SPINE_BLOCK_CLASS } from './spineStaff'
  * key signature (priced from the font's table) and on counts — ⛔ never on a glyph's ink.
  */
 
-const D_MAJOR: KeySignature = { alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major' }
+const D_MAJOR: KeySignature = { alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'C', alteration: ['sharp'] }], mode: 'major' }
 
 function model(bars: number): ScoreModel {
   const m = new ScoreModel('header')

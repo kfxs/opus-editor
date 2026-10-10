@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { BracketedGrace, ChordRest, NoteDuration, NotePitch, PitchSpelling, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
 import { samePitch } from '@/utils/pitchOrder'
+import { setAlteration } from '@/utils/alterationSigns'
 import { chordStoredPitches } from '@/utils/fannedBeam'
 import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 import { BRACKETED_SIDES, bracketedKey, bracketedOf, type BracketedSide, type BracketedTarget } from '@/utils/bracketedGraces'
@@ -181,9 +182,9 @@ export function setBracketedPitch(score: Score, pitchId: string, spelling: Brack
   if (!found) return false
   const p = found.pitch
   const force = !!spelling.forceAccidental
-  if (p.step === spelling.step && p.alter === spelling.alter && p.octave === spelling.octave && !!p.forceAccidental === force) return false
+  if (samePitch(p, spelling) && !!p.forceAccidental === force) return false
   p.step = spelling.step
-  p.alter = spelling.alter
+  setAlteration(p, spelling.alteration)
   p.octave = spelling.octave
   if (force) p.forceAccidental = true
   else delete p.forceAccidental
@@ -202,7 +203,7 @@ export function setBracketedWritten(score: Score, pitchId: string, duration: Not
 }
 
 function newPitch(spelling: BracketedSpelling): NotePitch {
-  const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alter: spelling.alter, octave: spelling.octave }
+  const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alteration: spelling.alteration, octave: spelling.octave }
   if (spelling.forceAccidental) pitch.forceAccidental = true
   return pitch
 }

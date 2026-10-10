@@ -18,7 +18,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 
 type Step = NoteParams['step']
 const at = (model: ScoreModel, step: Step, octave: number, measure: number, beat: number): Note =>
-  model.addNote({ step, alter: 0, octave, duration: 'q', measure, beat: frac(beat, 1) })
+  model.addNote({ step, octave, duration: 'q', measure, beat: frac(beat, 1) })
 
 describe('glissandoOps — anchoring', () => {
   let model: ScoreModel
@@ -109,7 +109,7 @@ describe('⭐⭐ glissandoTarget — the far end is ASKED, never stored (G4)', (
 
   it('stays in its VOICE — a note in another voice is not the next note', () => {
     const c = at(model, 'C', 5, 1, 0)
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
     const g = addGlissando(model.getScore(), c.id)!
     expect(glissandoTarget(model.getScore(), g)).toBeNull() // voice 0's beat 1 is a rest
   })

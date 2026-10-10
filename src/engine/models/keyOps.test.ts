@@ -85,7 +85,7 @@ describe('setKeyAt', () => {
 
   it('takes a CUSTOM signature — one flat and one sharp, which no fifths value can express', () => {
     const score = scoreOf(2)
-    const bartok = { alterations: [{ step: 'B' as const, alter: -1 as const }, { step: 'F' as const, alter: 1 as const }] }
+    const bartok = { alterations: [{ step: 'B' as const, alteration: ['flat'] as const }, { step: 'F' as const, alteration: ['sharp'] as const }] }
     expect(setKeyAt(score, 2, bartok)).toBe(true)
 
     expect(fifthsOf(keyAt(score, 2)), 'no traditional name').toBeNull()

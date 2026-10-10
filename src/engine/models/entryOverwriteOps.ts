@@ -151,7 +151,7 @@ export function findNotesToOverwrite(
     // Notes within a tuplet should coexist and not overwrite each other based on range
     if (tupletInfo && existing.tupletId === tupletInfo.id) {
       // Only allow deletion if at the exact same beat AND same pitch (replacement)
-      if (fracEq(existing.beat, beat) && !existing.isRest && samePitch({ step: existing.step!, alter: existing.alter ?? 0, octave: existing.octave! }, pitch)) {
+      if (fracEq(existing.beat, beat) && !existing.isRest && samePitch({ step: existing.step!, alteration: existing.alteration, octave: existing.octave! }, pitch)) {
         return true
       }
       return false  // Protect all other notes in the same tuplet
@@ -160,7 +160,7 @@ export function findNotesToOverwrite(
     // Notes at the same beat: only delete if same pitch (replacement); a different pitch
     // is a chord and is kept.
     if (fracEq(existing.beat, beat)) {
-      return !existing.isRest && samePitch({ step: existing.step!, alter: existing.alter ?? 0, octave: existing.octave! }, pitch)
+      return !existing.isRest && samePitch({ step: existing.step!, alteration: existing.alteration, octave: existing.octave! }, pitch)
     }
 
     // Check if this note starts within the new note's time range

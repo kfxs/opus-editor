@@ -13,7 +13,7 @@ describe('ScoreModel — a bracketed pitch through the note API', () => {
   const setup = () => {
     const model = new ScoreModel()
     const note = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const made = addBracketed(model.getScore(), note.id, 'before', { step: 'B', alter: -1, octave: 4 }, undefined, 'h')!
+    const made = addBracketed(model.getScore(), note.id, 'before', { step: 'B', alteration: ['flat'], octave: 4 }, undefined, 'h')!
     const chord = (): Chord => {
       const f = findSlot(model.getScore(), note.id)
       if (f?.type !== 'chord') throw new Error('expected a chord')
@@ -26,7 +26,7 @@ describe('ScoreModel — a bracketed pitch through the note API', () => {
     const { model, note, id } = setup()
     model.updateNote(note.id, { articulations: ['staccato'] })
     const flat = model.getNote(id)!
-    expect(flat).toMatchObject({ id, step: 'B', alter: -1, octave: 4, duration: 'h', measure: 1 })
+    expect(flat).toMatchObject({ id, step: 'B', alteration: ['flat'], octave: 4, duration: 'h', measure: 1 })
     expect(flat.beat).toEqual(frac(1, 1))
     expect(flat.isRest).toBeUndefined()
     expect(flat.articulations).toBeUndefined()
@@ -35,8 +35,8 @@ describe('ScoreModel — a bracketed pitch through the note API', () => {
 
   it('⭐ updateNote takes the PITCH (the arrows\' path) — and ⛔ ignores a duration, so the HOST never moves', () => {
     const { model, id, chord } = setup()
-    model.updateNote(id, { step: 'C', alter: 0, octave: 5, duration: 'w', articulations: ['accent'] })
-    expect(model.getNote(id)).toMatchObject({ step: 'C', alter: 0, octave: 5 })
+    model.updateNote(id, { step: 'C', octave: 5, duration: 'w', articulations: ['accent'] })
+    expect(model.getNote(id)).toMatchObject({ step: 'C', octave: 5 })
     expect(chord().duration).toBe('q')
     expect(chord().articulations).toBeUndefined()
   })

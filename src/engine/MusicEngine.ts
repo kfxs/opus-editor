@@ -60,11 +60,12 @@ import { cueCommands } from './commands/cueCommands'
 import { silentBarCommands } from './commands/silentBarCommands'
 import { enclosureProblems } from './models/enclosureOps'
 import { cueProblems } from './models/cueOps'
-import { accidentalToAlter, formatPitch } from '@/utils/pitchSpelling'
-import { alterInForceAt } from '@/utils/accidentalState'
+import { formatPitch, withArmedAlteration } from '@/utils/pitchSpelling'
+import { armedAlteration, sameAlteration } from '@/utils/alterationSigns'
+import { alterationInForceAt } from '@/utils/accidentalState'
 import type { BeamRole } from '@/utils/beaming'
 import { fifthsOf, keyAt } from '@/utils/keySignature'
-import type { KeySignature, Score, Note, NoteParams, Fraction, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, PitchAlter, PitchStep, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup, FractionalBeamSide } from '@/types/music'
+import type { KeySignature, Score, Note, NoteParams, Fraction, Tuplet, TupletFormat, TupletMarkRun, TupletShape, TupletNumberStyle, NoteDuration, ArticulationType, Accidental, PitchSpelling, Clef, TimeSignature, Dynamic, DynamicLevel, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, Alteration, TremoloMark, FanMark, SoundRef, BarlineStyle, StaffGroup, FractionalBeamSide } from '@/types/music'
 import type { ElementRegistry, ElementInfo, ElementType } from './ElementRegistry'
 import { headCentreX } from './ElementRegistry'
 import type { Clip, ClipTarget } from '@/utils/clip'
@@ -1414,7 +1415,7 @@ export class MusicEngine {
    * {@link addChordNote} would resolve the position and land the note on the group's FIRST head.
    * Returns null when the id is not a member's (the caller then takes the ordinary path).
    */
-  addFanMemberPitch(noteId: string, spelling: { step: PitchStep; alter: PitchAlter; octave: number }): Note | null {
+  addFanMemberPitch(noteId: string, spelling: PitchSpelling): Note | null {
     const note = this.scoreModel.addFanMemberPitch(noteId, spelling)
     if (!note) return null
     this.mutate(`Add chord note ${formatPitch(spelling)}`)
@@ -2487,24 +2488,24 @@ export class MusicEngine {
   /**
    * The alteration (sharp/flat/natural) in effect for a note's staff position from
    * running accidentals earlier in its measure — i.e. what the note would sound as
-   * if it carried no explicit accidental. Returns 0 when nothing earlier altered it.
+   * if it carried no explicit accidental. Returns `undefined` (natural) when nothing altered it.
    *
    * Mirrors the renderer's running-accidental logic (NoteBuilder): only preceding,
    * non-tied notes on the same diatonic position count — and where the bar is silent there, ⭐ **the
-   * KEY SIGNATURE answers** ({@link alterInForceAt}). Used by "remove accidental" so the note
+   * KEY SIGNATURE answers** ({@link alterationInForceAt}). Used by "remove accidental" so the note
    * reverts to the prevailing alteration and its sign disappears: in G major, removing the sign
    * from an F♮ leaves an F♯ that draws nothing, which is what the signature already promised.
    */
-  getPrevailingAlter(noteId: string): PitchAlter {
+  getPrevailingAlteration(noteId: string): Alteration | undefined {
     const note = this.scoreModel.getNote(noteId)
-    if (!note || note.isRest || note.step === undefined || note.octave === undefined) return 0
+    if (!note || note.isRest || note.step === undefined || note.octave === undefined) return undefined
     const score = this.scoreModel.getScore()
     const measure = score.measures.find(m => m.number === note.measure)
-    if (!measure) return 0
+    if (!measure) return undefined
     // A FANNED member alters its position for the rest of the bar too, so the list includes them
     // (docs/plans/fanned-beam-pitches-plan.md §2) — `getMeasureNotes` alone would answer "nothing in force"
     // for a bar whose only sharp is inside a fan.
-    return alterInForceAt(
+    return alterationInForceAt(
       measureAccidentalNotes(measure), note.beat,
       keyAt(score, note.measure, keyStaffId(score, note.staff)), note.step, note.octave,
     )
@@ -2514,9 +2515,9 @@ export class MusicEngine {
    * Set a note's accidental to `accidental` (sharp/flat/natural), changing its pitch. Shared by the
    * palette's "apply to selected note" path and the accidental STAMP tool, so both re-spell a note
    * identically. Mirrors the non-null branches of `PaletteController.setAccidental`:
-   *  - `n`: revert to natural (alter 0). A ♮ that cancels an earlier sharp/flat in the bar shows
+   *  - `n`: revert to natural (no alteration). A ♮ that cancels an earlier sharp/flat in the bar shows
    *    automatically; a courtesy natural (nothing to cancel) must be FORCED to appear.
-   *  - `#`/`b`: alter ±1. If the note already sits at that alteration the sign would auto-hide, so
+   *  - `#`/`b`: a sharp / a flat. If the note already sits at that alteration the sign would auto-hide, so
    *    force it (re-showing a required accidental).
    * Removal ("no accidental") is NOT handled here — that reverts to the prevailing alteration and
    * lives in the palette's null branch / the Delete key. Returns the updated Note, or null on miss.
@@ -2525,12 +2526,12 @@ export class MusicEngine {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return null
     if (accidental === 'n') {
-      const wouldAutoShow = this.getPrevailingAlter(noteId) !== 0
-      return this.updateNote(noteId, { alter: 0, forceAccidental: wouldAutoShow ? undefined : true })
+      const wouldAutoShow = this.getPrevailingAlteration(noteId) !== undefined
+      return this.updateNote(noteId, { alteration: undefined, forceAccidental: wouldAutoShow ? undefined : true })
     }
-    const newAlter: PitchAlter = accidental === '#' ? 1 : -1
-    const forceAccidental = note.alter === newAlter ? true : undefined
-    return this.updateNote(noteId, { alter: newAlter, forceAccidental })
+    const alteration = armedAlteration(accidental)
+    const forceAccidental = sameAlteration(note.alteration, alteration) ? true : undefined
+    return this.updateNote(noteId, { alteration, forceAccidental })
   }
 
   /**
@@ -2542,7 +2543,7 @@ export class MusicEngine {
    * explicit, so I added ♯ to the F that is already ♯ — what I expect is to see the accidental
    * written"*. That is Gould p. 81 from the user's side (*"this practice holds good even when a key
    * signature corrects the accidental"*), and it was refused one layer above the rule: the F carries
-   * `alter: 1`, so a pure alter match answered "already there" and the click did nothing — while
+   * `alteration: ['sharp']`, so a pure alteration match answered "already there" and the click did nothing — while
    * nothing was drawn on the page at all.
    *
    * So every branch asks the same thing: **is a sign actually on the page?** — the alteration
@@ -2558,9 +2559,9 @@ export class MusicEngine {
   noteDisplaysAccidental(noteId: string, accidental: Accidental): boolean {
     const note = this.scoreModel.getNote(noteId)
     if (!note || note.isRest) return false
-    const target: PitchAlter = accidental === '#' ? 1 : accidental === 'b' ? -1 : 0
-    if ((note.alter ?? 0) !== target) return false
-    return note.forceAccidental === true || this.getPrevailingAlter(noteId) !== target
+    const target = armedAlteration(accidental)
+    if (!sameAlteration(note.alteration, target)) return false
+    return note.forceAccidental === true || !sameAlteration(this.getPrevailingAlteration(noteId), target)
   }
 
   /**
@@ -3239,8 +3240,7 @@ export class MusicEngine {
 
     // Render score with ghost note
     // Apply accidental from palette to the resolved spelling
-    const alter = accidentalToAlter(accidental)
-    const ghostSpelling = { ...position.spelling, alter }
+    const ghostSpelling = withArmedAlteration(position.spelling, accidental)
 
     // The armed tuplet's mark, resolved AT THE HOVERED POSITION — both halves of it. M may come from
     // this bar's meter (`Ctrl+5` is 5:4 here and 5:3 over a 6/8 bar), and the automatic mark style
@@ -3281,7 +3281,7 @@ export class MusicEngine {
       ...(tremolo !== undefined && { tremolo }),
       ...(enclosure && { enclosure }),
       ...(cue && { cue }),
-      // An armed natural is alter 0 (no glyph of its own) — flag it so the ghost still shows the ♮.
+      // An armed natural carries no alteration (no glyph of its own) — flag it so the ghost still shows the ♮.
       ...(accidental === 'n' && { forceAccidental: true }),
       ...(tupletLabel && { tupletLabel }),
       ...(ghostColor && { fillColor: ghostColor.fill, strokeColor: ghostColor.stroke }),

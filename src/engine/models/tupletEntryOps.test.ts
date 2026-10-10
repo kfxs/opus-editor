@@ -13,7 +13,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { durationToFraction } from '@/utils/durations'
 import { applyTupletToNote, buildTupletWithFirstNote, clampToTupletRemainder, landInTuplet, tupletFitsBar } from './tupletEntryOps'
 
-const C5 = { step: 'C', alter: 0, octave: 5 } as const
+const C5 = { step: 'C', octave: 5 } as const
 
 describe('a tuplet must fit the bar', () => {
   let scoreModel: ScoreModel
@@ -77,7 +77,7 @@ describe('buildTupletWithFirstNote', () => {
   })
 
   it('a note already standing at the start becomes a CHORD with the new one', () => {
-    const was = model.addNote({ step: 'A', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    const was = model.addNote({ step: 'A', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
     const built = buildTupletWithFirstNote(model, 1, 0, '8', C5, 3, 2)!
     const heads = model.getNotesInTuplet(built.tuplet.id).filter(n => !n.isRest).map(n => n.step).sort()
     expect(heads).toEqual(['A', 'C'])
@@ -85,7 +85,7 @@ describe('buildTupletWithFirstNote', () => {
   })
 
   it('a tie INTO the note already standing there survives', () => {
-    const D4 = { step: 'D', alter: 0, octave: 4 } as const
+    const D4 = { step: 'D', octave: 4 } as const
     const first = model.addNote({ ...D4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const second = model.addNote({ ...D4, duration: '8', measure: 1, beat: frac(1, 1) })
     model.updateNote(first.id, { tiedTo: second.id })
@@ -100,7 +100,7 @@ describe('buildTupletWithFirstNote', () => {
   })
 
   it('the note already standing there takes the group\'s unit', () => {
-    const was = model.addNote({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const was = model.addNote({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const built = buildTupletWithFirstNote(model, 1, 0, '8', C5, 3, 2)!
     expect(model.getNote(was.id)).toMatchObject({ duration: '8', tupletId: built.tuplet.id })
     model.repairAllMeasureGaps()
@@ -125,7 +125,7 @@ describe('applyTupletToNote', () => {
   beforeEach(() => { model = new ScoreModel('T') })
 
   it('the note becomes the group\'s first member, in its own voice and staff', () => {
-    const note = model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
+    const note = model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
     const { tuplet, note: first } = applyTupletToNote(model, note.id)!
     expect(first).toMatchObject({ step: 'E', tupletId: tuplet.id, voice: 1 })
     expect(fracToNumber(first.beat)).toBe(0)
@@ -196,7 +196,7 @@ describe('applyTupletToNote keeps the NOTE it was pressed on', () => {
   it('a tie INTO the note survives — the note keeps its id and its tiedFrom (reported)', () => {
     // Reported: D4 q tied to D4 at beat 1, that one shortened to an eighth, then made a triplet.
     // The note was re-added under a new id, the tie's tiedTo pointed at nothing and was not drawn.
-    const D4 = { step: 'D', alter: 0, octave: 4 } as const
+    const D4 = { step: 'D', octave: 4 } as const
     const first = model.addNote({ ...D4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const second = model.addNote({ ...D4, duration: '8', measure: 1, beat: frac(1, 1) })
     model.updateNote(first.id, { tiedTo: second.id })
@@ -210,8 +210,8 @@ describe('applyTupletToNote keeps the NOTE it was pressed on', () => {
   })
 
   it('every head of a CHORD stays in it', () => {
-    const low = model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) }) // same beat: joins the chord
+    const low = model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) }) // same beat: joins the chord
     const result = applyTupletToNote(model, low.id, 3, 2)!
     const heads = model.getNotesInTuplet(result.tuplet.id).filter(n => !n.isRest).map(n => n.step).sort()
     expect(heads).toEqual(['C', 'E'])

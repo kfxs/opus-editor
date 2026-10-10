@@ -164,7 +164,7 @@ describe('spacing where the DEEPEST ink stands — a loop’s inside is shorter 
     add(m, 2, 0, 1, 'q')
     const plain = spaceBarsOnSpine(m.getScore(), 0, 0, false)[1]
     const before = plain.columnAt(beat(0)) - plain.start
-    m.setKeyAt(2, { alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major' })
+    m.setKeyAt(2, { alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'C', alteration: ['sharp'] }], mode: 'major' })
     const changed = spaceBarsOnSpine(m.getScore(), 0, 0, false)[1]
     expect(changed.columnAt(beat(0)) - changed.start).toBeGreaterThan(before)
   })

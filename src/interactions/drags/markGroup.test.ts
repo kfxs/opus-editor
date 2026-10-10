@@ -31,8 +31,8 @@ describe('a group of marks, dragged', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     engine = makeEngine()
-    const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })!
-    const b = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })!
+    const a = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })!
+    const b = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })!
     note = a.id
     hairpins = [engine.hairpin.createHairpin([a.id], 'cresc')!.id, engine.hairpin.createHairpin([b.id], 'dim')!.id]
     state = createEditorState()

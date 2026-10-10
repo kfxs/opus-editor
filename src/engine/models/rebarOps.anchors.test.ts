@@ -178,7 +178,7 @@ describe('rebar preserves beat-anchored annotations (tempo marks)', () => {
     model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })
 
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }], spanBeats: frac(4, 1) },
       { measure: 1, beat: frac(0, 1), voice: 0 },
     )
 
@@ -256,7 +256,7 @@ describe('rebar preserves beat-anchored annotations (hairpins)', () => {
     model.addHairpin(2, { type: 'dim', beat: frac(0, 1), length: frac(1, 1) })   // outside
 
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }], spanBeats: frac(4, 1) },
       { measure: 1, beat: frac(0, 1), voice: 0 },
     )
 
@@ -268,7 +268,7 @@ describe('rebar preserves beat-anchored annotations (hairpins)', () => {
   it('a clip carries its hairpins, re-based to the paste position', () => {
     model.pasteEvents(
       {
-        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }],
+        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }],
         spanBeats: frac(4, 1),
         hairpins: [{ staff: 0, voice: 0, offset: frac(1, 1), length: frac(2, 1), type: 'cresc' }],
       },
@@ -364,7 +364,7 @@ describe('rebar preserves beat-anchored annotations (ottavas)', () => {
     model.addOttava(2, { beat: frac(0, 1), length: frac(1, 1), shift: -1 }) // outside
 
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }], spanBeats: frac(4, 1) },
       { measure: 1, beat: frac(0, 1), voice: 0 },
     )
 
@@ -380,7 +380,7 @@ describe('rebar preserves beat-anchored annotations (ottavas)', () => {
     model.addOttava(1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })
 
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 1, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { lanes: [{ staff: 0, voice: 1, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }], spanBeats: frac(4, 1) },
       { measure: 1, beat: frac(0, 1), voice: 1 },
     )
 
@@ -390,7 +390,7 @@ describe('rebar preserves beat-anchored annotations (ottavas)', () => {
   it('a clip carries its octave lines, re-based to the paste position', () => {
     model.pasteEvents(
       {
-        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }],
+        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }],
         spanBeats: frac(4, 1),
         ottavas: [{ staff: 0, offset: frac(1, 1), length: frac(2, 1), shift: 1 }],
       },
@@ -480,7 +480,7 @@ describe('rebar preserves beat-anchored annotations (pedals)', () => {
     model.addPedal(2, { beat: frac(0, 1), length: frac(1, 1) })  // outside
 
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }], spanBeats: frac(4, 1) },
       { measure: 1, beat: frac(0, 1), voice: 0 },
     )
 
@@ -494,7 +494,7 @@ describe('rebar preserves beat-anchored annotations (pedals)', () => {
     model.addPedal(1, { beat: frac(0, 1), length: frac(1, 1) })
 
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 1, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { lanes: [{ staff: 0, voice: 1, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }], spanBeats: frac(4, 1) },
       { measure: 1, beat: frac(0, 1), voice: 1 },
     )
 
@@ -504,7 +504,7 @@ describe('rebar preserves beat-anchored annotations (pedals)', () => {
   it('a clip carries its pedals, re-based to the paste position', () => {
     model.pasteEvents(
       {
-        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }],
+        lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }],
         spanBeats: frac(4, 1),
         pedals: [{ staff: 0, offset: frac(1, 1), length: frac(2, 1) }],
       },

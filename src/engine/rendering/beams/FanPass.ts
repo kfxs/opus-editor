@@ -675,7 +675,7 @@ function drawFanGroups(pass: FanPassContext, drawings: FanSlotDrawing[], fanJoin
           if (types.length && memberHeads.length) {
             const placed = drawFanMemberArticulations(ctx, stave, {
               types,
-              keys: memberHeads.map(mh => spellingToNoteKey(mh.pitch.step, mh.pitch.alter, mh.pitch.octave)),
+              keys: memberHeads.map(mh => spellingToNoteKey(mh.pitch.step, mh.pitch.alteration, mh.pitch.octave)),
               clef,
               headX: member.headX,
               // ⭐ To the outside of the BEAM, not to the stem tip. A stem tip is where the stem

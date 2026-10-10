@@ -13,15 +13,15 @@ test('🚨 a beam that turns the stems DOWN puts the number BELOW — the side i
     const h = window.__h
     const e = h.engine
     // Triplet 1: rest + A4 + C5 (A up, C down on their own); triplet 2: D5 F5 A5 — one beat, one beam, stems down.
-    const first = e.createTupletAtBeat(1, 0, '16', { step: 'A', alter: 0, octave: 4 })!
+    const first = e.createTupletAtBeat(1, 0, '16', { step: 'A', octave: 4 })!
     const id = first.tuplet.id
-    e.addNoteAtBeat({ step: 'A', alter: 0, octave: 4, duration: '16', measure: 1, beat: h.frac(1, 6), tupletId: id, actualDuration: h.frac(1, 6) } as never)
-    e.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: '16', measure: 1, beat: h.frac(1, 3), tupletId: id, actualDuration: h.frac(1, 6) } as never)
+    e.addNoteAtBeat({ step: 'A', octave: 4, duration: '16', measure: 1, beat: h.frac(1, 6), tupletId: id, actualDuration: h.frac(1, 6) } as never)
+    e.addNoteAtBeat({ step: 'C', octave: 5, duration: '16', measure: 1, beat: h.frac(1, 3), tupletId: id, actualDuration: h.frac(1, 6) } as never)
     e.convertToRest(first.firstNote.id)
-    const second = e.createTupletAtBeat(1, 0.5, '16', { step: 'D', alter: 0, octave: 5 })!
+    const second = e.createTupletAtBeat(1, 0.5, '16', { step: 'D', octave: 5 })!
     const id2 = second.tuplet.id
-    e.addNoteAtBeat({ step: 'F', alter: 0, octave: 5, duration: '16', measure: 1, beat: h.frac(2, 3), tupletId: id2, actualDuration: h.frac(1, 6) } as never)
-    e.addNoteAtBeat({ step: 'A', alter: 0, octave: 5, duration: '16', measure: 1, beat: h.frac(5, 6), tupletId: id2, actualDuration: h.frac(1, 6) } as never)
+    e.addNoteAtBeat({ step: 'F', octave: 5, duration: '16', measure: 1, beat: h.frac(2, 3), tupletId: id2, actualDuration: h.frac(1, 6) } as never)
+    e.addNoteAtBeat({ step: 'A', octave: 5, duration: '16', measure: 1, beat: h.frac(5, 6), tupletId: id2, actualDuration: h.frac(1, 6) } as never)
     await h.render()
     const staff = h.staves().find(s => s.measure === 1)!
     const digits = h.placed('g.tuplet text').sort((a, b) => a.x - b.x)
@@ -42,10 +42,10 @@ test('⭐ a beamed triplet flipped to the NOTEHEAD side is bracketed on auto —
     const h = window.__h
     const e = h.engine
     // E4 F4 G4 eighths — beamed, stems UP: the stem side is ABOVE.
-    const t = e.createTupletAtBeat(1, 0, '8', { step: 'E', alter: 0, octave: 4 })!
+    const t = e.createTupletAtBeat(1, 0, '8', { step: 'E', octave: 4 })!
     const id = t.tuplet.id
-    e.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: '8', measure: 1, beat: h.frac(1, 3), tupletId: id, actualDuration: h.frac(1, 3) } as never)
-    e.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: '8', measure: 1, beat: h.frac(2, 3), tupletId: id, actualDuration: h.frac(1, 3) } as never)
+    e.addNoteAtBeat({ step: 'F', octave: 4, duration: '8', measure: 1, beat: h.frac(1, 3), tupletId: id, actualDuration: h.frac(1, 3) } as never)
+    e.addNoteAtBeat({ step: 'G', octave: 4, duration: '8', measure: 1, beat: h.frac(2, 3), tupletId: id, actualDuration: h.frac(1, 3) } as never)
     const reg = (e as unknown as { renderer: { getElementRegistry(): { getByType(t: string): { tupletId?: string; tupletGeometry?: { location: number; bracketed: boolean } }[] } } }).renderer.getElementRegistry()
     const drawn = async () => {
       await h.render()

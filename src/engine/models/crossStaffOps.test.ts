@@ -33,7 +33,7 @@ describe('crossStaffOps', () => {
   })
 
   const add = (step: 'B' | 'D' | 'F', octave: number, staff: number, beat = 0) =>
-    model.addNote({ step, alter: 0, octave, duration: 'h', measure: 1, beat: frac(beat, 1), staff })
+    model.addNote({ step, octave, duration: 'h', measure: 1, beat: frac(beat, 1), staff })
 
   it('⭐ the Satie chord: two heads of a bass-staff chord cross, the third stays', () => {
     const b = add('B', 2, 1)
@@ -102,7 +102,7 @@ describe('crossStaffOps', () => {
 
   it('a single-staff score has nowhere to cross to', () => {
     const solo = new ScoreModel()
-    const n = solo.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const n = solo.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(crossPitch(solo.getScore(), n.id, -1).result).toBe('refused')
     expect(crossPitch(solo.getScore(), n.id, 1).result).toBe('refused')
   })

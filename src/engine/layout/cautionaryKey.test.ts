@@ -45,7 +45,7 @@ describe('cautionaryKeyAt', () => {
     // would announce nothing at all.
     const keys = new Map([[undefined, walk({ 9: E_FLAT, 10: C_MAJOR })]])
     const plan = cautionaryKeyAt(keys, [undefined], () => 'treble', 9, 10)!
-    expect(plan.rows[0]?.alterations.every(a => a.alter === 0)).toBe(true)
+    expect(plan.rows[0]?.alterations.every(a => a.alteration === undefined)).toBe(true)
     expect(plan.rows[0]?.alterations).toHaveLength(3)
   })
 

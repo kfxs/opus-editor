@@ -63,7 +63,7 @@ export function drawKeySignatureGhost(
   return drawSignGhost(ctx, 'ghost-keysig', cursorX, cursorY, () => {
     let x = 0
     key.alterations.forEach((alteration, i) => {
-      const glyph = signGlyph(alteration.alter)
+      const glyph = signGlyph(alteration.alteration)
       if (!glyph) return
       const char = SIGN_CHARS[glyph]
       if (!char) return

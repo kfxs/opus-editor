@@ -10,7 +10,7 @@ import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import { ScoreModel } from './ScoreModel'
 import { chordNotesAt, deleteNoteWithRepair } from './deleteNoteOps'
 
-const C4 = { step: 'C', alter: 0, octave: 4 } as const
+const C4 = { step: 'C', octave: 4 } as const
 
 describe('deleteNoteWithRepair', () => {
   let model: ScoreModel
@@ -42,8 +42,8 @@ describe('deleteNoteWithRepair', () => {
       // same-voice note on the OTHER staff makes this read as a chord, so the note is removed
       // without a replacement rest and the surviving-sibling slur re-anchor grabs the wrong staff.
       model.addStaffBelow(0)
-      const top = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })
-      const bottom = model.addNote({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+      const top = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })
+      const bottom = model.addNote({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
 
       expect(deleteNoteWithRepair(model, top.id)).toBe(true)
       const staff1Id = model.getScore().staves![1].id
@@ -79,7 +79,7 @@ describe('deleteNoteWithRepair', () => {
     it('⭐ EVERY tie that targeted it re-points onto the replacement rest — none is dropped', () => {
       // The reported bug: a chord C4+C5 tied forward to a lone C4 (C5 let-ring).
       const c4 = model.addNote({ ...C4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      const c5 = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const c5 = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
       const target = model.addNote({ ...C4, duration: 'q', measure: 1, beat: frac(1, 1) })
       model.updateNote(c4.id, { tiedTo: target.id })
       model.updateNote(c5.id, { tiedTo: target.id })
@@ -93,7 +93,7 @@ describe('deleteNoteWithRepair', () => {
 
     it('a slur anchored to it follows onto the rest, which has a NEW id', () => {
       const a = model.addNote({ ...C4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const b = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
       model.addSlur({ startNoteId: a.id, endNoteId: b.id })
 
       deleteNoteWithRepair(model, b.id)
@@ -108,8 +108,8 @@ describe('deleteNoteWithRepair', () => {
   describe('a CHORD HEAD leaves the chord standing', () => {
     it('no rest is minted, and its slur moves to a surviving sibling', () => {
       const a = model.addNote({ ...C4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      const sib = model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const sib = model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const b = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
       model.addSlur({ startNoteId: a.id, endNoteId: b.id })
 
       expect(deleteNoteWithRepair(model, a.id)).toBe(true)
@@ -137,7 +137,7 @@ describe('deleteNoteWithRepair', () => {
   describe('voices', () => {
     it('deleting the last note of voice 2 collapses the bar back to a single voice', () => {
       model.addNote({ ...C4, duration: 'w', measure: 1, beat: frac(0, 1) })
-      const v2 = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+      const v2 = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
 
       deleteNoteWithRepair(model, v2.id)
 
@@ -147,7 +147,7 @@ describe('deleteNoteWithRepair', () => {
 
     it('deleting one of several voice-2 notes keeps voice 2 (rest replacement, no collapse)', () => {
       const a = model.addNote({ ...C4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-      model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+      model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
 
       deleteNoteWithRepair(model, a.id)
 
@@ -195,9 +195,9 @@ describe('chordNotesAt — staff- and voice-scoped', () => {
     const model = new ScoreModel()
     model.addStaffBelow(0)
     const a = model.addNote({ ...C4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    model.addNote({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+    const b = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
 
     expect(chordNotesAt(model, 1, frac(0, 1)).map(n => n.id).sort()).toEqual([a.id, b.id].sort())
     expect(chordNotesAt(model, 1, frac(0, 1), 1)).toHaveLength(1)

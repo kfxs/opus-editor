@@ -12,8 +12,8 @@ function setup() {
   const c = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
   const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
   const score = model.getScore()
-  const g1 = addGrace(score, e.id, 'before', { step: 'D', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
-  const g2 = addGrace(score, e.id, 'before', { step: 'F', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
+  const g1 = addGrace(score, e.id, 'before', { step: 'D', octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
+  const g2 = addGrace(score, e.id, 'before', { step: 'F', octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
   const xs = new Map([[c.id, 100], [e.id, 200], [g1, 160], [g2, 176]])
   const engine = {
     getScore: () => score,

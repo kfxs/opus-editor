@@ -8,7 +8,7 @@ import { legatoChordIds, slurNestDepths } from './slurs'
 function modelWithNotes(beats: number[]): { model: ScoreModel; chordIdAt: (beat: number) => string } {
   const model = new ScoreModel()
   for (const b of beats) {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
   }
   const chordIdAt = (beat: number) => {
     const slot = model.getScore().measures[0].slots.find(

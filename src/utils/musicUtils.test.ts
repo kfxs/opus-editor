@@ -1,7 +1,8 @@
+import { withSigns } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
-import { alterInForceAt } from './accidentalState'
+import { alterationInForceAt } from './accidentalState'
 import { fracToNumber } from './fraction'
-import type { FanMemberChord, NotePitch, PitchAlter, PitchStep, Score } from '@/types/music'
+import type { FanMemberChord, NotePitch, PitchStep, Score } from '@/types/music'
 import { durationToBeats, calculateTotalDuration, tupletMarkText, tupletMarkRuns, deriveTupletM, tupletBracketed, measureAccidentalNotes, measureFanMemberNotes, measureSelectableNotes } from './musicUtils'
 import { buildBeatMap, buildVoiceNavBeatMap } from './beatMap'
 import { C_MAJOR } from './keySignature'
@@ -248,8 +249,8 @@ describe('musicUtils', () => {
  * MEMBER, at the beat it sounds on (docs/plans/fanned-beam-pitches-plan.md §2).
  */
 describe('measureAccidentalNotes', () => {
-  const pitch = (id: string, step: PitchStep, alter: PitchAlter): NotePitch =>
-    ({ id, step, alter, octave: 4 })
+  const pitch = (id: string, step: PitchStep, alter: number): NotePitch =>
+    ({ id, step, ...withSigns(alter), octave: 4 })
 
   /** One fanned blanca at beat 0 of a 4/4 bar, played as 3, plus a plain note at beat 2. */
   const bar = (members: FanMemberChord[]): Measure => ({
@@ -282,7 +283,7 @@ describe('measureAccidentalNotes', () => {
 
   it('⭐ so a member’s sharp is IN FORCE for a later note in the bar', () => {
     const notes = measureAccidentalNotes(bar([{ pitches: [pitch('m1', 'G', 1)] }]))
-    expect(alterInForceAt(notes, frac(2, 1), C_MAJOR, 'G', 4)).toBe(1)
+    expect(alterationInForceAt(notes, frac(2, 1), C_MAJOR, 'G', 4)).toEqual(['sharp'])
   })
 
   it('a fan with no stored members adds nothing', () => {
@@ -329,7 +330,7 @@ describe('measureAccidentalNotes', () => {
  * `buildBeatMap`, deliberately does not: a member is not a position you can type a note at.
  */
 describe('fanned members in the beat maps', () => {
-  const pitch = (id: string, step: PitchStep): NotePitch => ({ id, step, alter: 0, octave: 4 })
+  const pitch = (id: string, step: PitchStep): NotePitch => ({ id, step, octave: 4 })
 
   /** A 4/4 bar: a fanned blanca played as 3 at beat 0, then a plain blanca at beat 2. */
   const score = (): Score => ({

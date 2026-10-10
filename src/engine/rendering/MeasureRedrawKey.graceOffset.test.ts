@@ -27,7 +27,7 @@ describe('measureShapeKey — a grace\'s offset', () => {
   it('🚨 nudging a grace changes its bar\'s SHAPE key', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const grace = addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = addGrace(model.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     const before = shapeKeyOf(model)
     model.nudgeNoteOffset(model.offsetTargetOf(grace.pitches[0].id)!.key, -1)
     expect(shapeKeyOf(model)).not.toBe(before)
@@ -36,9 +36,9 @@ describe('measureShapeKey — a grace\'s offset', () => {
   it('🚨 …and nudging a BRACKETED grace does too — keyed by ITS first pitch (bracketed-grace-plan)', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const grace = addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
-    const onNote = addBracketed(model.getScore(), host.id, 'before', { step: 'B', alter: -1, octave: 4 })!
-    const onGrace = addBracketed(model.getScore(), grace.pitches[0].id, 'before', { step: 'C', alter: 0, octave: 5 })!
+    const grace = addGrace(model.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const onNote = addBracketed(model.getScore(), host.id, 'before', { step: 'B', alteration: ['flat'], octave: 4 })!
+    const onGrace = addBracketed(model.getScore(), grace.pitches[0].id, 'before', { step: 'C', octave: 5 })!
     for (const made of [onNote, onGrace]) {
       const before = shapeKeyOf(model)
       model.nudgeNoteOffset(model.offsetTargetOf(made.pitches[0].id)!.key, -1)

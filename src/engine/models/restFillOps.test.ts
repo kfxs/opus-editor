@@ -31,7 +31,7 @@ describe('rest-fill baseline (4/4) — pre-Phase-2b', () => {
   })
 
   it('quarter at beat 0 → rest fill of the remaining 3 beats', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(restShape()).toEqual([
       ['q', 1, 1],
       ['h', 2, 1],
@@ -39,12 +39,12 @@ describe('rest-fill baseline (4/4) — pre-Phase-2b', () => {
   })
 
   it('half note at beat 2 → rest fill of the leading 2 beats', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
     expect(restShape()).toEqual([['h', 0, 1]])
   })
 
   it('quarter at beat 1 → rests before and after', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     expect(restShape()).toEqual([
       ['q', 0, 1],
       ['h', 2, 1],
@@ -82,15 +82,15 @@ describe('fillGapsWithRests — per staff, per voice, around tuplets', () => {
   })
 
   it('is idempotent — a full bar is left alone', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const before = JSON.stringify(bar.slots)
     fillGapsWithRests(model.getScore(), bar)
     expect(JSON.stringify(bar.slots)).toBe(before)
   })
 
   it('each VOICE is its own stream: a hole in voice 2 is filled in voice 2, voice 1 untouched', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
     dropRests(r => r.voice === 1)
     fillGapsWithRests(model.getScore(), bar)
     expect(rests(r => r.voice === 1)).toEqual(['q@1', 'h@2'])
@@ -100,7 +100,7 @@ describe('fillGapsWithRests — per staff, per voice, around tuplets', () => {
   it('each STAFF is its own lane, and the FIRST staff\'s rests carry no staffId', () => {
     model.addStaffBelow(0)
     const lowId = model.getScore().staves![1].id
-    model.addNote({ step: 'C', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 })
+    model.addNote({ step: 'C', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 })
     dropRests()
     fillGapsWithRests(model.getScore(), bar)
     expect(rests(r => r.staffId === lowId)).toEqual(['h@2'])

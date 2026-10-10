@@ -379,7 +379,7 @@ describe('pressFan turns a fan round without rebuilding it', () => {
     // Retune the members — pitch, and a sign on one of them.
     const members = slot.fan!.members!
     engine.updateNote(members[0].pitches[0].id, { step: 'E', octave: 4 })
-    engine.updateNote(members[1].pitches[0].id, { step: 'G', alter: 1, octave: 4, forceAccidental: true })
+    engine.updateNote(members[1].pitches[0].id, { step: 'G', alteration: ['sharp'], octave: 4, forceAccidental: true })
     return { id, memberIds: members.map(m => m.pitches[0].id) }
   }
 
@@ -401,7 +401,7 @@ describe('pressFan turns a fan round without rebuilding it', () => {
     expect(members.map(m => m.pitches[0].id), 'the same pitch ids — a slur or an offset on one survives')
       .toEqual(memberIds)
     expect(members.map(m => m.pitches[0].step)).toEqual(['E', 'G', 'C'])
-    expect(members[1].pitches[0].alter).toBe(1)
+    expect(members[1].pitches[0].alteration).toEqual(['sharp'])
   })
 
   it('keeps a COLLAPSED fan\'s span, so the bar does not silently change length', () => {

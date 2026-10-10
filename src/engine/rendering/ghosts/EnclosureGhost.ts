@@ -23,7 +23,7 @@ const centred = (box: Box, cursorX: number, cursorY: number) => ({
 })
 
 export function drawEnclosureGhost(ctx: DrawContext, cursorX: number, cursorY: number, shape: HeadEnclosure): boolean {
-  const layout = enclosureLayout({ notes: [{ id: 'ghost', step: 'B', alter: 0, octave: 4, enclosure: shape }] }, () => null, 'treble')
+  const layout = enclosureLayout({ notes: [{ id: 'ghost', step: 'B', octave: 4, enclosure: shape }] }, () => null, 'treble')
   if (!layout) return false
   return drawSignGhost(ctx, ENCLOSURE_GHOST_GROUP_CLASS, cursorX, cursorY,
     () => stampEnclosure(ctx, layout, sp => sp * STAFF_SPACE_PX, () => 0, musicGlyphFont()), centred)

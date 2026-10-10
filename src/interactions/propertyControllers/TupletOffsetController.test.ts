@@ -16,7 +16,7 @@ describe('TupletOffsetController', () => {
 
   beforeEach(() => {
     engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
-    tupletId = engine.createTupletAtBeat(1, 0, '8', { step: 'E', alter: 0, octave: 4 }, 3, 2, 0)!.tuplet.id
+    tupletId = engine.createTupletAtBeat(1, 0, '8', { step: 'E', octave: 4 }, 3, 2, 0)!.tuplet.id
     renders = 0
     controller = new TupletOffsetController(() => engine, () => { renders++ })
   })

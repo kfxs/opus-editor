@@ -1,5 +1,6 @@
 /**
- * PITCH as SPELLING — step + alter + octave, never a MIDI integer (`utils/pitchSpelling` derives that).
+ * PITCH as SPELLING — step + alteration + octave, never a MIDI integer (a key number is a TUNING's,
+ * `engine/audio/equalTemperament`).
  *
  * One chapter of the score's types — import it through the barrel, `@/types/music`.
  */
@@ -15,25 +16,30 @@ export type Accidental = '#' | 'b' | 'n'
 export type PitchStep = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
 
 /**
- * Chromatic alteration in semitones.
- * -2 = double-flat (bb), -1 = flat (b), 0 = natural, 1 = sharp (#), 2 = double-sharp (##)
+ * ⭐ A SIGN a pitch may carry — the SMuFL glyph name without its `accidental` / `acc` prefix. One row
+ * each in `utils/alterationSigns` (its glyph, its rank); a new sign is a row there and a name here.
  */
-export type PitchAlter = -2 | -1 | 0 | 1 | 2
+export type AlterationSignId = 'doubleFlat' | 'flat' | 'sharp' | 'doubleSharp'
 
 /**
- * Enharmonic-aware pitch spelling: step + alteration + scientific octave.
+ * ⭐⭐ **WHAT ALTERS A LETTER — an ordered LIST of signs, left to right as drawn** (decision A,
+ * docs/plans/alteration-signs-plan.md §1). ⛔ Never empty and ⛔ never a lone natural: an
+ * unaltered pitch has NO `alteration` field. It is the SYMBOL; what it sounds like is a tuning's.
+ */
+export type Alteration = readonly AlterationSignId[]
+
+/**
+ * Pitch spelling: step + alteration + scientific octave — what is WRITTEN.
+ *   C#4 = { step: 'C', alteration: ['sharp'], octave: 4 }
+ *   Db4 = { step: 'D', alteration: ['flat'],  octave: 4 }
+ *   C4  = { step: 'C', octave: 4 }                          — absent = unaltered
  *
- * This is the industry-standard representation (MusicXML, music21).
- * Unlike a bare MIDI integer, it distinguishes enharmonic equivalents:
- *   C#4 = { step: 'C', alter:  1, octave: 4 }  — MIDI 61
- *   Db4 = { step: 'D', alter: -1, octave: 4 }  — MIDI 61
- *
- * MIDI is always *derived* from this, never primary.
- * Which of two is higher: `utils/pitchOrder` (as WRITTEN). MIDI is playback's alone.
+ * Which of two is higher, or the same: `utils/pitchOrder`. A key number is playback's alone.
  */
 export interface PitchSpelling {
   step: PitchStep
-  alter: PitchAlter
+  /** The signs that alter the letter — absent when unaltered ({@link Alteration}). */
+  alteration?: Alteration
   /** Scientific octave number — C4 is middle C (MIDI 60) */
   octave: number
 }

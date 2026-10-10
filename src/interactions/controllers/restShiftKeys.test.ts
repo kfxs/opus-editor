@@ -28,7 +28,7 @@ describe('nudgeSelectedRests — ↑/↓ on selected rests', () => {
   beforeEach(() => {
     engine = makeEngine()
     // His bar: a quarter note, then the rests the fill leaves behind it (q + h).
-    note = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    note = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     rests = engine.getScore().measures[0].slots.filter(s => s.type === 'rest').map(s => s.id)
     expect(rests.length).toBeGreaterThanOrEqual(2)
     state = createEditorState()

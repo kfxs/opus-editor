@@ -12,27 +12,28 @@
  * The running map is keyed by **diatonic position** — octave-specific, so F4 and F5 are two
  * entries. A key signature governs a **LETTER, in all octaves** (Gould pp. 93–94, and it is what
  * makes a key signature a key signature). So the key is ⛔ never poured into that map: it is the
- * answer consulted **when a position is absent from it** ({@link alterInForce}). Pre-filling would
+ * answer consulted **when a position is absent from it** ({@link alterationInForce}). Pre-filling would
  * need seven entries per octave and would still be wrong at the edges.
  *
  * 🚨 **And the key never suppresses a COURTESY.** Gould p. 81, printed: *"This practice holds good
  * even when a key signature corrects the accidental"* — her figure is in E♭ major and still writes
  * an explicit ♭ in bar 2. `forceAccidental` is what carries that intent, and it is checked BEFORE
- * the suppression below. ⛔ Do not re-derive "was this sign explicit?" from `alter`.
+ * the suppression below. ⛔ Do not re-derive "was this sign explicit?" from `alteration`.
  *
  * Pure and dependency-light. The CALLER chooses which notes to feed in (the whole measure
  * across voices, or a single voice) — that scope is the caller's interpretation, not part
  * of this walk — **and which key**: five call sites ask, and the key each one needs is ITS OWN
  * BAR'S (a fan member and a cross-bar beam member can live in a different bar from the slot being
  * drawn), ⛔ never "the key the caller happened to have".
- * `MusicEngine.getPrevailingAlter` ("prevailing alter") and
+ * `MusicEngine.getPrevailingAlteration` ("prevailing alteration") and
  * `SelectionController.computeDisplayedAccidental` ("displayed sign") both build on this;
  * `NoteBuilder`'s render pass implements the same rule incrementally as it lays out slots.
  */
-import type { ChordRest, Fraction, KeySignature, NotePitch, PitchAlter, PitchStep } from '@/types/music'
+import type { Alteration, ChordRest, Fraction, KeySignature, NotePitch, PitchStep } from '@/types/music'
 import { fracLt, fracCompare } from './fraction'
-import { keyAlterOf } from './keySignature'
-import { spellingDiatonicPos, alterToString } from './pitchSpelling'
+import { keyAlterationOf } from './keySignature'
+import { spellingDiatonicPos } from './pitchSpelling'
+import { alterationCode, sameAlteration } from './alterationSigns'
 
 /** The minimal note shape the running-accidental walk reads. */
 export interface AccidentalNote {
@@ -40,23 +41,29 @@ export interface AccidentalNote {
   tiedFrom?: string
   step?: PitchStep
   octave?: number
-  alter?: PitchAlter
+  alteration?: Alteration
   beat: Fraction
 }
 
 /**
- * Map from diatonic position ({@link spellingDiatonicPos}) → the alteration of the LAST
- * note there strictly before `beat`. A position absent from the map has not appeared yet
- * in the bar. Only non-rest, non-tied notes count (a tied continuation re-states nothing),
+ * What the bar has said, per line: diatonic position ({@link spellingDiatonicPos}) → the alteration
+ * of the LAST note there. ⚠️ A position ABSENT from the map has not appeared yet in the bar; one
+ * PRESENT with `undefined` is an explicit NATURAL — the two are told apart by `has`, never by `??`.
+ */
+export type BarAlterations = ReadonlyMap<number, Alteration | undefined>
+
+/**
+ * {@link BarAlterations}: the alteration of the LAST note at each position strictly before `beat`.
+ * A position absent from the map has not appeared yet in the bar. Only non-rest, non-tied notes count (a tied continuation re-states nothing),
  * and same-beat notes are excluded (strictly `< beat`), so a chord never alters itself.
  */
-export function prevailingAlterations(notes: AccidentalNote[], beat: Fraction): Map<number, PitchAlter> {
-  const active = new Map<number, PitchAlter>()
+export function prevailingAlterations(notes: AccidentalNote[], beat: Fraction): Map<number, Alteration | undefined> {
+  const active = new Map<number, Alteration | undefined>()
   const preceding = notes
     .filter(n => !n.isRest && !n.tiedFrom && n.step !== undefined && n.octave !== undefined && fracLt(n.beat, beat))
     .sort((a, b) => fracCompare(a.beat, b.beat))
   for (const n of preceding) {
-    active.set(spellingDiatonicPos(n.step!, n.octave!), n.alter ?? 0)
+    active.set(spellingDiatonicPos(n.step!, n.octave!), n.alteration)
   }
   return active
 }
@@ -70,24 +77,26 @@ export function prevailingAlterations(notes: AccidentalNote[], beat: Fraction): 
  * accidental" reverts to are all this question asked from four places
  * (docs/plans/key-signature-plan.md §3).
  *
- * ⚠️ **`?? `, not `||`** — an explicit natural earlier in the bar is `0`, and it must WIN over a
- * sharp in the key. That is the whole difference between "the bar said nothing" and "the bar said
- * natural", and it is the one line where a key signature could silently overrule a written sign.
+ * ⚠️ **`has`, not `??`** — an explicit natural earlier in the bar is stored as `undefined`, and it must
+ * WIN over a sharp in the key. That is the whole difference between "the bar said nothing" and "the
+ * bar said natural", and it is the one line where a key signature could silently overrule a written sign.
+ * @returns the alteration in force — `undefined` = the letter unaltered (natural).
  */
-export function alterInForce(
-  barAlterations: ReadonlyMap<number, PitchAlter>,
+export function alterationInForce(
+  barAlterations: BarAlterations,
   key: KeySignature,
   step: PitchStep,
   octave: number,
-): PitchAlter {
-  return barAlterations.get(spellingDiatonicPos(step, octave)) ?? keyAlterOf(key, step)
+): Alteration | undefined {
+  const position = spellingDiatonicPos(step, octave)
+  return barAlterations.has(position) ? barAlterations.get(position) : keyAlterationOf(key, step)
 }
 
-/** {@link alterInForce} from a bar's notes: the walk and the fallback in one call. */
-export function alterInForceAt(
+/** {@link alterationInForce} from a bar's notes: the walk and the fallback in one call. */
+export function alterationInForceAt(
   notes: AccidentalNote[], beat: Fraction, key: KeySignature, step: PitchStep, octave: number,
-): PitchAlter {
-  return alterInForce(prevailingAlterations(notes, beat), key, step, octave)
+): Alteration | undefined {
+  return alterationInForce(prevailingAlterations(notes, beat), key, step, octave)
 }
 
 /**
@@ -124,7 +133,7 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
   const signs = new Map<string, string | null>()
   // Key = spellingDiatonicPos(step, octave); value = the alteration in force there. A position
   // absent from the map falls back to the KEY SIGNATURE — never pre-filled from it, see the header.
-  const active = new Map<number, PitchAlter>()
+  const active = new Map<number, Alteration | undefined>()
 
   /** `write` = false: a BRACKETED pitch — its sign is read against what is in force, ⛔ and it puts
    *  nothing in force (docs/plans/bracketed-grace-plan.md B6: information, not an attack). */
@@ -134,22 +143,22 @@ export function displayedAccidentals(slots: ChordRest[], key: KeySignature): Map
       return
     }
     const dPos = spellingDiatonicPos(p.step, p.octave)
-    const governing = alterInForce(active, key, p.step, p.octave)
-    if (p.alter !== 0) {
+    const governing = alterationInForce(active, key, p.step, p.octave)
+    if (p.alteration) {
       // Altered pitch — show the sign unless the same alteration is already in force (from the bar
       // OR from the signature), and unless it was explicitly asked for (Gould p. 81).
-      if (!p.forceAccidental && governing === p.alter) {
+      if (!p.forceAccidental && sameAlteration(governing, p.alteration)) {
         signs.set(p.id, null)
       } else {
-        signs.set(p.id, alterToString(p.alter))
+        signs.set(p.id, alterationCode(p.alteration))
       }
-      if (write) active.set(dPos, p.alter)
-    } else if (governing !== 0) {
+      if (write) active.set(dPos, p.alteration)
+    } else if (governing) {
       signs.set(p.id, 'n') // cancel what is in force here — an earlier accidental, or the key
-      if (write) active.set(dPos, 0)
+      if (write) active.set(dPos, undefined)
     } else if (p.forceAccidental) {
       signs.set(p.id, 'n') // a courtesy natural, asked for explicitly
-      if (write) active.set(dPos, 0)
+      if (write) active.set(dPos, undefined)
     } else {
       signs.set(p.id, null)
     }

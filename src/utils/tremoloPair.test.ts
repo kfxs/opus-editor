@@ -11,7 +11,7 @@ import type { Chord, ChordRest, NoteDuration, Rest, BeamMode } from '@/types/mus
 let n = 0
 const chord = (beat: number, duration: NoteDuration = 'q', extra: Partial<Chord> = {}): Chord => ({
   id: `c${n++}`, type: 'chord', beat: frac(beat, 1), duration, measure: 1,
-  notes: [{ id: `p${n++}`, step: 'C', alter: 0, octave: 4 }],
+  notes: [{ id: `p${n++}`, step: 'C', octave: 4 }],
   ...extra,
 })
 const rest = (beat: number, duration: NoteDuration = 'q'): Rest =>

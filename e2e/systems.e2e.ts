@@ -116,9 +116,9 @@ test('⭐⭐ a GRAND STAFF agrees on x: the same beat lands at the same place on
     steps.forEach((step, i) => {
       h.engine.addNoteAtBeat({ step, octave: i === 7 ? 5 : 4, duration: '8', measure: 2, beat: h.frac(i, 2), staff: 0 })
     })
-    h.engine.addNoteAtBeat({ step: 'C', alter: -1, octave: 4, duration: 'q', measure: 2, beat: h.frac(0, 1), staff: 1 })
-    h.engine.addNoteAtBeat({ step: 'A', alter: 1, octave: 4, duration: 'q', measure: 2, beat: h.frac(1, 1), staff: 1 })
-    h.engine.addNoteAtBeat({ step: 'G', alter: 1, octave: 4, duration: 'h', measure: 2, beat: h.frac(2, 1), staff: 1 })
+    h.engine.addNoteAtBeat({ step: 'C', alteration: ['flat'], octave: 4, duration: 'q', measure: 2, beat: h.frac(0, 1), staff: 1 })
+    h.engine.addNoteAtBeat({ step: 'A', alteration: ['sharp'], octave: 4, duration: 'q', measure: 2, beat: h.frac(1, 1), staff: 1 })
+    h.engine.addNoteAtBeat({ step: 'G', alteration: ['sharp'], octave: 4, duration: 'h', measure: 2, beat: h.frac(2, 1), staff: 1 })
     await h.render()
 
     const staves = h.staves().filter(stave => stave.measure === 2)

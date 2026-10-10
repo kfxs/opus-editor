@@ -22,8 +22,8 @@ describe('noteOffsetKeys — the note offset on the keys', () => {
 
   beforeEach(() => {
     engine = makeEngine()
-    note = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    grace = engine.grace.addGrace(note, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
+    note = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    grace = engine.grace.addGrace(note, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
     state = createEditorState()
     render = vi.fn<() => void>()
   })
@@ -64,7 +64,7 @@ describe('noteOffsetKeys — the note offset on the keys', () => {
   })
 
   it('⭐ a BRACKETED grace has no column either — Ctrl+←/→ OFFSET it, Ctrl+Backspace resets it (his ask, 2026-09-23)', () => {
-    const b = engine.bracketed.add(note, 'before', { step: 'B', alter: -1, octave: 4 })!.pitches[0].id
+    const b = engine.bracketed.add(note, 'before', { step: 'B', alteration: ['flat'], octave: 4 })!.pitches[0].id
     select(b)
     expect(selectedHasNoColumn(engine, state)).toBe(true)
     expect(nudgeSelectedNoteOffset(engine, state, -0.5, render)).toBe(true)

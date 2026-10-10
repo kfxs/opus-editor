@@ -886,7 +886,7 @@ describe('⭐⭐ the note’s MODIFIERS — the accidental, the dot and the arti
   /** A bar with a sharp on the first note and a dot on the second. */
   function marked(articulate?: 'staccato' | 'accent'): ScoreModel {
     const model = new ScoreModel()
-    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), alter: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), alteration: ['sharp'] })
     model.addNote({
       step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), dots: 1,
       ...(articulate ? { articulations: [articulate] } : {}),

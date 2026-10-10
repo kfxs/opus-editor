@@ -73,9 +73,9 @@ describe('MusicEngine — ties', () => {
 
   it('toggleTie on a chord member ties to the matching pitch in the NEXT slot, not a sibling head', () => {
     // Chord G4 + D5 at beat 1, then a lone G4 at beat 2.
-    const g1 = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const d5 = engine.addChordNote({ step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const g2 = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const g1 = addNote(engine, { step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const d5 = engine.addChordNote({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const g2 = addNote(engine, { step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     expect(engine.toggleTie(g1.id)).toBe(true)
     expect(engine.getNote(g1.id)!.tiedTo).toBe(g2.id)   // tied across to G4@2
@@ -84,10 +84,10 @@ describe('MusicEngine — ties', () => {
   })
 
   it('tieSelection ties EVERY selected note in a run, not just the last', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) }) // not selected
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) }) // not selected
 
     expect(engine.tieSelection([a.id, b.id, c.id])).toBe(true)
     expect(engine.getNote(a.id)!.tiedTo).toBe(b.id) // a → b
@@ -97,10 +97,10 @@ describe('MusicEngine — ties', () => {
 
   it('tieSelection ties two chords pitch-for-pitch', () => {
     // Chord C4+E4 at beat 0, chord C4+E4 at beat 1.
-    const c1 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const e1 = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c2 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const e2 = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c1 = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e1 = engine.addChordNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c2 = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const e2 = engine.addChordNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     expect(engine.tieSelection([c1.id, e1.id, c2.id, e2.id])).toBe(true)
     expect(engine.getNote(c1.id)!.tiedTo).toBe(c2.id) // C → C
@@ -110,10 +110,10 @@ describe('MusicEngine — ties', () => {
   })
 
   it('tieSelection on a single chord ties forward to the next slot', () => {
-    const c1 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const e1 = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c2 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const e2 = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c1 = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e1 = engine.addChordNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c2 = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const e2 = engine.addChordNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     // Only the first chord selected → it ties to the next slot (single-position case).
     expect(engine.tieSelection([c1.id, e1.id])).toBe(true)
@@ -122,9 +122,9 @@ describe('MusicEngine — ties', () => {
   })
 
   it('tieSelection toggles off when the whole run is already tied', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     expect(engine.tieSelection([a.id, b.id, c.id])).toBe(true)
     expect(engine.tieSelection([a.id, b.id, c.id])).toBe(false) // second press removes
@@ -134,9 +134,9 @@ describe('MusicEngine — ties', () => {
   })
 
   it('tieSelection is ONE undo step of its own: undo takes the ties and leaves the notes', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     engine.renderScore()
     engine.tieSelection([a.id, b.id, c.id])
@@ -156,8 +156,8 @@ describe('MusicEngine — ties', () => {
   })
 
   it('the undo invariant is ARMED on a real engine: a mutator that stops asking throws', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     // `toggleTie` asks through `mutate`; with that silenced it is exactly the bug `tieSelection` had.
     ;(engine as unknown as { mutate: () => void }).mutate = () => {}
     expect(() => engine.toggleTie(a.id)).toThrow(/undo invariant/)
@@ -165,9 +165,9 @@ describe('MusicEngine — ties', () => {
 
   it('toggleTie ties a chord member with no same pitch ahead to the next slot (let-ring)', () => {
     // Chord C4+C5 at beat 0, then a lone C4 at beat 1 — C5 has no partner.
-    const c4 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c5 = engine.addChordNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const c4next = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c4 = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c5 = engine.addChordNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c4next = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     expect(engine.toggleTie(c4.id)).toBe(true) // C4 → C4 (same pitch)
     expect(engine.getNote(c4.id)!.tiedTo).toBe(c4next.id)
@@ -176,8 +176,8 @@ describe('MusicEngine — ties', () => {
   })
 
   it('flipTie inverts the tie curve direction as one undo step', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     expect(engine.toggleTie(a.id)).toBe(true) // tie C → C
 
     const dirOf = () => {

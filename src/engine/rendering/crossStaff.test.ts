@@ -6,7 +6,7 @@ import { fracCreate as frac } from '@/utils/fraction'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
 const pitch = (id: string, displayStaffId?: string): NotePitch =>
-  ({ id, step: 'D', alter: 0, octave: 4, ...(displayStaffId ? { displayStaffId } : {}) })
+  ({ id, step: 'D', octave: 4, ...(displayStaffId ? { displayStaffId } : {}) })
 
 const chord = (notes: NotePitch[], beat = 0): Chord =>
   ({ id: `c${beat}`, type: 'chord', beat: frac(beat, 1), duration: 'q', measure: 1, notes })

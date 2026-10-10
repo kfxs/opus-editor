@@ -9,7 +9,7 @@ import { fracCreate as frac } from '@/utils/fraction'
  * Subject: `./restGraceOps` — a REST's BRACKETED graces ride the graces' hand-over (B10 reversed, his
  * report 2026-09-23): entered first on an empty beat, taken over by the note that takes the rest's place.
  */
-const Bb4 = { step: 'B' as const, alter: -1 as const, octave: 4 }
+const Bb4 = { step: 'B' as const, alteration: ['flat'] as const, octave: 4 }
 
 describe('restGraceOps — bracketed graces on a rest', () => {
   it('⭐ a note entered at the rest\'s beat TAKES its bracketed graces', () => {

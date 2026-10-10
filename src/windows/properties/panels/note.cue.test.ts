@@ -12,7 +12,7 @@ import type { InspectedElement } from '@/interactions/state/inspectedElement'
  */
 const inspected = (kind: 'note' | 'rest' | 'grace' | 'bracketed', cue?: true): InspectedElement[] => ([{
   kind,
-  data: { id: 'n-1', step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, ...(kind === 'rest' && { isRest: true }), ...(cue && { cue }) },
+  data: { id: 'n-1', step: 'C', octave: 5, duration: 'q', measure: 1, ...(kind === 'rest' && { isRest: true }), ...(cue && { cue }) },
   ...(kind === 'bracketed' && { derived: { side: 'before' } }),
 } as unknown as InspectedElement])
 

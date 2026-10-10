@@ -217,7 +217,7 @@ describe('the members are drawn as themselves', () => {
 
   it('⭐ an ALTERED member draws its sign — and only the first of them does', () => {
     const { model, slot } = risingFan(4)
-    for (const m of slot.fan!.members!) { m.pitches[0].step = 'F'; m.pitches[0].alter = 1 }
+    for (const m of slot.fan!.members!) { m.pitches[0].step = 'F'; m.pitches[0].alteration = ['sharp'] }
     const { renderer, container } = makeRenderer()
     renderer.renderScore(model.getScore())
     // Three member groups: the first F♯ shows its sign, the two repeats do not. The head's own glyph
@@ -795,8 +795,8 @@ describe('the fan draws through the scene', () => {
       ...FAN,
       count: 3,
       members: [
-        { pitches: [{ id: 'm1', step: 'F', alter: 1, octave: 4 }] },
-        { pitches: [{ id: 'm2', step: 'A', alter: 0, octave: 4 }] },
+        { pitches: [{ id: 'm1', step: 'F', alteration: ['sharp'], octave: 4 }] },
+        { pitches: [{ id: 'm2', step: 'A', octave: 4 }] },
       ],
     })
     const { renderer } = makeRenderer()

@@ -31,7 +31,7 @@ function chord(
   extra: Partial<Chord> = {},
 ): Chord {
   const notes: NotePitch[] = pitches.map(([step, octave]) => ({
-    id: `p${nextId++}`, step, alter: 0, octave,
+    id: `p${nextId++}`, step, octave,
   }))
   return { id: `c${nextId++}`, type: 'chord', beat, duration, measure: 1, voice, notes, ...extra }
 }

@@ -80,6 +80,14 @@ file is **refused with a reason** rather than loaded with its accidentals silent
 mechanically (`alter: 1` → `alteration: ['accidentalSharp']`, `alter: 0` → removed).
 ✔ Whole unit suite, `build:check`, browser suite unchanged, and the three examples drawn before and
 after compare identical. 👁 His check: the examples open and look and sound the same.
+✅ **Built 2026-10-10.** Score file v2 (a v1 file, or a bare score still saying `alter`, is refused with
+the reason); clipboard v6. The examples re-saved by a throwaway script (104 + 148 + 330 signs converted,
+every `alter: 0` dropped — the diff is those lines and the version, nothing else). ⭐ **Drawn before and
+after: byte-identical** scenes and SVGs for all three (113 accidentals in Syrinx alone, so the probe
+reached the code that changed), and every scheduled note's onset, length, key and velocity identical.
+Sound now has ONE home: `equalTemperament`'s per-sign semitone table (a sign with no row there does not
+compile). The bar's running accidentals keep "absent" and "an explicit natural" apart with `has`, not
+`??` — a natural is stored there as `undefined`. Specs write fixtures through `testing/signs`.
 
 **M3 — the drawing speaks signs.** The renderer still names accidentals by five strings inherited
 from VexFlow (`'#' 'b' 'n' '##' 'bb'`) in its glyph table, its column packer, its spacing rows, the

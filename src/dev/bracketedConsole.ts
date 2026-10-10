@@ -21,6 +21,8 @@
  * wires it. ⏭️ Its entry half goes when P2's stamp can enter one by hand; its looks half when his eye has
  * chosen (the winner becomes the `house` row, the `dev/graceConsole` contract).
  */
+import { alterationField, alterationOfCode } from '@/utils/alterationSigns'
+import { formatPitch } from '@/utils/pitchSpelling'
 import { dbg } from '@/utils/debug'
 import type { MusicEngine } from '@/engine/MusicEngine'
 import type { BracketedGrace, PitchSpelling, Score } from '@/types/music'
@@ -41,14 +43,13 @@ export interface BracketedConsole {
   reset(): ReturnType<typeof bracketedSettings>
 }
 
-const ALTERS: Record<string, PitchSpelling['alter']> = { '': 0, '#': 1, '##': 2, b: -1, bb: -2, n: 0 }
 
 /** `'Bb3'` → a spelling; `'Fn4'` forces the natural. Null for anything else. */
 function parseSpelling(text: string): (PitchSpelling & { forceAccidental?: boolean }) | null {
   const m = /^([A-Ga-g])(##|#|bb|b|n)?(-?\d)$/.exec(text.trim())
   if (!m) return null
   const spelling: PitchSpelling & { forceAccidental?: boolean } = {
-    step: m[1].toUpperCase() as PitchSpelling['step'], alter: ALTERS[m[2] ?? ''], octave: Number(m[3]),
+    step: m[1].toUpperCase() as PitchSpelling['step'], ...alterationField(alterationOfCode(m[2])), octave: Number(m[3]),
   }
   if (m[2] === 'n') spelling.forceAccidental = true
   return spelling
@@ -58,7 +59,7 @@ function parseSpelling(text: string): (PitchSpelling & { forceAccidental?: boole
 function describe(score: Score): string[] {
   const lines: string[] = []
   const show = (where: string, list: readonly BracketedGrace[] | undefined, side: BracketedSide) => {
-    list?.forEach((b, k) => lines.push(`${where} ${side}[${k}]: ${b.pitches.map(p => `${p.step}${p.alter ? (p.alter > 0 ? '#'.repeat(p.alter) : 'b'.repeat(-p.alter)) : ''}${p.octave} (${p.id})`).join(' + ')}`))
+    list?.forEach((b, k) => lines.push(`${where} ${side}[${k}]: ${b.pitches.map(p => `${formatPitch(p)} (${p.id})`).join(' + ')}`))
   }
   for (const m of score.measures) {
     for (const slot of m.slots) {

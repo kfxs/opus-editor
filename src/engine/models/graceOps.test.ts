@@ -22,8 +22,8 @@ describe('graceOps', () => {
     score = model.getScore()
   })
 
-  const D4 = { step: 'D' as const, alter: 0 as const, octave: 4 }
-  const E4 = { step: 'E' as const, alter: 0 as const, octave: 4 }
+  const D4 = { step: 'D' as const, octave: 4 }
+  const E4 = { step: 'E' as const, octave: 4 }
   const EIGHTH = { duration: '8' as const }
 
   /** A quarter C4 on beat `b` of bar 1. */
@@ -58,7 +58,7 @@ describe('graceOps', () => {
 
     it('⭐ an INDEX puts the new grace where the click was — first, between, clamped past the end (P2a)', () => {
       const host = quarter()
-      const F4 = { step: 'F' as const, alter: 0 as const, octave: 4 }
+      const F4 = { step: 'F' as const, octave: 4 }
       graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)
       graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', EIGHTH, 0)
       graceOps.addGrace(score, host.id, 'before', F4, 'appoggiatura', EIGHTH, 1)
@@ -167,8 +167,8 @@ describe('graceOps', () => {
       const host = quarter()
       const grace = graceOps.addGrace(score, host.id, 'before', D4, 'appoggiatura', EIGHTH)!
       const id = grace.pitches[0].id
-      model.updateNote(id, { step: 'F', alter: 1, octave: 5, articulations: ['staccato'], duration: 'w' })
-      expect(grace.pitches[0]).toMatchObject({ step: 'F', alter: 1, octave: 5 })
+      model.updateNote(id, { step: 'F', alteration: ['sharp'], octave: 5, articulations: ['staccato'], duration: 'w' })
+      expect(grace.pitches[0]).toMatchObject({ step: 'F', alteration: ['sharp'], octave: 5 })
       expect(grace.articulations).toEqual(['staccato'])
       expect(grace.duration).toBe('8') // a rhythm field is the SLOT's — ignored, as for a fan member
       expect(chordOf(host.id).notes[0]).toMatchObject({ step: 'C', octave: 4 })
@@ -200,7 +200,7 @@ describe('graceOps', () => {
     it('⭐ an ENHARMONIC is another pitch (M1): F♭ joins an E', () => {
       const host = quarter()
       const grace = graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', EIGHTH)!
-      expect(graceOps.addGracePitch(score, grace.pitches[0].id, { step: 'F', alter: -1, octave: 4 })).not.toBeNull()
+      expect(graceOps.addGracePitch(score, grace.pitches[0].id, { step: 'F', alteration: ['flat'], octave: 4 })).not.toBeNull()
       expect(grace.pitches).toHaveLength(2)
     })
   })
@@ -374,7 +374,7 @@ describe('graceOps.setGraceWritten — a grace\'s written value (plan §3)', () 
   it('⭐ sets the duration and the dots on the GRACE, and nothing in the bar moves', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const grace = graceOps.addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = graceOps.addGrace(model.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     const slotsBefore = JSON.stringify(model.getMeasure(1)!.slots.map(s => [s.type, s.duration, fracToNumber(s.beat)]))
     expect(graceOps.setGraceWritten(model.getScore(), grace.pitches[0].id, { duration: '16', dots: 1 })).toBe(true)
     expect(grace).toMatchObject({ duration: '16', dots: 1 })
@@ -386,7 +386,7 @@ describe('graceOps.setGraceWritten — a grace\'s written value (plan §3)', () 
   it('⭐ a grace takes 1–3 dots as a note does — and the same LIMIT refuses more, writing nothing (multiple-dots-plan D7)', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const grace = graceOps.addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '128' })!
+    const grace = graceOps.addGrace(model.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '128' })!
     expect(graceOps.setGraceWritten(model.getScore(), grace.pitches[0].id, { dots: 2 })).toBe(true)
     expect(grace.dots).toBe(2)
     expect(graceOps.setGraceWritten(model.getScore(), grace.pitches[0].id, { dots: 3 })).toBe(false) // a 128th takes two
@@ -406,7 +406,7 @@ describe('graceOps.setGraceBeam — the beam keys on a grace (his report, 2026-0
   it('writes the statement, `auto` deletes it, the same value is no change', () => {
     const model = new ScoreModel()
     const note = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const g = graceOps.addGrace(model.getScore(), note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const g = graceOps.addGrace(model.getScore(), note.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     const id = g.pitches[0].id
     expect(graceOps.setGraceBeam(model.getScore(), id, 'single')).toBe(true)
     expect(g.beam).toBe('single')

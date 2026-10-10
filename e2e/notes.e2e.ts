@@ -139,8 +139,8 @@ test('a beam over rising pitches slopes up, and never past the `vexflow` rule’
 test('an accidental below the staff clears its own ledger lines', async ({ score }) => {
   const measured = await score.evaluate(async () => {
     const h = window.__h
-    h.engine.addNoteAtBeat({ step: 'C', alter: 1, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addNoteAtBeat({ step: 'A', alter: 1, octave: 3, duration: 'q', measure: 1, beat: h.frac(1, 1) })
+    h.engine.addNoteAtBeat({ step: 'C', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'A', alteration: ['sharp'], octave: 3, duration: 'q', measure: 1, beat: h.frac(1, 1) })
     await h.render()
     // The sign's own ADVANCE width — the same measurement VexFlow places it by. (Not `getBBox`,
     // which on a music glyph is the text LAYOUT box and reports a height the ink never had.)

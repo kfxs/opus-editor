@@ -138,12 +138,12 @@ export function beginNoteDrag(
     if (!measure) return
     const position = eng.pixelToPosition({ x: mx, y: my }, measureCapacityQuarters(measure))
     const { step, octave } = position.spelling
-    const alter = entryAlteration(
+    const alteration = entryAlteration(
       eng.getScore(), { measure: note.measure, beat: note.beat, staff: note.staff }, step, octave)
-    const from = { step: note.step!, alter: note.alter ?? 0, octave: note.octave! }
-    if (samePitch({ step, alter, octave }, from)) return
-    dbg(`Drag pitch change | ${formatPitch(from)} -> ${formatPitch({ step, alter, octave })}`)
-    eng.updateNote(id, { step, alter, octave })
+    const from = { step: note.step!, alteration: note.alteration, octave: note.octave! }
+    if (samePitch({ step, alteration, octave }, from)) return
+    dbg(`Drag pitch change | ${formatPitch(from)} -> ${formatPitch({ step, alteration, octave })}`)
+    eng.updateNote(id, { step, alteration, octave })
     host.render.renderScore()
   }
 

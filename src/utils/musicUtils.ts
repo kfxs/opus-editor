@@ -608,7 +608,7 @@ export function getMeasureNotes(measure: Measure, score?: Score): Note[] {
         result.push({
           id: pitch.id,
           step: pitch.step,
-          alter: pitch.alter,
+          alteration: pitch.alteration,
           octave: pitch.octave,
           duration: slot.duration,
           measure: slot.measure,
@@ -652,7 +652,7 @@ export function measureFanMemberNotes(measure: Measure, score?: Score): Note[] {
     for (const member of fanMemberEntries(slot.fan, total, slot.beat)) {
       for (const p of member.pitches) {
         out.push({
-          id: p.id, step: p.step, alter: p.alter, octave: p.octave,
+          id: p.id, step: p.step, alteration: p.alteration, octave: p.octave,
           duration: slot.duration, measure: slot.measure, beat: member.beat,
           isRest: false, voice: slot.voice, staff,
         })
@@ -712,7 +712,7 @@ export function measureAccidentalNotes(measure: Measure): AccidentalNote[] {
     const total = slotLength(slot)
     for (const member of fanMemberEntries(slot.fan, total, slot.beat)) {
       for (const p of member.pitches) {
-        notes.push({ step: p.step, alter: p.alter, octave: p.octave, beat: member.beat })
+        notes.push({ step: p.step, alteration: p.alteration, octave: p.octave, beat: member.beat })
       }
     }
   }

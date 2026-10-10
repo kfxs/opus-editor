@@ -14,7 +14,7 @@ import { makeEngine } from '@/testing/makeEngine'
  *   - the rebar relay (slot → `RebarEvent` → `RebarPiece` → `Chord`), which a meter change AND a paste
  *     both ride;
  *   - `moveNoteToVoice`'s own payload, re-applied by hand at both `insertPitch` branches;
- *   - `placeSpanningNote`, which builds every tie continuation from `{step, alter, octave, voice,
+ *   - `placeSpanningNote`, which builds every tie continuation from `{step, alteration, octave, voice,
  *     staff}` alone.
  *
  * These are worth pinning precisely because the failure is invisible: nothing throws, nothing logs,
@@ -178,10 +178,10 @@ describe('tremolo — entered with the note', () => {
     // Accidental + dots + articulation + tremolo, all armed at once and all landing on the one note.
     // The whole point of making it a NoteParams field rather than a mode of its own: it composes.
     const note = engine.addNoteAtBeat({
-      step: 'C', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1),
+      step: 'C', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1),
       dots: 1, articulations: ['accent'], tremolo: 3,
     })!
-    expect(note.alter).toBe(1)
+    expect(note.alteration).toEqual(['sharp'])
     expect(note.dots).toBe(1)
     expect(note.articulations).toEqual(['accent'])
     expect(tremoloAt(engine, 1, 0)).toBe(3)

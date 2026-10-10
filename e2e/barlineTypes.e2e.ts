@@ -90,7 +90,7 @@ test('🚨 the thin double claims ROOM — in a PACKED bar the last note keeps t
     const h = window.__h
     while (h.engine.getScore().measures.length < 3) h.engine.addMeasure()
     for (let b = 0; b < 32; b++) {
-      h.engine.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: '32', measure: 1, beat: h.frac(b, 8) })
+      h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '32', measure: 1, beat: h.frac(b, 8) })
     }
     const white = async () => {
       await h.render()

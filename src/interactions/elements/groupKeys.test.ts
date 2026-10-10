@@ -35,8 +35,8 @@ describe('the arrows on a group of marks', () => {
   beforeEach(() => {
     engine = makeEngine()
     // His score: a whole note in each of two bars, a wedge on each.
-    const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })!
-    const b = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })!
+    const a = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })!
+    const b = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })!
     note = a.id
     hairpins = [
       engine.hairpin.createHairpin([a.id], 'cresc')!.id,

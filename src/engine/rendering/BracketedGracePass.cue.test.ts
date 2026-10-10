@@ -20,7 +20,7 @@ describe('BracketedGracePass — a cue bracketed grace', () => {
   function scales(): number[] {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const [plain, cue] = (['D', 'E'] as const).map(step => addBracketed(model.getScore(), host.id, 'before', { step, alter: 0, octave: 5 })!)
+    const [plain, cue] = (['D', 'E'] as const).map(step => addBracketed(model.getScore(), host.id, 'before', { step, octave: 5 })!)
     expect(plain).toBeTruthy()
     setCue(model.getScore(), [cue.pitches[0].id], true)
     const container = document.createElement('div')

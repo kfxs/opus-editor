@@ -15,8 +15,8 @@ describe('tieCommands', () => {
 
   beforeEach(() => {
     ctx = fakeCommandContext()
-    const a = ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = ctx.score.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = ctx.score.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
     ctx.score.updateNote(a.id, { tiedTo: b.id })
     ctx.score.updateNote(b.id, { tiedFrom: a.id })
     from = a.id

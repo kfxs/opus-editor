@@ -15,7 +15,7 @@ describe('measureColumns — a cue chord\'s room', () => {
   /** A dotted C♯4 eighth (head, ledger, sign, dot, stem, flag) at beat 0; its column's ink by kind. */
   const inkOf = (cue: boolean) => {
     const model = new ScoreModel()
-    const n = model.addNote({ step: 'C', alter: 1, octave: 4, duration: '8', dots: 1, measure: 1, beat: frac(0, 1) })
+    const n = model.addNote({ step: 'C', alteration: ['sharp'], octave: 4, duration: '8', dots: 1, measure: 1, beat: frac(0, 1) })
     if (cue) setCue(model.getScore(), [n.id], true)
     const ink = measureColumns(model.getMeasure(1)!)[0].ink
     return (kind: string) => ink.find(b => b.kind === kind)!
@@ -58,7 +58,7 @@ describe('measureColumns — a cue REST\'s room (P3)', () => {
   it('⭐ its box is ¾ as wide', () => {
     const restBox = (cue: boolean) => {
       const model = new ScoreModel()
-      model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+      model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
       const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
       if (cue) setCue(model.getScore(), [rest.id], true)
       return measureColumns(model.getMeasure(1)!).flatMap(c => c.ink).find(b => b.kind === 'rest')!
@@ -73,7 +73,7 @@ describe('measureColumns — a CLOSED-UP cue (C8, P6)', () => {
   /** Four quarters; `cue` says which are cue. The columns' spring scales. */
   const scales = (cue: boolean[]) => {
     const model = new ScoreModel()
-    const ids = cue.map((_, b) => model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(b, 1) }).id)
+    const ids = cue.map((_, b) => model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(b, 1) }).id)
     setCue(model.getScore(), ids.filter((_, i) => cue[i]), true)
     return measureColumns(model.getMeasure(1)!).map(c => c.springScale ?? 1)
   }
@@ -84,8 +84,8 @@ describe('measureColumns — a CLOSED-UP cue (C8, P6)', () => {
 
   it('⛔ a column shared with a FULL note in another voice does not close up', () => {
     const model = new ScoreModel()
-    const a = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const a = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
     setCue(model.getScore(), [a.id], true)
     expect(measureColumns(model.getMeasure(1)!)[0].springScale).toBeUndefined()
   })

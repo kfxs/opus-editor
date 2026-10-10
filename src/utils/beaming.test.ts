@@ -10,7 +10,7 @@ const ts = (n: number, d: number): TimeSignature => ({ numerator: n, denominator
 const meter = (n: number, d: number, grouping?: number[]) => getMeterInfo(ts(n, d), grouping)
 
 let idSeq = 0
-const note = () => ({ id: `n${idSeq++}`, step: 'B' as const, alter: 0 as const, octave: 4 })
+const note = () => ({ id: `n${idSeq++}`, step: 'B' as const, octave: 4 })
 
 /** A chord slot at `beat` (in quarter units) with the given duration/beam. */
 function chord(beat: number, beatDen: number, duration: NoteDuration = '8', beam?: BeamMode): ChordRest {

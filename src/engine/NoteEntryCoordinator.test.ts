@@ -41,16 +41,16 @@ describe('NoteEntryCoordinator.addNoteAtBeat — an overflowing note is split an
 
   it('erodes via addNoteAtBeat (addSplitNoteWithTie path)', () => {
     // Same headline scenario but triggered via addNoteAtBeat (new note entry)
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
-    scoreModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
+    scoreModel.addNote({ step: 'G', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    scoreModel.addNote({ step: 'A', octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
 
     // Fill M1 so beat 2 is a rest: add notes at 0 and 1
-    scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    scoreModel.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    scoreModel.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     // Enter E4 dotted-half (3 beats) at beat 2 — overflow 1 beat, should erode G4h → G4q
     coordinator.addNoteAtBeat({
-      step: 'E', alter: 0, octave: 4, duration: 'h', dots: 1, measure: 1, beat: frac(2, 1),
+      step: 'E', octave: 4, duration: 'h', dots: 1, measure: 1, beat: frac(2, 1),
     })
 
     const m2NonRest = scoreModel.getNotesInMeasure(2).filter(n => !n.isRest)
@@ -75,8 +75,8 @@ describe('NoteEntryCoordinator — tuplet in a secondary voice', () => {
 
   it('applies a tuplet to a voice-2 note without touching voice 1', () => {
     // Voice 0 (UI voice 1) gets a quarter at beat 0, then a voice-1 quarter at beat 0.
-    coordinator.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const v2Note = coordinator.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!
+    coordinator.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const v2Note = coordinator.addNoteAtBeat({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!
 
     const v0Before = voiceSlots(scoreModel, 1, 0).length
     const result = coordinator.applyTupletToNote(v2Note.id)
@@ -96,7 +96,7 @@ describe('NoteEntryCoordinator — tuplet in a secondary voice', () => {
     // A voice-1 (UI voice 2) triplet, then add a second note inside it.
     const tuplet = scoreModel.createTuplet(1, frac(0, 1), '8', 3, 2, 1)
     scoreModel.refillTupletRemainder(1, tuplet, 1)
-    coordinator.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 3), voice: 1 })
+    coordinator.addNoteAtBeat({ step: 'D', octave: 4, duration: '8', measure: 1, beat: frac(1, 3), voice: 1 })
 
     // No slot of this tuplet may leak into voice 0 — a mixed-voice tuplet is what
     // scattered the bracket across both voices and made VexFlow throw on a
@@ -108,12 +108,12 @@ describe('NoteEntryCoordinator — tuplet in a secondary voice', () => {
 
   it('refuses to create a tuplet whose span overlaps an existing same-voice tuplet', () => {
     // First triplet spans beats 0–1.
-    const first = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 5 })
+    const first = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', octave: 5 })
     expect(first).not.toBeNull()
 
     // A second triplet starting at beat 0.5 would span 0.5–1.5 and collide with
     // the first — even though beat 0.5 isn't the first tuplet's start beat.
-    const second = coordinator.createTupletAtBeat(1, 0.5, '8', { step: 'A', alter: 0, octave: 4 })
+    const second = coordinator.createTupletAtBeat(1, 0.5, '8', { step: 'A', octave: 4 })
     expect(second).toBeNull()
 
     // Only the original tuplet survives.
@@ -139,7 +139,7 @@ describe('NoteEntryCoordinator — dotted tuplet unit', () => {
   })
 
   it('spans two DOTTED quarters (= 3 beats), not two plain ones', () => {
-    const result = coordinator.createTupletAtBeat(1, 0, 'q', { step: 'C', alter: 0, octave: 5 }, 3, 2, 0, 0, 1)
+    const result = coordinator.createTupletAtBeat(1, 0, 'q', { step: 'C', octave: 5 }, 3, 2, 0, 0, 1)
     expect(result).not.toBeNull()
     expect(result!.tuplet.baseDots).toBe(1)
 
@@ -157,20 +157,20 @@ describe('NoteEntryCoordinator — dotted tuplet unit', () => {
   it('refuses one that no longer fits the bar once the dot is counted', () => {
     // 3 dotted HALVES in the time of 2 = 6 quarter-beats, past the end of a 4/4 bar. Without the dot
     // the span reads as 4 and it would have been accepted, overfilling the measure.
-    const tooBig = coordinator.createTupletAtBeat(1, 0, 'h', { step: 'C', alter: 0, octave: 5 }, 3, 2, 0, 0, 1)
+    const tooBig = coordinator.createTupletAtBeat(1, 0, 'h', { step: 'C', octave: 5 }, 3, 2, 0, 0, 1)
     expect(tooBig).toBeNull()
     expect(scoreModel.getMeasure(1)!.tuplets ?? []).toHaveLength(0)
   })
 
   it('takes the dots off the NOTE when a dotted note is turned into a tuplet', () => {
-    const dotted = coordinator.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', dots: 1, measure: 1, beat: frac(0, 1) })!
+    const dotted = coordinator.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', dots: 1, measure: 1, beat: frac(0, 1) })!
     const result = coordinator.applyTupletToNote(dotted.id)
     expect(result).not.toBeNull()
     expect(result!.tuplet.baseDots).toBe(1)
   })
 
   it('leaves baseDots absent when there is no dot, so old scores serialize unchanged', () => {
-    const plain = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 5 })
+    const plain = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', octave: 5 })
     expect('baseDots' in plain!.tuplet).toBe(false)
   })
 })
@@ -196,7 +196,7 @@ describe('NoteEntryCoordinator — the typed normal side is remembered', () => {
   it('keeps the quarter the user named, without touching the ratio', () => {
     // 5 sixteenths in the time of one quarter — which IS 5:4, and must stay 5:4.
     const result = coordinator.createTupletAtBeat(
-      1, 0, '16', { step: 'C', alter: 0, octave: 5 }, 5, 4, 0, 0, 0, normalOf('q'),
+      1, 0, '16', { step: 'C', octave: 5 }, 5, 4, 0, 0, 0, normalOf('q'),
     )
     expect(result).not.toBeNull()
     const t = result!.tuplet
@@ -211,7 +211,7 @@ describe('NoteEntryCoordinator — the typed normal side is remembered', () => {
     // Typed: "5 quarters in the time of 8 eighths". Eight eighths is four quarters, so the RATIO is
     // 5:4 — and 5:4 cannot say whether the user said "4 quarters" or "8 eighths".
     const result = coordinator.createTupletAtBeat(
-      1, 0, 'q', { step: 'C', alter: 0, octave: 5 }, 5, 4, 0, 0, 0, { duration: '8', count: 8 },
+      1, 0, 'q', { step: 'C', octave: 5 }, 5, 4, 0, 0, 0, { duration: '8', count: 8 },
     )
     const t = result!.tuplet
 
@@ -224,7 +224,7 @@ describe('NoteEntryCoordinator — the typed normal side is remembered', () => {
 
   it('changes no arithmetic — the same tuplet with and without the record spans the same', () => {
     const withRecord = coordinator.createTupletAtBeat(
-      1, 0, '16', { step: 'C', alter: 0, octave: 5 }, 5, 4, 0, 0, 0, normalOf('q'),
+      1, 0, '16', { step: 'C', octave: 5 }, 5, 4, 0, 0, 0, normalOf('q'),
     )!.tuplet
     const bare = { numNotes: 5, notesOccupied: 4, baseDuration: '16' as NoteDuration }
     expect(tupletSpan(withRecord)).toEqual(tupletSpan(bare))
@@ -237,19 +237,19 @@ describe('NoteEntryCoordinator — the typed normal side is remembered', () => {
   // by N/M would allow a quarter less than the group actually has room for.
   it('clamps by the tuplet RATIO, not by N/M, when the two sides differ', () => {
     const t = coordinator.createTupletAtBeat(
-      1, 0, 'q', { step: 'C', alter: 0, octave: 5 }, 2, 2, 0, 0, 0, { duration: '8', count: 3 },
+      1, 0, 'q', { step: 'C', octave: 5 }, 2, 2, 0, 0, 0, { duration: '8', count: 3 },
     )!.tuplet
     // One and a half quarters of span, one quarter written and sounding 3/4 — so 3/4 of a quarter of
     // span is left, and what still FITS written is a quarter (3/4 ÷ 3/4). A half would not.
     const second = coordinator.addNoteAtBeat({
-      step: 'D', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(3, 4), tupletId: t.id,
+      step: 'D', octave: 5, duration: 'h', measure: 1, beat: frac(3, 4), tupletId: t.id,
     })
     expect(second).not.toBeNull()
     expect(second!.duration).toBe('q')
   })
 
   it('leaves normalDuration absent when both sides agree, so old tuplets are unchanged', () => {
-    const plain = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 5 })
+    const plain = coordinator.createTupletAtBeat(1, 0, '8', { step: 'C', octave: 5 })
     expect('normalDuration' in plain!.tuplet).toBe(false)
     // …and absent still MEANS "the same value": a plain triplet of eighths spans two eighths.
     expect(fracToNumber(tupletSpan(plain!.tuplet))).toBe(1)
@@ -307,7 +307,7 @@ describe('NoteEntryCoordinator.addRestAtPosition', () => {
   })
 
   it('replaces the NOTE it lands on', () => {
-    const note = coordinator.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const note = coordinator.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
     coordinator.addRestAtPosition(clickInBar1(125), 'q', 0)
     expect(scoreModel.getNote(note.id)).toBeFalsy()
   })
@@ -338,7 +338,7 @@ describe('NoteEntryCoordinator — a tuplet governs only its own STAFF', () => {
   const bottomStaffNotes = () => scoreModel.getNotesInMeasure(1).filter(n => (n.staff ?? 0) === 1)
 
   it('⭐ a quarter entered on the BOTTOM staff under a top-staff triplet is a plain quarter', () => {
-    const note = coordinator.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+    const note = coordinator.addNoteAtBeat({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
     expect(note, 'the entry was placed').not.toBeNull()
     expect(note!.tupletId, 'it must not join the other staff’s triplet').toBeUndefined()
     // ⚠️ Summed by hand, SOUNDING lengths (`slotLength` — a tuplet member's `actualDuration`):
@@ -350,7 +350,7 @@ describe('NoteEntryCoordinator — a tuplet governs only its own STAFF', () => {
   })
 
   it('🚨 …while the TOP staff’s own entry still joins its triplet — the scoping, not the feature, changed', () => {
-    const note = coordinator.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1), staff: 0 })
+    const note = coordinator.addNoteAtBeat({ step: 'E', octave: 5, duration: '8', measure: 1, beat: frac(0, 1), staff: 0 })
     expect(note!.tupletId, 'an entry inside its own staff’s tuplet joins it').toBeDefined()
     expect(bottomStaffNotes().every(n => n.tupletId === undefined)).toBe(true)
   })
@@ -362,7 +362,7 @@ describe('NoteEntryCoordinator.updateNote — a GRACE never reaches the rhythm m
     const scoreModel = new ScoreModel('Test')
     const host = scoreModel.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     scoreModel.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const grace = addGrace(scoreModel.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' })!
+    const grace = addGrace(scoreModel.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'acciaccatura', { duration: '8' })!
     const shape = () => scoreModel.getMeasure(1)!.slots.map(s => `${s.type}:${s.duration}@${fracToNumber(s.beat)}`)
     const before = shape()
     makeCoordinator(scoreModel).updateNote(grace.pitches[0].id, { duration: 'h', dots: 0 })

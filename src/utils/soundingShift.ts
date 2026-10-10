@@ -169,14 +169,14 @@ export function soundingShiftBySlot(score: Score): Map<string, number> {
  *
  * Because an **octave is the one transformation no representation change can break**: it is 12
  * semitones, ×2 in frequency and +1 to the octave number **in every tuning system**, so folding it
- * into `octave` is exact and stays exact. `alter` is untouched — an 8va does not change an
+ * into `octave` is exact and stays exact. `alteration` is untouched — an 8va does not change an
  * accidental, it changes a register.
  *
  * ⛔⛔ **And this is why the schedule carries no `shiftSemitones` field.** A semitone count was the
  * obvious shape and it is the wrong currency the moment the shift is *not* an octave: a transposing
  * instrument (a B♭ clarinet, written-to-sounding a major second) is a DIATONIC + CHROMATIC operation
  * on the spelling, and in meantone "down a major 2nd" is not a number of semitones at all — the same
- * conflation `docs/how-it-works/tuning-systems-and-alteration.md` catches in `alter` itself. So when that case
+ * conflation `docs/how-it-works/tuning-systems-and-alteration.md` catches in a semitone `alter`. So when that case
  * arrives it is a **spelling transposition**, written here beside this function; ⛔ it is never a
  * number added at the audio boundary.
  *

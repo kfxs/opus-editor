@@ -15,8 +15,8 @@ function build() {
   model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
   const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
   const score = model.getScore()
-  const a = addGrace(score, rest.id, 'before', { step: 'A', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
-  const f = addGrace(score, rest.id, 'before', { step: 'F', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+  const a = addGrace(score, rest.id, 'before', { step: 'A', octave: 4 }, 'appoggiatura', { duration: '8' })!
+  const f = addGrace(score, rest.id, 'before', { step: 'F', octave: 4 }, 'appoggiatura', { duration: '8' })!
   return { model, rest, a: a.pitches[0].id, f: f.pitches[0].id }
 }
 

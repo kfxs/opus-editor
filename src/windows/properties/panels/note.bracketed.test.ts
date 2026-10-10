@@ -11,7 +11,7 @@ import type { InspectedElement } from '@/interactions/state/inspectedElement'
  */
 const bracketed = (side: 'before' | 'after', canBeAfter: boolean): InspectedElement[] => ([{
   kind: 'bracketed',
-  data: { id: 'b-1', step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1 },
+  data: { id: 'b-1', step: 'D', octave: 5, duration: 'q', measure: 1 },
   derived: { side, canBeAfter },
 } as unknown as InspectedElement])
 

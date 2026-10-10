@@ -14,9 +14,9 @@
  * @see docs/research/key-signature-research.md §9.4.1b — the table, measured
  * @see docs/research/key-signature-research.md §9.4.2, §9.4.2b — the spacing, measured twice
  */
-import type { Clef, KeyAlteration, KeySignature, PitchAlter, PitchStep } from '@/types/music'
+import type { Alteration, Clef, KeyAlteration, KeySignature, PitchStep } from '@/types/music'
 import { accidentalGlyph, glyphBox } from '@/engine/fonts/fontMetrics'
-import { alterToString } from '@/utils/pitchSpelling'
+import { alterationCode, alterationSide } from '@/utils/alterationSigns'
 import { staffLineForSpelling } from '@/utils/clefUtils'
 import { keysEqual, type StaffKeys } from '@/utils/keySignature'
 
@@ -130,23 +130,23 @@ export const METER_PART_LEFT_AIR = 0.6
 
 /** The glyph a signature member is drawn with — the ORDINARY accidentals, per SMuFL. */
 /**
- * ⭐⭐ **THE GLYPH ONE SIGN OF A SIGNATURE IS DRAWN WITH — and `alter: 0` is a NATURAL here.**
+ * ⭐⭐ **THE GLYPH ONE SIGN OF A SIGNATURE IS DRAWN WITH — and NO alteration is a NATURAL here.**
  *
- * 🚨 **`alterToString(0)` is the empty string, and that is correct where it lives:** in a pitch LABEL
+ * 🚨 **`alterationCode(undefined)` is the empty string, and that is correct where it lives:** in a pitch LABEL
  * a natural is the absence of a sign (`E4`, not `En4`). In a SIGNATURE a natural is a drawn glyph —
  * it is the whole of a cancellation — so this function cannot be a pass-through.
  *
  * ⚠️ It cost the first build of P6 a silent nothing: every cancelling natural resolved to `null` and
  * was skipped by both the extent (0 advance) and the pass (`if (!glyph) return`), so a change to C
  * major drew no signs and reserved no room, with no error anywhere. ⛔ Do not "simplify" this back to
- * `accidentalGlyph(alterToString(alter))`.
+ * `accidentalGlyph(alterationCode(alteration))`.
  *
  * ⭐ Exported so the DRAWING asks the same question: `KeySignaturePass` and `KeySignatureGhost` both
  * read it, which is this file's standing rule — the glyph that is drawn and the advance the room was
  * computed from are the same glyph by construction.
  */
-export function signGlyph(alter: PitchAlter): ReturnType<typeof accidentalGlyph> {
-  return alter === 0 ? 'accidentalNatural' : accidentalGlyph(alterToString(alter))
+export function signGlyph(alteration: Alteration | undefined): ReturnType<typeof accidentalGlyph> {
+  return alteration ? accidentalGlyph(alterationCode(alteration)) : 'accidentalNatural'
 }
 
 /**
@@ -204,7 +204,7 @@ export function keyChangeRow(
 /**
  * ⭐⭐ **THE ROW A KEY CHANGE DRAWS — cancelling naturals, then the new signature.**
  *
- * ⭐ **The naturals ride in the RETURNED SIGNATURE as alterations with `alter: 0`**, and that is the
+ * ⭐ **The naturals ride in the RETURNED SIGNATURE as alterations with NO `alteration`**, and that is the
  * whole of the implementation: a natural at a letter's own step lands on the same staff line the old
  * sign stood on (`keySignatureLines`), `accidentalGlyph('natural')` is its glyph, and
  * `keySignatureExtent` prices its advance. So the extent model, the placement table, the drawing pass
@@ -239,7 +239,7 @@ function withCancellation(
   const surviving = new Set(opening.alterations.map(a => a.step))
   const naturals: KeyAlteration[] = previousEnding.alterations
     .filter(a => !surviving.has(a.step))
-    .map(a => ({ step: a.step, alter: 0 as PitchAlter, octave: cancelledOctave(a, clef) }))
+    .map(a => ({ step: a.step, octave: cancelledOctave(a, clef) }))
   if (naturals.length === 0) return opening
   return { alterations: [...naturals, ...opening.alterations], ...(opening.mode !== undefined ? { mode: opening.mode } : {}) }
 }
@@ -249,7 +249,7 @@ function withCancellation(
  * own OCTAVE, and {@link keySignatureLines}' override branch places it with no new rule at all.
  *
  * 🚨 **Without this it would be placed on the SHARP row**, whatever it cancels: that function reads
- * `alter >= 0 ? SHARP_STEPS : FLAT_STEPS`, and a natural is 0. Cancelling three flats would then draw
+ * `side >= 0 ? SHARP_STEPS : FLAT_STEPS`, and a natural is side 0. Cancelling three flats would then draw
  * three naturals in the SHARP positions — B♮ E♮ A♮ a third or a sixth away from the flats they
  * answer. ⚠️ The bug is invisible in a one-sign key (B♭ and B♯ share no line, but a single natural
  * still *looks* plausible), which is exactly why it is written down here.
@@ -261,7 +261,7 @@ function withCancellation(
  */
 function cancelledOctave(outgoing: KeyAlteration, clef: Clef): number {
   if (outgoing.octave !== undefined) return outgoing.octave
-  const table = outgoing.alter >= 0 ? SHARP_STEPS : FLAT_STEPS
+  const table = alterationSide(outgoing.alteration) >= 0 ? SHARP_STEPS : FLAT_STEPS
   const line = stepsToStaffLine(table[clef][outgoing.step])
   for (let octave = 0; octave <= 9; octave++) {
     if (staffLineForSpelling(outgoing.step, octave, clef) === line) return octave
@@ -286,7 +286,7 @@ function cancelledOctave(outgoing: KeyAlteration, clef: Clef): number {
  */
 export function keySignatureExtent(key: KeySignature): number {
   const advances = key.alterations
-    .map(a => signGlyph(a.alter))
+    .map(a => signGlyph(a.alteration))
     .map(g => (g ? glyphBox(g).advance : 0))
   if (advances.length === 0) return 0
   return advances.reduce((sum, w) => sum + w, 0) + KEY_ACCIDENTAL_GAP * (advances.length - 1)
@@ -358,18 +358,18 @@ function stepsToStaffLine(steps: number): number {
  * list's own (authored) order.
  *
  * ⚠️ {@link KeyAlteration.octave} is a PLACEMENT override and this is the only place it is read: it
- * moves the glyph, and it never changes which octaves the signature governs (that is `keyAlterOf`,
+ * moves the glyph, and it never changes which octaves the signature governs (that is `keyAlterationOf`,
  * and it is per-letter in all octaves — Gould pp. 93–94). An override resolves through
  * `staffLineForSpelling`, so it is stated as the MUSICAL octave the sign is drawn at and the clef
  * converts, exactly as LilyPond and MusicXML both express it.
  *
- * A letter altered by nothing (`alter: 0`) has no row of its own — it is not a signature member but
+ * A letter altered by nothing (no `alteration`) has no row of its own — it is not a signature member but
  * a cancellation, which is drawn at the OUTGOING signature's position (P6) and not here.
  */
 export function keySignatureLines(key: KeySignature, clef: Clef): number[] {
   return key.alterations.map(a => {
     if (a.octave !== undefined) return staffLineForSpelling(a.step, a.octave, clef)
-    const table = a.alter >= 0 ? SHARP_STEPS : FLAT_STEPS
+    const table = alterationSide(a.alteration) >= 0 ? SHARP_STEPS : FLAT_STEPS
     return stepsToStaffLine(table[clef][a.step])
   })
 }

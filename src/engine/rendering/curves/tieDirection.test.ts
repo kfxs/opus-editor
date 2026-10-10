@@ -20,7 +20,7 @@ const STEM_UP = 1
 const STEM_DOWN = -1
 
 const pitch = (id: string, step: NotePitch['step'], octave: number, extra: Partial<NotePitch> = {}): NotePitch =>
-  ({ id, step, alter: 0, octave, ...extra })
+  ({ id, step, octave, ...extra })
 
 /** One measure of single-note chords, one per (beat, voice) pair given. */
 const measureOf = (chords: { notes: NotePitch[]; voice?: 0 | 1 | 2 | 3; beat?: number }[]): Measure => ({

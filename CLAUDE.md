@@ -343,17 +343,22 @@ declares the vocabulary and the editor translates into it — `engine/rendering/
 
 ## Core Types (src/types/music.ts)
 
-Pitch is stored as **spelling** (`step` + `alter` + `octave`, MusicXML/music21
-convention), **not** as a raw MIDI integer. Rests leave the pitch fields undefined.
+Pitch is stored as **spelling** — `step` + `alteration` + `octave` — **not** as a raw MIDI integer.
+⭐ `alteration` is an ordered LIST of signs (`['sharp']`, `['doubleFlat']` — the SMuFL name without its
+prefix), one row each in the sign table `utils/alterationSigns`; ⛔ ABSENT when unaltered, never `[]`
+and never a lone natural (the natural is what the bar's rule DRAWS). Write it with `alterationField` /
+`setAlteration`, compare with `sameAlteration`; an update sets it when the KEY is present
+(`'alteration' in updates`), so a change to a natural passes `alteration: undefined`. Rests leave the
+pitch fields undefined. What a sign SOUNDS like is `engine/audio/equalTemperament`'s table alone.
 ⭐ Which pitch is HIGHER is asked of `utils/pitchOrder` (the staff's order — line, then the sign's rank
 in `utils/alterationSigns`); ⛔ never by converting to MIDI, which only playback (`engine/audio/`) needs.
 A typed letter's octave is the nearest LINE in staff steps (`pitchOrder.octaveNearest` / `octaveAbove`).
-🚧 The stored `alter` number becomes a LIST of signs (docs/plans/alteration-signs-plan.md — M0 built).
+Specs write a fixture's alteration as a number through `testing/signs` (`withSigns(1)` = a sharp).
 `beat` is an exact `Fraction` (see the Fraction/float invariant in ARCHITECTURE.md).
 
 ```typescript
 // Public flat Note — what addNoteAtBeat / getNote / updateNote return:
-Note: { id, step?, alter?, octave?, duration, dots?, measure, beat (Fraction),
+Note: { id, step?, alteration?, octave?, duration, dots?, measure, beat (Fraction),
         isRest?, stemDirection?, tiedTo?, tiedFrom?, voice?, staff?, ... }
 // Container shapes — getScore() / exportJSON() serialize these directly:
 Measure: { id, number, slots: ChordRest[], timeSignature, clefs?, dynamics?,

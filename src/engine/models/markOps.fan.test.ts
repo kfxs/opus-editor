@@ -262,8 +262,8 @@ describe('a fanned member as an editable pitch', () => {
   it('⭐ updateNote re-spells it — which is what makes the arrows and a–g work', () => {
     const { members } = fanned()
     const id = members[0].pitches[0].id
-    model.updateNote(id, { step: 'E', octave: 5, alter: 1 })
-    expect(chordAt(0).fan!.members![0].pitches[0]).toMatchObject({ step: 'E', octave: 5, alter: 1 })
+    model.updateNote(id, { step: 'E', octave: 5, alteration: ['sharp'] })
+    expect(chordAt(0).fan!.members![0].pitches[0]).toMatchObject({ step: 'E', octave: 5, alteration: ['sharp'] })
     // …and the note that was typed is untouched.
     expect(chordAt(0).notes[0]).toMatchObject({ step: 'C', octave: 4 })
   })
@@ -309,7 +309,7 @@ describe('a fanned member as an editable pitch', () => {
 
     it('a member’s pitches share ONE offset — the whole member moves, not one notehead', () => {
       const { members } = fanned()
-      const stacked = model.addFanMemberPitch(members[0].pitches[0].id, { step: 'E', alter: 0, octave: 4 })!
+      const stacked = model.addFanMemberPitch(members[0].pitches[0].id, { step: 'E', octave: 4 })!
       expect(model.offsetTargetOf(stacked.id)).toEqual(model.offsetTargetOf(members[0].pitches[0].id))
     })
 
@@ -359,7 +359,7 @@ describe('a fanned member as an editable pitch', () => {
     it('⭐ deleting the pitch the key is MADE of carries the offset to the next one', () => {
       const { members } = fanned()
       const first = members[0].pitches[0].id
-      const stacked = model.addFanMemberPitch(first, { step: 'E', alter: 0, octave: 4 })!
+      const stacked = model.addFanMemberPitch(first, { step: 'E', octave: 4 })!
       model.nudgeNoteOffset(model.offsetTargetOf(first)!.key, -2)
 
       expect(model.deleteNote(first)).toBe(true)
@@ -392,7 +392,7 @@ describe('a fanned member as an editable pitch', () => {
 
   it('deleting ONE pitch of a member that has several removes that pitch', () => {
     const { members } = fanned()
-    members[0].pitches.push({ id: 'extra', step: 'E', alter: 0, octave: 4 })
+    members[0].pitches.push({ id: 'extra', step: 'E', octave: 4 })
     expect(model.deleteNote('extra')).toBe(true)
     expect(chordAt(0).fan!.members![0].pitches.map(p => p.step)).toEqual(['C'])
   })

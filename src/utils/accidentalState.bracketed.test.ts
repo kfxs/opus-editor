@@ -1,3 +1,4 @@
+import { withSigns } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
 import { displayedAccidentals } from './accidentalState'
 import { fracCreate } from './fraction'
@@ -9,7 +10,7 @@ import type { Chord, NotePitch } from '@/types/music'
  * READ against what is in force where it stands, ⛔ and never put anything in force — it is
  * information, not an attack.
  */
-const p = (id: string, step: NotePitch['step'], alter: NotePitch['alter'] = 0, octave = 4): NotePitch => ({ id, step, alter, octave })
+const p = (id: string, step: NotePitch['step'], alter = 0, octave = 4): NotePitch => ({ id, step, ...withSigns(alter), octave })
 const chord = (id: string, beat: number, notes: NotePitch[], over: Partial<Chord> = {}): Chord =>
   ({ id, type: 'chord', beat: fracCreate(beat, 1), duration: 'q', measure: 1, notes, ...over })
 

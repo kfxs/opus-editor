@@ -18,7 +18,7 @@ describe('graceRoom — cue graces', () => {
   const build = (cue: [boolean, boolean]) => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const graces = [0, 1].map(() => addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!)
+    const graces = [0, 1].map(() => addGrace(model.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!)
     setCue(model.getScore(), graces.filter((_, i) => cue[i]).map(g => g.pitches[0].id), true)
     return (model.getScore().measures[0].slots.find(s => s.type === 'chord') as Chord).graceBefore!
   }

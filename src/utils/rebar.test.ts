@@ -1,3 +1,4 @@
+import { withSigns } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
 import { flattenRegion, relayEvents, type RebarEvent, type RebarPitch, type BarPlan } from './rebar'
 import { getMeterInfo } from './meter'
@@ -9,7 +10,7 @@ import type { TimeSignature, Measure, Chord, Rest, NotePitch } from '@/types/mus
 
 const ts = (n: number, d: number): TimeSignature => ({ numerator: n, denominator: d })
 const F = (n: number, d = 1) => fracCreate(n, d)
-const P = (step: any, octave = 4, alter: any = 0): RebarPitch => ({ step, alter, octave })
+const P = (step: any, octave = 4, alter = 0): RebarPitch => ({ step, ...withSigns(alter), octave })
 
 /** A plain note/chord event at [off, off+dur) quarter beats. */
 function note(off: number, dur: number, pitches: RebarPitch[] = [P('C')]): RebarEvent {
@@ -156,7 +157,6 @@ describe('rebar — flattenRegion', () => {
   const pitch = (step: any, octave = 4, ties: Partial<NotePitch> = {}): NotePitch => ({
     id: id(),
     step,
-    alter: 0,
     octave,
     ...ties,
   })

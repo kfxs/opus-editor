@@ -11,14 +11,14 @@ import type { Note } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 import { applyEntryOverwrites, findNotesToOverwrite, overwriteOverlappedNotes } from './entryOverwriteOps'
 
-const C4 = { step: 'C', alter: 0, octave: 4 } as const
+const C4 = { step: 'C', octave: 4 } as const
 
 describe('entryOverwriteOps', () => {
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel('T') }) // measure 1, 4/4
 
   const add = (step: 'C' | 'E' | 'G', beat: number, duration: 'q' | 'h' | '8' = 'q', over: Partial<Note> = {}) =>
-    model.addNote({ step, alter: 0, octave: 4, duration, measure: 1, beat: frac(beat, 1), ...over })
+    model.addNote({ step, octave: 4, duration, measure: 1, beat: frac(beat, 1), ...over })
   const alive = (n: Note) => !!model.getNote(n.id)
   const sweep = (from: number, to: number, voice = 0, staff = 0) =>
     overwriteOverlappedNotes(model, model.getMeasure(1)!, { beat: frac(from, 1), end: frac(to, 1), voice, staff })
@@ -55,7 +55,7 @@ describe('entryOverwriteOps', () => {
     it('a tuplet member is measured by its SOUNDING length, not its written one', () => {
       // A quarter-note triplet over beats 0–2: each member is written `q` and sounds 2/3.
       const created = model.createTuplet(1, frac(0, 1), 'q', 3, 2)!
-      const first = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), tupletId: created.id })
+      const first = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), tupletId: created.id })
       // [2/3, 1) — inside the first member's WRITTEN quarter, past the end of its sounding 2/3.
       const taken = overwriteOverlappedNotes(model, model.getMeasure(1)!, { beat: frac(2, 3), end: frac(1, 1), voice: 0, staff: 0 })
       expect(taken.map(n => n.id)).not.toContain(first.id)
@@ -71,9 +71,9 @@ describe('entryOverwriteOps', () => {
     })
 
     it('⭐ an ENHARMONIC on the same beat is a CHORD too (M1): D♭ beside a C♯ keeps it', () => {
-      const cSharp = add('C', 0, 'q', { alter: 1 })
-      expect(findNotesToOverwrite(model, 1, frac(0, 1), 'q', { step: 'D', alter: -1, octave: 4 })).toEqual([])
-      expect(findNotesToOverwrite(model, 1, frac(0, 1), 'q', { step: 'C', alter: 1, octave: 4 }).map(n => n.id))
+      const cSharp = add('C', 0, 'q', { alteration: ['sharp'] })
+      expect(findNotesToOverwrite(model, 1, frac(0, 1), 'q', { step: 'D', alteration: ['flat'], octave: 4 })).toEqual([])
+      expect(findNotesToOverwrite(model, 1, frac(0, 1), 'q', { step: 'C', alteration: ['sharp'], octave: 4 }).map(n => n.id))
         .toEqual([cSharp.id])
     })
 
@@ -101,7 +101,7 @@ describe('entryOverwriteOps', () => {
   describe('⚠️ where the two rules part company — pinned, not endorsed', () => {
     it('an EARLIER note ringing into the new one: the keyboard takes it, the mouse leaves it', () => {
       const long = add('C', 0, 'h') // sounds over beats 0–2
-      expect(findNotesToOverwrite(model, 1, frac(1, 1), 'q', { step: 'E', alter: 0, octave: 4 })).toEqual([])
+      expect(findNotesToOverwrite(model, 1, frac(1, 1), 'q', { step: 'E', octave: 4 })).toEqual([])
       expect(sweep(1, 2).map(n => n.id)).toEqual([long.id])
     })
 

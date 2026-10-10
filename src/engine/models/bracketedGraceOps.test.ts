@@ -21,9 +21,9 @@ describe('bracketedGraceOps', () => {
     score = model.getScore()
   })
 
-  const Bb3 = { step: 'B' as const, alter: -1 as const, octave: 3 }
-  const D5 = { step: 'D' as const, alter: 0 as const, octave: 5 }
-  const E4 = { step: 'E' as const, alter: 0 as const, octave: 4 }
+  const Bb3 = { step: 'B' as const, alteration: ['flat'] as const, octave: 3 }
+  const D5 = { step: 'D' as const, octave: 5 }
+  const E4 = { step: 'E' as const, octave: 4 }
 
   const quarter = (b = 0) => model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
   const chordOf = (noteId: string): Chord => {
@@ -166,7 +166,7 @@ describe('bracketedGraceOps', () => {
     it('⭐ an ENHARMONIC is another pitch (M1): A♯ joins a B♭', () => {
       const host = quarter()
       const made = bracketedOps.addBracketed(score, host.id, 'before', Bb3)!
-      expect(bracketedOps.addBracketedPitch(score, made.pitches[0].id, { step: 'A', alter: 1, octave: 3 })).not.toBeNull()
+      expect(bracketedOps.addBracketedPitch(score, made.pitches[0].id, { step: 'A', alteration: ['sharp'] as const, octave: 3 })).not.toBeNull()
       expect(made.pitches).toHaveLength(2)
     })
   })

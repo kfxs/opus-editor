@@ -40,7 +40,7 @@ async function measureCase(score: import('@playwright/test').Page, opts: Case) {
     // His score had 64 bars; the casting-off (how much room bar 1 gets) is part of the picture.
     for (let i = 1; i < 64; i++) e.addMeasure()
     const q = (step: string, octave: number, measure: number, beat: number, alter = 0) =>
-      e.addNoteAtBeat({ step: step as never, alter: alter as never, octave, duration: 'q', measure, beat: h.frac(beat, 1) })
+      e.addNoteAtBeat({ step: step as never, ...(alter ? { alteration: [alter > 0 ? 'sharp' : 'flat'] } : {}), octave, duration: 'q', measure, beat: h.frac(beat, 1) } as never)
     if (opts.staff2) {
       // The second staff changes nothing about the slur — its eighth at beat 2½ adds a COLUMN, which
       // widens B4 → E♭5 and carries the flat across the edge discount (§1).
@@ -473,7 +473,7 @@ test('⭐ P8 row G — `tupletNumbers: on` keeps the slur above a triplet\'s num
     h.slurSolver('lilypond')
     const e = h.engine
     const a = e.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
-    const t = e.createTupletAtBeat(1, 1, '8', { step: 'C', alter: 0, octave: 5 })!
+    const t = e.createTupletAtBeat(1, 1, '8', { step: 'C', octave: 5 })!
     e.addNoteAtBeat({ step: 'D', octave: 5, duration: '8', measure: 1, beat: h.frac(4, 3), tupletId: t.tuplet.id, actualDuration: h.frac(1, 3) } as never)
     e.addNoteAtBeat({ step: 'E', octave: 5, duration: '8', measure: 1, beat: h.frac(5, 3), tupletId: t.tuplet.id, actualDuration: h.frac(1, 3) } as never)
     const b = e.addNoteAtBeat({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: h.frac(2, 1) })!
@@ -679,7 +679,7 @@ test('⭐ the search is DETERMINISTIC — a saved and reloaded score draws the s
     h.slurSolver('lilypond')
     const e = h.engine
     const q = (step: string, octave: number, measure: number, beat: number, alter = 0) =>
-      e.addNoteAtBeat({ step: step as never, alter: alter as never, octave, duration: 'q', measure, beat: h.frac(beat, 1) })
+      e.addNoteAtBeat({ step: step as never, ...(alter ? { alteration: [alter > 0 ? 'sharp' : 'flat'] } : {}), octave, duration: 'q', measure, beat: h.frac(beat, 1) } as never)
     e.addMeasure()
     const b = q('B', 4, 1, 2)!
     q('E', 5, 1, 3, -1); q('A', 4, 2, 0); q('D', 5, 2, 1)
@@ -740,7 +740,7 @@ test('⏱ the stopwatch — a synthetic page of 50 slurs', async ({ score }) => 
     const slurs = []
     for (let m = 1; m <= 50; m++) {
       const ids = [0, 1, 2, 3].map(b => e.addNoteAtBeat({
-        step: steps[(m + b * 3) % 7] as never, alter: (b === 1 && m % 2 ? 1 : 0) as never,
+        step: steps[(m + b * 3) % 7] as never, ...(b === 1 && m % 2 ? { alteration: ['sharp'] } : {}),
         octave: 4 + ((m + b) % 2), duration: 'q', measure: m, beat: h.frac(b, 1),
       })!.id)
       slurs.push({ id: `sl${m}`, startNoteId: ids[0], endNoteId: ids[3], voice: 0 })

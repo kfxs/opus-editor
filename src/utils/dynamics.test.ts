@@ -56,7 +56,7 @@ function chord(id: string, beatNum: number, voice: 0 | 1 | 2 | 3 = 0): Chord {
     duration: 'q',
     measure: 0,
     voice,
-    notes: [{ id: `${id}-p`, step: 'C', alter: 0, octave: 4 }],
+    notes: [{ id: `${id}-p`, step: 'C', octave: 4 }],
   }
 }
 

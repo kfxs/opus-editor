@@ -28,7 +28,7 @@ describe('crossSelectedNotes — Ctrl+Shift+↑/↓', () => {
     state.selectedItems = new Map(items.map(i => [itemKey(i), i]))
   }
   const add = (step: 'B' | 'D' | 'F', octave: number) =>
-    engine.addChordNote({ step, alter: 0, octave, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 }).id
+    engine.addChordNote({ step, octave, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 }).id
 
   beforeEach(() => {
     engine = makeEngine()
@@ -40,7 +40,7 @@ describe('crossSelectedNotes — Ctrl+Shift+↑/↓', () => {
   })
 
   it('⭐ the Satie bar: two selected heads of a chord cross, the unselected one stays — ONE undo', () => {
-    const b = engine.addNoteAtBeat({ step: 'B', alter: 0, octave: 2, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const b = engine.addNoteAtBeat({ step: 'B', octave: 2, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 })!.id
     const d = add('D', 4)
     const f = add('F', 4)
     select(d, f)
@@ -58,7 +58,7 @@ describe('crossSelectedNotes — Ctrl+Shift+↑/↓', () => {
   })
 
   it('the opposite key brings a head home', () => {
-    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 })!.id
     select(d)
     crossSelectedNotes(engine, state, -1, render)
     crossSelectedNotes(engine, state, 1, render)
@@ -66,7 +66,7 @@ describe('crossSelectedNotes — Ctrl+Shift+↑/↓', () => {
   })
 
   it('⛔ a press that moved nothing renders nothing and leaves no undo entry', () => {
-    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', octave: 5, duration: 'h', measure: 1, beat: frac(0, 1), staff: 0 })!.id
     select(d)
     const undoable = engine.canUndo()
     engine.undo(); engine.redo() // settle the history's shape before comparing

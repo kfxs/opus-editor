@@ -298,7 +298,7 @@ test('a SECOND inside a fan member crosses the stem — upper head right, stem u
     const note = h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1) })
     h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
     const slot = h.engine.getScore().measures[0].slots[0]
-    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'D', alter: 0, octave: 4 })
+    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'D', octave: 4 })
     await h.render()
     return { member: h.glyphs('g.fanhead g.notehead text') }
   })
@@ -318,7 +318,7 @@ test('…and the stem-down chord mirrors it: the LOWER head crosses', async ({ s
     const note = h.engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: h.frac(0, 1) })
     h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
     const slot = h.engine.getScore().measures[0].slots[0]
-    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'A', alter: 0, octave: 5 })
+    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'A', octave: 5 })
     await h.render()
     return { member: h.glyphs('g.fanhead g.notehead text'), stems: h.stems() }
   })
@@ -338,8 +338,8 @@ test('two accidentals in one member stack into columns, the higher one nearest t
     h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
     const slot = h.engine.getScore().measures[0].slots[0]
     const memberId = slot.fan!.members![0].pitches[0].id
-    h.engine.addFanMemberPitch(memberId, { step: 'F', alter: 1, octave: 4 })
-    h.engine.addFanMemberPitch(memberId, { step: 'G', alter: 1, octave: 4 })
+    h.engine.addFanMemberPitch(memberId, { step: 'F', alteration: ['sharp'], octave: 4 })
+    h.engine.addFanMemberPitch(memberId, { step: 'G', alteration: ['sharp'], octave: 4 })
     await h.render()
     return { member: h.glyphs('g.fanhead text') }
   })
@@ -361,7 +361,7 @@ test('a member chord’s ledger line reaches under BOTH of its columns', async (
     h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
     const slot = h.engine.getScore().measures[0].slots[0]
     // B3 and C4 — a second, and both of them at or below the first ledger line beneath the staff.
-    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'B', alter: 0, octave: 3 })
+    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'B', octave: 3 })
     await h.render()
     return {
       member: h.glyphs('g.fanhead g.notehead text'),
@@ -386,7 +386,7 @@ test('a fan member’s accidental clears the member’s own ledger lines', async
     h.engine.setFan(note!.id, { direction: 'accel', count: 2, beams: 3 })
     const slot = h.engine.getScore().measures[0].slots[0]
     // A♯3 — below the staff, so the member draws a ledger line of its own beside the sign.
-    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'A', alter: 1, octave: 3 })
+    h.engine.addFanMemberPitch(slot.fan!.members![0].pitches[0].id, { step: 'A', alteration: ['sharp'], octave: 3 })
     await h.render()
     const signs = [...document.querySelectorAll<SVGTextElement>('g.fanhead text')]
       .filter(t => {

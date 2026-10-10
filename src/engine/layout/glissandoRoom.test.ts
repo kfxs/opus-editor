@@ -13,10 +13,10 @@ afterEach(() => resetGlissandoMinLengthRule())
 function score() {
   const model = new ScoreModel()
   model.addMeasure()
-  const c = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-  model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-  const last = model.addNote({ step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(3, 1) })
-  model.addNote({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+  const c = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+  model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+  const last = model.addNote({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: frac(3, 1) })
+  model.addNote({ step: 'A', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
   return { model, c, last }
 }
 
@@ -44,7 +44,7 @@ describe('glissandoRoomIn', () => {
   it('the `none` row asks nothing at all — not even a free end', () => {
     const { model, c, last } = score()
     const model2 = new ScoreModel()
-    const lone = model2.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const lone = model2.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     addGlissando(model2.getScore(), lone.id)
     addGlissando(model.getScore(), c.id)
     addGlissando(model.getScore(), last.id)
@@ -57,7 +57,7 @@ describe('glissandoRoomIn', () => {
 describe('P3 — a free end asks for its own room', () => {
   it('after: from its note to the next column, the free row\'s length and clearance', () => {
     const model = new ScoreModel()
-    const c = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     addGlissando(model.getScore(), c.id) // a rest follows
     const [room] = glissandoRoomIn(model.getScore(), model.getMeasure(1)!)
     expect(room).toMatchObject({ from: frac(0, 1), to: frac(1, 1), length: 3.8, endGap: 0.6 })
@@ -65,7 +65,7 @@ describe('P3 — a free end asks for its own room', () => {
 
   it('before: from the previous column to its note', () => {
     const model = new ScoreModel()
-    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const g = addGlissando(model.getScore(), e.id)!
     g.side = 'before'
     const [room] = glissandoRoomIn(model.getScore(), model.getMeasure(1)!)

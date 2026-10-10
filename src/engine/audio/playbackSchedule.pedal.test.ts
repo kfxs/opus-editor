@@ -29,7 +29,7 @@ const evs = (score: Score) => collectScheduledNotes(score).sort((a, b) => a.star
 /** One quarter note per beat of bar `m`, 4/4. */
 function quarters(model: ScoreModel, m: number, beats: number[] = [0, 1, 2, 3]) {
   return beats.map(b =>
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
 }
 
 describe('a note under the pedal rings to the LIFT', () => {
@@ -46,7 +46,7 @@ describe('a note under the pedal rings to the LIFT', () => {
 
   it('⭐ NEVER shortens — a note already outlasting the lift keeps its own length', () => {
     const model = new ScoreModel()
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
     addPedal(model.getScore(), 1, { beat: frac(0, 1), length: frac(1, 1) })
     expect(lengthAt(model.getScore(), 0)).toBeCloseTo(4, 10) // the whole note, untouched
   })
@@ -103,8 +103,8 @@ describe('WHICH notes it holds — onset membership, half-open', () => {
   it('governs the staff it is on — the other staff plays as written', () => {
     const model = new ScoreModel()
     const lower = model.addStaffBelow(0)
-    model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })
-    model.addNote({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+    model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })
+    model.addNote({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
     addPedal(model.getScore(), 1, { beat: frac(0, 1), length: frac(4, 1), staffId: lower })
 
     const sounded = evs(model.getScore())
@@ -150,7 +150,7 @@ describe('⭐⭐ a repeat family under the pedal keeps its own attacks', () => {
   it('a TRILL under a pedal has exactly the attacks it had without one', () => {
     const trilled = () => {
       const model = new ScoreModel()
-      const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       model.addTrill({ startNoteId: note.id })
       return model
     }
@@ -170,7 +170,7 @@ describe('⭐⭐ a repeat family under the pedal keeps its own attacks', () => {
   it('a TREMOLO under a pedal has exactly the attacks it had without one', () => {
     const tremoloed = () => {
       const model = new ScoreModel()
-      const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       model.setTremolo(note.id, 2) // two strokes on a quarter — measured 16ths, several attacks
       return model
     }

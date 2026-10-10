@@ -30,7 +30,7 @@ const scoreWithNote = () => ({
     number: 1, id: 'm1', timeSignature: { numerator: 4, denominator: 4 },
     slots: [{
       type: 'chord', id: 's1', measure: 1, beat: frac(1, 1), duration: 'q', voice: 0,
-      notes: [{ id: 'n1', step: 'C', alter: 0, octave: 4 }],
+      notes: [{ id: 'n1', step: 'C', octave: 4 }],
     }],
   }],
 })
@@ -57,7 +57,7 @@ describe('note/rest drag — axis decision', () => {
     canvas.querySelector = ((sel: string) => (sel === 'svg' ? svg : null)) as typeof canvas.querySelector
 
     element = NOTE_EL
-    note = { id: 'n1', measure: 1, beat: frac(1, 1), staff: 0, step: 'C', alter: 0, octave: 4, isRest: false }
+    note = { id: 'n1', measure: 1, beat: frac(1, 1), staff: 0, step: 'C', octave: 4, isRest: false }
 
     const registry = {
       findClosestNoteOrRest: () => element,
@@ -76,7 +76,7 @@ describe('note/rest drag — axis decision', () => {
       getNote: vi.fn(() => note),
       getScore: scoreWithNote,
       pixelToMeasure: vi.fn(() => 1),
-      pixelToPosition: vi.fn(() => ({ measure: 1, beat: 1, spelling: { step: 'E', alter: 0, octave: 4 } })),
+      pixelToPosition: vi.fn(() => ({ measure: 1, beat: 1, spelling: { step: 'E', octave: 4 } })),
       updateNote: vi.fn(),
       // The spacing address of the grabbed note — its own column here; a fanned member's own beat
       // in the app (docs/plans/note-spacing-plan.md §7).
@@ -196,20 +196,20 @@ describe('note/rest drag — axis decision', () => {
         number: 1, id: 'm1', timeSignature: { numerator: 4, denominator: 4 },
         slots: [{
           type: 'chord', id: 's1', measure: 1, beat: frac(0, 1), duration: 'h', voice: 0,
-          notes: [{ id: 'n1', step: 'C', alter: 0, octave: 4 }],
+          notes: [{ id: 'n1', step: 'C', octave: 4 }],
           fan: {
             direction: 'accel', count: 2, beams: 3,
             // ⚠️ `{ pitches: [...] }`, the real {@link FanMemberChord}. This used to be a bare
             //   array of pitches, which nothing in this test read — until the drag started asking
             //   the bar for its accidentals (`measureAccidentalNotes`) to resolve the dragged
             //   letter's alteration against the key, and walked straight into it.
-            members: [{ pitches: [{ id: 'fm1', step: 'C', alter: 0, octave: 4 }] }],
+            members: [{ pitches: [{ id: 'fm1', step: 'C', octave: 4 }] }],
           },
         }],
       }],
     })
     // …and the engine answers for it, exactly as the real `getNote` does.
-    note = { id: 'fm1', measure: 1, beat: frac(0, 1), staff: 0, step: 'C', alter: 0, octave: 4, isRest: false }
+    note = { id: 'fm1', measure: 1, beat: frac(0, 1), staff: 0, step: 'C', octave: 4, isRest: false }
     element = { ...NOTE_EL, id: 'fm1' }
 
     mc.handleMouseDown(ev({ clientX: 100, clientY: 100 }))
@@ -246,10 +246,10 @@ describe('note/rest drag — release', () => {
     }
     engine = {
       getElementRegistry: () => registry,
-      getNote: vi.fn(() => ({ id: 'n1', measure: 1, beat: frac(1, 1), staff: 0, step: 'C', alter: 0, octave: 4 })),
+      getNote: vi.fn(() => ({ id: 'n1', measure: 1, beat: frac(1, 1), staff: 0, step: 'C', octave: 4 })),
       getScore: scoreWithNote,
       pixelToMeasure: vi.fn(() => 1),
-      pixelToPosition: vi.fn(() => ({ measure: 1, beat: 1, spelling: { step: 'E', alter: 0, octave: 4 } })),
+      pixelToPosition: vi.fn(() => ({ measure: 1, beat: 1, spelling: { step: 'E', octave: 4 } })),
       updateNote: vi.fn(),
       spacingColumnOf: vi.fn(() => ({ measure: 1, beat: frac(1, 1), memberIndex: 0 })),
       noteSpacingRoom: vi.fn(() => 2), getNoteSpacing: vi.fn(() => 0),

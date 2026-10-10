@@ -28,7 +28,7 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
     model.addMeasure()
     for (const m of [1, 2]) {
       for (const b of [0, 1, 2, 3]) {
-        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+        model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) } as never)
       }
     }
     score = model.getScore()
@@ -114,7 +114,7 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
 
   it('⭐⭐ walks the STAFF, in any voice — a slot in another voice IS a step it can take', () => {
     // Voice 1 has a note at beat 2.5, and 2.5 is simply the next place on this staff to stand.
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
     expect(moveDynamicBySlot(score, id, 1)).toBe(true)
     expect(at(id)).toBe('1@2.5')
   })
@@ -123,7 +123,7 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
     // His call, 2026-08-19: *"a dynamic voice 2 should be able to walk even if there are no elements
     // of voice 2 in the score… voice 2 just control the reproduction"*. The scope says who gets
     // louder; it must not decide where the mark may stand.
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
     const scoped = model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 0 })!.id
     expect(moveDynamicBySlot(score, scoped, 1)).toBe(true)
     expect(at(scoped)).toBe('1@2.5')
@@ -142,7 +142,7 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
   it('⚠️ one stop per ADDRESS — two voices striking a beat do not make the key press twice', () => {
     // Both voices have something at beat 3 now; the unscoped mark must still land there in ONE step
     // and leave in one, or `Ctrl+Shift+→` reads as a broken key.
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 } as never)
     expect(moveDynamicBySlot(score, id, 1)).toBe(true)
     expect(at(id)).toBe('1@3')
     expect(moveDynamicBySlot(score, id, 1)).toBe(true)
@@ -150,8 +150,8 @@ describe('moveDynamicBySlot — the mark walks its lane', () => {
   })
 
   it('…and a voice-2 mark sees the voice-2 slots too — they are on the same staff', () => {
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 } as never)
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 } as never)
     const inner = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 1 })!.id
     expect(moveDynamicBySlot(score, inner, 1)).toBe(true)
     expect(at(inner)).toBe('1@1') // ⭐ voice 0's slot, and it is a place like any other
@@ -184,7 +184,7 @@ describe('setDynamicAtSlot — landing the mark by address', () => {
     model.addMeasure()
     for (const m of [1, 2]) {
       for (const b of [0, 1, 2, 3]) {
-        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+        model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) } as never)
       }
     }
     score = model.getScore()
@@ -222,7 +222,7 @@ describe('setDynamicAtSlot — landing the mark by address', () => {
   })
 
   it('⭐ accepts another voice’s slot — the drag reaches everything the walk does', () => {
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
     const scoped = model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 0 })!.id
     expect(setDynamicAtSlot(score, scoped, { measure: 1, beat: frac(5, 2) })).toBe(true)
     expect(at(scoped)).toBe('1@2.5')
@@ -265,7 +265,7 @@ describe('nextDynamicSlot — the stop one step away', () => {
   beforeEach(() => {
     model = new ScoreModel()
     for (const b of [0, 1, 2, 3]) {
-      model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
     }
     score = model.getScore()
     id = model.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f') })!.id
@@ -348,9 +348,9 @@ describe('setDynamicAtStaffSlot — a staff is a place too', () => {
     score = model.getScore()
     // Beats 0 and 1 on the TOP staff; beat 0 only on the lower one, plus its rest fill.
     for (const b of [0, 1]) {
-      model.addNote({ step: 'C', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+      model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
     }
-    model.addNote({ step: 'C', octave: 3, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
+    model.addNote({ step: 'C', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
     id = model.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f') })!.id
   })
 

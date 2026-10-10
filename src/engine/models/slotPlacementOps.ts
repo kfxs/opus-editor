@@ -20,7 +20,7 @@ import { fracCompare, fracEq, fracMul, fracToNumber } from '@/utils/fraction'
 import { voiceOf } from '@/utils/lanes'
 import { measureCapacityFrac } from '@/utils/measureCapacity'
 import { noteSpansOverlapFrac, tupletScale } from '@/utils/musicUtils'
-import { alterToString } from '@/utils/pitchSpelling'
+import { formatPitch } from '@/utils/pitchSpelling'
 import { v4 as uuidv4 } from 'uuid'
 import { restPositionKey } from './engravingOverrides'
 import * as overrideOps from './overrideOps'
@@ -43,7 +43,7 @@ export function fmtSlot(slot: ChordRest): string {
     const mr = slot.isMeasureRest ? ' [measure-rest]' : ''
     return `v${v} REST ${slot.duration}${dots} m${slot.measure} b${b}${mr}${tup}`
   }
-  const pitches = slot.notes.map(n => `${n.step}${alterToString(n.alter)}${n.octave}`).join('+')
+  const pitches = slot.notes.map(n => formatPitch(n)).join('+')
   return `v${v} ${pitches} ${slot.duration}${dots} m${slot.measure} b${b}${tup}`
 }
 
@@ -330,7 +330,7 @@ export function insertPitch(score: Score, measure: Measure, payload: PitchInsert
   const notePitch: NotePitch = {
     id: payload.id,
     step: payload.step,
-    alter: payload.alter,
+    alteration: payload.alteration,
     octave: payload.octave,
     forceAccidental: payload.forceAccidental,
     tiedTo: payload.tiedTo,
@@ -395,7 +395,7 @@ export function insertPitch(score: Score, measure: Measure, payload: PitchInsert
         fillGapsWithRests(score, measure) // reclaim the freed time as rests
       }
     }
-    dbg(`[Model.insertPitch] merge ${notePitch.step}${alterToString(notePitch.alter)}${notePitch.octave} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
+    dbg(`[Model.insertPitch] merge ${formatPitch(notePitch)} → chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s), dur ${existingChord.duration})`)
     return
   }
 

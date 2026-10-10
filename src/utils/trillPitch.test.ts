@@ -5,16 +5,17 @@
  * PRINTED** is only what the key does not already say. Those come apart exactly once — an
  * accidental earlier in the bar — and that case is the reason the trill needs a sign at all.
  */
+import { signs } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
 import { trillAuxiliary } from './trillPitch'
 import { C_MAJOR, keyFromFifths, type KeySignature } from './keySignature'
 import { spellingDiatonicPos } from './pitchSpelling'
-import type { PitchAlter, PitchStep } from '@/types/music'
+import type { Alteration, PitchStep } from '@/types/music'
 
-const NONE = new Map<number, PitchAlter>()
-/** A bar in which `step`/`octave` has already been altered to `alter`. */
-const bar = (step: PitchStep, octave: number, alter: PitchAlter) =>
-  new Map<number, PitchAlter>([[spellingDiatonicPos(step, octave), alter]])
+const NONE = new Map<number, Alteration | undefined>()
+/** A bar in which `step`/`octave` has already been altered to `alter` (0 = an explicit natural). */
+const bar = (step: PitchStep, octave: number, alter: number) =>
+  new Map<number, Alteration | undefined>([[spellingDiatonicPos(step, octave), signs(alter)]])
 
 describe('trillAuxiliary — which note', () => {
   it('is the next LETTER up', () => {
@@ -30,7 +31,7 @@ describe('trillAuxiliary — which note', () => {
   it("⭐ ignores the MAIN note's own alteration — the interval is a consequence, not an input", () => {
     // E♭ and E♮ both trill to F♮ in C major: a whole tone and a semitone, both correct.
     const flat = trillAuxiliary({ step: 'E', octave: 4 }, C_MAJOR, bar('E', 4, -1))
-    expect(flat).toMatchObject({ step: 'F', alter: 0, accidental: null })
+    expect(flat).toMatchObject({ step: 'F', accidental: null })
   })
 })
 
@@ -39,32 +40,32 @@ describe('trillAuxiliary — what sounds', () => {
     const dMajor: KeySignature = keyFromFifths(2) // F♯ C♯
     // A trill on E in D major alternates with F♯ — and prints nothing, since the key says so.
     expect(trillAuxiliary({ step: 'E', octave: 4 }, dMajor, NONE))
-      .toEqual({ step: 'F', alter: 1, octave: 4, accidental: null })
+      .toEqual({ step: 'F', alteration: ['sharp'], octave: 4, accidental: null })
   })
 
   it('takes the BAR\'s running accidental over the key', () => {
     const dMajor: KeySignature = keyFromFifths(2)
     // An F♮ earlier in the bar cancels the key's F♯ at that position.
     const aux = trillAuxiliary({ step: 'E', octave: 4 }, dMajor, bar('F', 4, 0))
-    expect(aux.alter).toBe(0)
+    expect(aux.alteration).toBeUndefined()
     expect(aux.accidental).toBe('n') // …and says so, because it departs from the key
   })
 
   it('is position-specific — an F♯ in another octave does not reach this trill', () => {
     const aux = trillAuxiliary({ step: 'E', octave: 4 }, C_MAJOR, bar('F', 5, 1))
-    expect(aux).toEqual({ step: 'F', alter: 0, octave: 4, accidental: null })
+    expect(aux).toEqual({ step: 'F', octave: 4, accidental: null })
   })
 })
 
 describe('trillAuxiliary — what is printed', () => {
   it('⭐⭐ THE CASE: in C major, an F♯ earlier in the bar makes a trill on E print a ♯', () => {
     expect(trillAuxiliary({ step: 'E', octave: 4 }, C_MAJOR, bar('F', 4, 1)))
-      .toEqual({ step: 'F', alter: 1, octave: 4, accidental: '#' })
+      .toEqual({ step: 'F', alteration: ['sharp'], octave: 4, accidental: '#' })
   })
 
   it('prints a FLAT the same way', () => {
     expect(trillAuxiliary({ step: 'C', octave: 4 }, C_MAJOR, bar('D', 4, -1)))
-      .toEqual({ step: 'D', alter: -1, octave: 4, accidental: 'b' })
+      .toEqual({ step: 'D', alteration: ['flat'], octave: 4, accidental: 'b' })
   })
 
   it('prints NOTHING when the bar merely repeats what the key already said', () => {

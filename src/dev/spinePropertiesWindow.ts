@@ -21,6 +21,7 @@
  *
  * ⚠️ SCAFFOLDING in `dev/`: the engine never knows it exists.
  */
+import type { Alteration, AlterationSignId } from '@/types/music'
 import type { Window } from '@/windows/Window'
 import type { WindowLayer } from '@/windows/WindowLayer'
 import type { Widget } from '@/windows/content/Widget'
@@ -232,7 +233,7 @@ export function describe(
   if (!id || !found) return 'Nothing selected — click a note, a rest or a barline, in the spine panel or on the page'
   const slot = found.type === 'chord' ? found.chord : found.rest
   const data: Record<string, unknown> = {}
-  if (found.type === 'chord') data.pitch = found.chord.notes.map(p => spell(p.step, p.alter, p.octave))
+  if (found.type === 'chord') data.pitch = found.chord.notes.map(p => spell(p.step, p.alteration, p.octave))
   Object.assign(data, {
     duration: slot.duration,
     ...(slot.dots ? { dots: slot.dots } : {}),
@@ -324,8 +325,8 @@ function dressControl(row: HTMLElement, className: string): HTMLElement {
  */
 const CONTROL_COLOUR = '#c9a7ff'
 
-const ALTER_SIGN: Record<number, string> = { [-2]: '𝄫', [-1]: '♭', 0: '', 1: '♯', 2: '𝄪' }
+const SIGN_CHAR: Record<AlterationSignId, string> = { doubleFlat: '𝄫', flat: '♭', sharp: '♯', doubleSharp: '𝄪' }
 
-function spell(step: string, alter: number | undefined, octave: number): string {
-  return `${step}${ALTER_SIGN[alter ?? 0] ?? ''}${octave}`
+function spell(step: string, alteration: Alteration | undefined, octave: number): string {
+  return `${step}${(alteration ?? []).map(id => SIGN_CHAR[id]).join('')}${octave}`
 }

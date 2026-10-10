@@ -33,7 +33,7 @@ describe('pressCue', () => {
   const select = (...ids: string[]) => {
     state.selectedItems = new Map(ids.map((id): [string, SelectionItem] => [itemKey({ kind: 'note', id }), { kind: 'note', id }]))
   }
-  const note = (beat: number) => engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(beat, 1) })!
+  const note = (beat: number) => engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(beat, 1) })!
 
   it('⭐ notes selected → all cue (lit, repainted); again → all full', () => {
     state.selectedTool = 'selection'

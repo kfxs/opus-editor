@@ -14,7 +14,7 @@ import type { Chord, NotePitch, PitchStep } from '@/types/music'
  */
 describe('enclosureLayout', () => {
   const pitch = (id: string, step: PitchStep, octave: number, enclosed = true): NotePitch =>
-    ({ id, step, alter: 0, octave, ...(enclosed && { enclosure: 'round' as const }) })
+    ({ id, step, octave, ...(enclosed && { enclosure: 'round' as const }) })
   const none = () => null
   const L = glyphBox(ENCLOSURE_GLYPHS.round.left)
   const R = glyphBox(ENCLOSURE_GLYPHS.round.right)
@@ -102,8 +102,8 @@ describe('enclosureLayout', () => {
 
   it('chordEnclosure reads the chord\'s drawn sign from its LANE — a second sharp in the bar draws none', () => {
     const model = new ScoreModel()
-    model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     setEnclosure(model.getScore(), [b.id], 'round')
     const chord = model.getScore().measures[0].slots.find(s => s.type === 'chord' && s.notes[0].id === b.id) as Chord
     const bare = enclosureLayout({ notes: chord.notes }, none, 'treble')!

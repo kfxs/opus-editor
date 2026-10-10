@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { MusicEngine } from '../MusicEngine'
 import { fracCreate } from '@/utils/fraction'
-import type { NoteParams, PitchAlter, PitchStep } from '@/types/music'
+import type { Alteration, NoteParams, PitchStep } from '@/types/music'
 
 describe('ScoreRenderer — a head is filed by its staff position', () => {
   let engine: MusicEngine
@@ -22,14 +22,14 @@ describe('ScoreRenderer — a head is filed by its staff position', () => {
   const headAt = (beat: number) =>
     engine.getElementRegistry().getByMeasure(1).find(e => e.type === 'note' && e.beat === beat)!
 
-  it.each<[PitchStep, PitchAlter, number]>([
-    ['D', -1, 29],
-    ['C', -1, 28],
-    ['E', 1, 30],
-    ['B', 1, 34],
-  ])('%s with alter %d stands on its own letter\'s line (%d)', (step, alter, position) => {
-    engine.addNoteAtBeat({ step, alter, octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) } as NoteParams)
-    engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: fracCreate(1, 1) } as NoteParams)
+  it.each<[PitchStep, Alteration, number]>([
+    ['D', ['flat'], 29],
+    ['C', ['flat'], 28],
+    ['E', ['sharp'], 30],
+    ['B', ['sharp'], 34],
+  ])('%s %j stands on its own letter\'s line (%d)', (step, alteration, position) => {
+    engine.addNoteAtBeat({ step, alteration, octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) } as NoteParams)
+    engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: fracCreate(1, 1) } as NoteParams)
     engine.renderScore()
 
     const altered = headAt(0)

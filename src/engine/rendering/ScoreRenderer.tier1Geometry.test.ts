@@ -29,7 +29,7 @@ function buildScore(): ScoreModel {
   model.addMeasure()
   model.addMeasure()
   model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-  model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+  model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
   model.addNote({ step: 'G', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
   model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 3, beat: frac(0, 1) })
   return model

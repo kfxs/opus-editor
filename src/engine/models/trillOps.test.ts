@@ -29,7 +29,7 @@ describe('trillOps — anchoring', () => {
   beforeEach(() => {
     model = new ScoreModel() // measure 1, 4/4
     notes = steps.map(([step, octave], i) =>
-      model.addNote({ step, alter: 0, octave, duration: 'q', measure: 1, beat: frac(i, 1) }),
+      model.addNote({ step, octave, duration: 'q', measure: 1, beat: frac(i, 1) }),
     )
   })
 
@@ -142,7 +142,7 @@ describe('trillOps.trillSpan — what the trill actually covers', () => {
     model.addMeasure()
     notes = ([['C', 4], ['D', 4], ['E', 4], ['F', 4]] as Array<[NoteParams['step'], number]>).map(
       ([step, octave], i) =>
-        model.addNote({ step, alter: 0, octave, duration: 'q', measure: 1, beat: frac(i, 1) }),
+        model.addNote({ step, octave, duration: 'q', measure: 1, beat: frac(i, 1) }),
     )
   })
 
@@ -187,38 +187,38 @@ describe('⭐⭐ trillOps.trillAuxiliaryOf — P1\'s done-when, end to end', () 
   beforeEach(() => { model = new ScoreModel() })
 
   it('a trill on E reports F natural, printing nothing, in an empty bar', () => {
-    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const trill = model.addTrill({ startNoteId: e.id })!
-    expect(model.trillAuxiliaryOf(trill.id)).toEqual({ step: 'F', alter: 0, octave: 4, accidental: null })
+    expect(model.trillAuxiliaryOf(trill.id)).toEqual({ step: 'F', octave: 4, accidental: null })
   })
 
   it('⭐ a trill on E in a bar with an earlier F♯ reports F♯ AND "print the accidental"', () => {
-    model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const trill = model.addTrill({ startNoteId: e.id })!
-    expect(model.trillAuxiliaryOf(trill.id)).toEqual({ step: 'F', alter: 1, octave: 4, accidental: '#' })
+    expect(model.trillAuxiliaryOf(trill.id)).toEqual({ step: 'F', alteration: ['sharp'], octave: 4, accidental: '#' })
   })
 
   it('reads accidentals from ANOTHER VOICE in the same bar — an accidental holds by position', () => {
-    model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const trill = model.addTrill({ startNoteId: e.id })!
-    expect(model.trillAuxiliaryOf(trill.id)!.alter).toBe(1)
+    expect(model.trillAuxiliaryOf(trill.id)!.alteration).toEqual(['sharp'])
   })
 
   it('does NOT read an accidental that comes LATER in the bar', () => {
-    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const trill = model.addTrill({ startNoteId: e.id })!
-    expect(model.trillAuxiliaryOf(trill.id)!.alter).toBe(0)
+    expect(model.trillAuxiliaryOf(trill.id)!.alteration).toBeUndefined()
   })
 
   it('does NOT carry an accidental across the barline', () => {
-    model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     model.addMeasure()
-    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
     const trill = model.addTrill({ startNoteId: e.id })!
-    expect(model.trillAuxiliaryOf(trill.id)).toEqual({ step: 'F', alter: 0, octave: 4, accidental: null })
+    expect(model.trillAuxiliaryOf(trill.id)).toEqual({ step: 'F', octave: 4, accidental: null })
   })
 
   it('returns null for a trill that is not there', () => {
@@ -237,7 +237,7 @@ describe('trillOps — the dangling sweep (removeMeasure)', () => {
   })
 
   const noteIn = (m: number, step: NoteParams['step']) =>
-    model.addNote({ step, alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(0, 1) })
+    model.addNote({ step, octave: 4, duration: 'q', measure: m, beat: frac(0, 1) })
 
   it('drops a trill whose SIGN was in the deleted bar', () => {
     const gone = noteIn(2, 'C')
@@ -263,8 +263,8 @@ describe('trills round-trip through JSON', () => {
   // but that is a property of the CURRENT serializer, and this pins it (docs/no-json-migration).
   it('survives export → import with both anchors and its side', () => {
     const model = new ScoreModel()
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const trill = model.addTrill({ startNoteId: a.id, endNoteId: b.id, voice: 0, placement: 'below' })!
 
     const back = ScoreModel.fromJSON(model.toJSON())
@@ -297,7 +297,7 @@ describe('trillOps — the bare tr', () => {
     model = new ScoreModel()
     notes = ([['C', 4], ['D', 4], ['E', 4]] as Array<[NoteParams['step'], number]>)
       .map(([step, octave], i) =>
-        model.addNote({ step, octave, alter: 0, duration: 'q', measure: 1, beat: frac(i, 1) })!)
+        model.addNote({ step, octave, duration: 'q', measure: 1, beat: frac(i, 1) })!)
     trillId = model.addTrill({ startNoteId: notes[0].id })!.id
   })
   const trill = () => model.getTrillById(trillId)!
@@ -343,7 +343,7 @@ describe('trillOps — the ink offsets', () => {
 
   beforeEach(() => {
     model = new ScoreModel()
-    noteId = model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    noteId = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     trillId = model.addTrill({ startNoteId: noteId })!.id
   })
   const off = () => model.getEngravingOverrides(trillId)[0]
@@ -395,7 +395,7 @@ describe('trillOps — the ink offsets', () => {
   })
 
   it('⚠️ SURVIVES a re-anchor, and DIES with the trill', () => {
-    const later = model.addNote({ step: 'D', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    const later = model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
     model.setTrillOffset(trillId, 1, 1)
     model.setTrillEnd(trillId, later)
     expect(off(), 'the nudge is about the drawing, not the anchor').toEqual(
@@ -424,7 +424,7 @@ describe('trillOps — what the walk asks before it steps', () => {
     model = new ScoreModel()
     notes = ([['C', 4], ['D', 4], ['E', 4], ['F', 4]] as Array<[NoteParams['step'], number]>)
       .map(([step, octave], i) =>
-        model.addNote({ step, alter: 0, octave, duration: 'q', measure: 1, beat: frac(i, 1) }))
+        model.addNote({ step, octave, duration: 'q', measure: 1, beat: frac(i, 1) }))
   })
 
   it('⭐⭐ trillMayAnchorOn: a START refuses a note that ALREADY TRILLS, an END does not', () => {

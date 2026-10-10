@@ -38,7 +38,7 @@ describe('cueCommands', () => {
 
   it('through the facade (`engine.cue`): undo takes it back, redo returns it', () => {
     const engine = makeEngine()
-    const n = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) })!
+    const n = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) })!
     expect(engine.cue.toggle([n.id])).toBe(true)
     expect(engine.getNote(n.id)!.cue).toBe(true)
     expect(engine.undo()).toBe(true)

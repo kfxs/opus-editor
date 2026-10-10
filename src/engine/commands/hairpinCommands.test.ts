@@ -19,7 +19,7 @@ describe('hairpinCommands', () => {
     ctx = fakeCommandContext()
     hairpin = hairpinCommands(ctx)
     notes = [0, 1, 2, 3].map(i =>
-      ctx.score.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(i, 1) }).id)
+      ctx.score.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(i, 1) }).id)
     id = hairpin.createHairpin([notes[0], notes[1]], 'cresc')!.id
     ctx.log.length = 0
   })

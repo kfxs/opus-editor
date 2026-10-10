@@ -13,8 +13,8 @@ import { fracCreate as frac } from '@/utils/fraction'
 describe('EngravedArticulation — on a cue note', () => {
   it('⭐ the mark is ¾ of the font on a cue note, full on a full one', () => {
     const model = new ScoreModel()
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), articulations: ['staccato'] })
-    const cue = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), articulations: ['accent'] })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), articulations: ['staccato'] })
+    const cue = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), articulations: ['accent'] })
     setCue(model.getScore(), [cue.id], true)
     const container = document.createElement('div')
     document.body.appendChild(container)

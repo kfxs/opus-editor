@@ -11,7 +11,7 @@ import type { Chord, Measure, TimeSignature } from '@/types/music'
  */
 const ts = (n: number, d: number): TimeSignature => ({ numerator: n, denominator: d })
 const F = (n: number, d = 1) => fracCreate(n, d)
-const p = (id: string, step: 'C' | 'D' | 'E' | 'B', octave = 4) => ({ id, step, alter: 0 as const, octave })
+const p = (id: string, step: 'C' | 'D' | 'E' | 'B', octave = 4) => ({ id, step, octave })
 
 /** A half note on beat 3 of a 4/4 bar, laid out again with its start moved to beat 4 — so it splits. */
 function splitHalf(chord: Partial<Chord>) {

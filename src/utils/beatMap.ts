@@ -89,7 +89,7 @@ function collapseToBeats(allFlat: FlatNote[]): FlatNote[] {
     const existing = beatMap.get(key)
     if (!existing) {
       beatMap.set(key, n)
-    } else if (!n.isRest && (existing.isRest || comparePitch({ step: n.step!, alter: n.alter, octave: n.octave! }, { step: existing.step!, alter: existing.alter, octave: existing.octave! }) < 0)) {
+    } else if (!n.isRest && (existing.isRest || comparePitch({ step: n.step!, alteration: n.alteration, octave: n.octave! }, { step: existing.step!, alteration: existing.alteration, octave: existing.octave! }) < 0)) {
       // Prefer non-rest; among non-rests prefer the lowest pitch
       beatMap.set(key, n)
     }

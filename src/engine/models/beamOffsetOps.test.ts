@@ -7,7 +7,7 @@ import { fracCreate as frac } from '@/utils/fraction'
 
 function setUp() {
   const m = new ScoreModel('beam')
-  const note = m.addNote({ step: 'C', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1) })
+  const note = m.addNote({ step: 'C', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) })
   const slot = m.getScore().measures[0].slots.find(s => s.type === 'chord')!
   return { m, score: m.getScore(), anchor: note.id, slotId: slot.id }
 }

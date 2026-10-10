@@ -3,7 +3,7 @@
  * Augmentation dots are hit-testable — the thing that makes them selectable at all.
  *
  * The shape to protect: `dots` is ONE value on the `Chord`/`Rest` slot (it modifies the duration),
- * unlike `alter`, which lives per `NotePitch`. But VexFlow draws a dot per notehead per dot, so a
+ * unlike `alteration`, which lives per `NotePitch`. But VexFlow draws a dot per notehead per dot, so a
  * double-dotted three-note chord emits SIX glyphs for that one value. Every glyph therefore
  * registers against the SAME anchor id, which is what makes clicking any one dot select them all —
  * "dot one head of a chord" has no representation in the model.

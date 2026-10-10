@@ -21,9 +21,9 @@ async function hisChord(score: import('@playwright/test').Page) {
     const h = window.__h
     const beat = h.frac(0, 1)
     const add = (step: string, octave: number, alter: number) =>
-      h.engine.addChordNote({ step, octave, alter, duration: 'q', measure: 1, beat } as never)
+      h.engine.addChordNote({ step, octave, ...(alter ? { alteration: [alter > 0 ? 'sharp' : 'flat'] } : {}), duration: 'q', measure: 1, beat } as never)
 
-    h.engine.addNoteAtBeat({ step: 'C', octave: 4, alter: 1, duration: 'q', measure: 1, beat } as never)
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, alteration: ['sharp'], duration: 'q', measure: 1, beat } as never)
     add('E', 4, 0)
     add('G', 4, 0)
     add('A', 4, -1)

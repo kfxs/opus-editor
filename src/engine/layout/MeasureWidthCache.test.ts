@@ -84,7 +84,7 @@ describe('MeasureWidthCache', () => {
     const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const plain = laneFingerprint(model.getScore().measures[0])
 
-    model.updateNote(note.id, { alter: 1, forceAccidental: true })
+    model.updateNote(note.id, { alteration: ['sharp'], forceAccidental: true })
     const sharpened = laneFingerprint(model.getScore().measures[0])
 
     expect(sharpened).not.toBe(plain)

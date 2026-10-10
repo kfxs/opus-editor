@@ -49,7 +49,7 @@ describe('keySignatureExtent', () => {
   })
 
   it('prices a CUSTOM signature by its own members', () => {
-    const mixed: KeySignature = { alterations: [{ step: 'B', alter: -1 }, { step: 'F', alter: 1 }] }
+    const mixed: KeySignature = { alterations: [{ step: 'B', alteration: ['flat'] }, { step: 'F', alteration: ['sharp'] }] }
     expect(keySignatureExtent(mixed)).toBeCloseTo(FLAT + SHARP + KEY_ACCIDENTAL_GAP, 5)
   })
 })
@@ -62,8 +62,8 @@ describe('keySignatureLines — the measured table, checked by naming the pitch'
   it('treble flats: B♭ on the MIDDLE LINE — and F♯ vs F♭ are an octave apart', () => {
     expect(keySignatureLines(keyFromFifths(-1), 'treble')).toEqual([3])
     // F♯5 (top line) against F♭4 (the bottom space): the reason the table is keyed by DIRECTION.
-    expect(keySignatureLines({ alterations: [{ step: 'F', alter: 1 }] }, 'treble')).toEqual([5])
-    expect(keySignatureLines({ alterations: [{ step: 'F', alter: -1 }] }, 'treble')).toEqual([1.5])
+    expect(keySignatureLines({ alterations: [{ step: 'F', alteration: ['sharp'] }] }, 'treble')).toEqual([5])
+    expect(keySignatureLines({ alterations: [{ step: 'F', alteration: ['flat'] }] }, 'treble')).toEqual([1.5])
   })
 
   it('bass is treble − 2 steps: F♯3 on the fourth line, B♭2 on the second', () => {
@@ -73,7 +73,7 @@ describe('keySignatureLines — the measured table, checked by naming the pitch'
 
   it('⛔ alto has NO exception — A♯ sits at A3, the plainly shifted position', () => {
     // A is the fifth sharp; asking for it alone is the same row.
-    expect(keySignatureLines({ alterations: [{ step: 'A', alter: 1 }] }, 'alto')).toEqual([2])
+    expect(keySignatureLines({ alterations: [{ step: 'A', alteration: ['sharp'] }] }, 'alto')).toEqual([2])
     expect(keySignatureLines(keyFromFifths(5), 'alto')).toEqual([4.5, 3, 5, 3.5, 2])
   })
 
@@ -101,20 +101,20 @@ describe('keySignatureLines — the measured table, checked by naming the pitch'
   })
 
   it('⭐ a CUSTOM signature takes each letter from its own direction\'s row', () => {
-    const mixed: KeySignature = { alterations: [{ step: 'B', alter: -1 }, { step: 'F', alter: 1 }] }
+    const mixed: KeySignature = { alterations: [{ step: 'B', alteration: ['flat'] }, { step: 'F', alteration: ['sharp'] }] }
     // B♭4 on the middle line, F♯5 on the top line — each where a traditional signature puts it.
     expect(keySignatureLines(mixed, 'treble')).toEqual([3, 5])
   })
 
   it('an OCTAVE override moves the glyph, and the clef converts it', () => {
     // Gould's own figure draws C♯ at C5 — the third space in treble.
-    expect(keySignatureLines({ alterations: [{ step: 'C', alter: 1, octave: 5 }] }, 'treble')).toEqual([3.5])
+    expect(keySignatureLines({ alterations: [{ step: 'C', alteration: ['sharp'], octave: 5 }] }, 'treble')).toEqual([3.5])
     // …and the same override under a bass clef lands somewhere else entirely, as it must.
-    expect(keySignatureLines({ alterations: [{ step: 'C', alter: 1, octave: 5 }] }, 'bass')).toEqual([9.5])
+    expect(keySignatureLines({ alterations: [{ step: 'C', alteration: ['sharp'], octave: 5 }] }, 'bass')).toEqual([9.5])
   })
 
   it('keeps the AUTHORED order — the lines come back in the list\'s order, not the cycle\'s', () => {
-    const reordered: KeySignature = { alterations: [{ step: 'C', alter: 1 }, { step: 'F', alter: 1 }] }
+    const reordered: KeySignature = { alterations: [{ step: 'C', alteration: ['sharp'] }, { step: 'F', alteration: ['sharp'] }] }
     expect(keySignatureLines(reordered, 'treble')).toEqual([3.5, 5])
   })
 })
@@ -138,13 +138,13 @@ describe('keyChangeRow — the cancelling naturals (P6)', () => {
   it('⭐⭐ draws them when the new key is C MAJOR — otherwise the change would be invisible', () => {
     const row = keyChangeRow(C_MAJOR, E_FLAT, 'treble')!
     expect(row.alterations.map(a => a.step)).toEqual(['B', 'E', 'A'])
-    expect(row.alterations.every(a => a.alter === 0), 'all naturals').toBe(true)
+    expect(row.alterations.every(a => a.alteration === undefined), 'all naturals').toBe(true)
     // MusicXML states the same rule as a spec sentence: *"This will always happen when changing to
     // C major or A minor and need not be specified then."*
   })
 
   it('🚨 a natural stands where the sign it CANCELS stood — flats, not the sharp row', () => {
-    // The bug this guards: `keySignatureLines` reads `alter >= 0 ? SHARP_STEPS : FLAT_STEPS`, and a
+    // The bug this guards: `keySignatureLines` reads `side >= 0 ? SHARP_STEPS : FLAT_STEPS`, and a
     // natural is 0 — so without the octave the cancellation of three flats would be drawn in the
     // SHARP positions, a third or a sixth from the signs it answers.
     const cancelling = keyChangeRow(C_MAJOR, E_FLAT, 'treble')!
@@ -176,12 +176,12 @@ describe('keyChangeRow — the cancelling naturals (P6)', () => {
 })
 
 describe('signGlyph — a natural is a DRAWN sign in a signature', () => {
-  it('🚨 answers the natural glyph for alter 0, where `alterToString` answers the empty string', () => {
+  it('🚨 answers the natural glyph for NO alteration, where `alterationCode` answers the empty string', () => {
     // In a pitch LABEL a natural is the absence of a sign (`E4`, not `En4`) — correct there, and it
     // cost P6 a silent nothing here: every cancelling natural resolved to null and was skipped by
     // both the extent and the pass, with no error anywhere.
-    expect(signGlyph(0)).toBe('accidentalNatural')
-    expect(signGlyph(1)).toBe('accidentalSharp')
-    expect(signGlyph(-1)).toBe('accidentalFlat')
+    expect(signGlyph(undefined)).toBe('accidentalNatural')
+    expect(signGlyph(['sharp'])).toBe('accidentalSharp')
+    expect(signGlyph(['flat'])).toBe('accidentalFlat')
   })
 })

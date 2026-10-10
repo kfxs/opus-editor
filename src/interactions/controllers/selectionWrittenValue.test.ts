@@ -11,9 +11,9 @@ vi.mock('../../engine/audio/PlaybackEngine', async () => (await import('@/testin
 describe('writeSelectionValue — a duration/dot key on a selection', () => {
   const setup = () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
     const graces = (['D', 'C', 'B'] as const).map(step =>
-      engine.grace.addGrace(note.id, 'before', { step, alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!)
+      engine.grace.addGrace(note.id, 'before', { step, octave: 5 }, 'appoggiatura', { duration: '8' })!)
     const state = createEditorState()
     const select = (...ids: string[]) => {
       state.selectedItems = new Map(ids.map((id): [string, SelectionItem] => [itemKey({ kind: 'note', id }), { kind: 'note', id }]))
@@ -48,8 +48,8 @@ describe('writeSelectionValue — a duration/dot key on a selection', () => {
 
   it('⭐ every selected BRACKETED grace takes the DURATION too — its head (bracketed-grace-plan B7)', () => {
     const { engine, note, state, select } = setup()
-    const a = engine.bracketed.add(note.id, 'before', { step: 'D', alter: 0, octave: 5 })!
-    const b = engine.bracketed.add(note.id, 'before', { step: 'F', alter: 0, octave: 5 })!
+    const a = engine.bracketed.add(note.id, 'before', { step: 'D', octave: 5 })!
+    const b = engine.bracketed.add(note.id, 'before', { step: 'F', octave: 5 })!
     select(a.pitches[0].id, b.pitches[0].id)
     writeSelectionValue(engine, state, { duration: 'h', dots: 0 })
     expect([a.duration, b.duration]).toEqual(['h', 'h'])

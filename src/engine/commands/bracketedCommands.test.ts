@@ -8,8 +8,8 @@ import { fracCreate } from '@/utils/fraction'
  * entry per edit, and ⛔ none on a refusal.
  */
 describe('bracketedCommands', () => {
-  const Bb3 = { step: 'B' as const, alter: -1 as const, octave: 3 }
-  const D5 = { step: 'D' as const, alter: 0 as const, octave: 5 }
+  const Bb3 = { step: 'B' as const, alteration: ['flat'] as const, octave: 3 }
+  const D5 = { step: 'D' as const, octave: 5 }
 
   const setup = () => {
     const ctx = fakeCommandContext()
@@ -57,8 +57,8 @@ describe('bracketedCommands', () => {
     const a = cmds.add(host.id, 'before', Bb3)!
     ctx.log.length = 0
     cmds.addPitch(a.pitches[0].id, D5)
-    cmds.setPitch(a.pitches[0].id, { step: 'A', alter: 0, octave: 3 })
-    cmds.setPitch(a.pitches[0].id, { step: 'A', alter: 0, octave: 3 })
+    cmds.setPitch(a.pitches[0].id, { step: 'A', octave: 3 })
+    cmds.setPitch(a.pitches[0].id, { step: 'A', octave: 3 })
     expect(ctx.log).toEqual(['mutate:Add bracketed pitch', 'mutate:Bracketed pitch'])
   })
 

@@ -11,14 +11,14 @@
  * ⛔ What a pitch sounds like is `engine/audio/`'s question, and only there.
  */
 
-import type { PitchStep } from '@/types/music'
-import { alterationRank, signsOfAlter } from './alterationSigns'
+import type { Alteration, PitchStep } from '@/types/music'
+import { alterationRank, sameAlteration } from './alterationSigns'
 import { spellingDiatonicPos } from './pitchSpelling'
 
-/** A written pitch, as the score stores it today (M2 swaps `alter` for the list of signs). */
+/** A written pitch, as the score stores it. */
 export interface WrittenPitch {
   readonly step: PitchStep
-  readonly alter?: number
+  readonly alteration?: Alteration
   readonly octave: number
 }
 
@@ -33,7 +33,7 @@ export const MIDDLE_C_POSITION = 28
 /** < 0 when `a` is written lower than `b`, > 0 higher, 0 the same line and the same signs. */
 export function comparePitch(a: WrittenPitch, b: WrittenPitch): number {
   return staffPosition(a) - staffPosition(b)
-    || alterationRank(signsOfAlter(a.alter)) - alterationRank(signsOfAlter(b.alter))
+    || alterationRank(a.alteration) - alterationRank(b.alteration)
 }
 
 /**
@@ -42,9 +42,7 @@ export function comparePitch(a: WrittenPitch, b: WrittenPitch): number {
  * sound alike — in meantone they don't (M1; docs/plans/alteration-signs-plan.md).
  */
 export function samePitch(a: WrittenPitch, b: WrittenPitch): boolean {
-  if (a.step !== b.step || a.octave !== b.octave) return false
-  const [x, y] = [signsOfAlter(a.alter), signsOfAlter(b.alter)]
-  return x.length === y.length && x.every((sign, i) => sign === y[i])
+  return a.step === b.step && a.octave === b.octave && sameAlteration(a.alteration, b.alteration)
 }
 
 /** A copy, lowest written pitch first. */

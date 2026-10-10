@@ -1,7 +1,7 @@
 /**
  * {@link keySignature} — an ORDERED SET OF ALTERED LETTERS, and the three questions asked of it.
  *
- * ⭐ The point of these is the split the module's header argues: `keyAlterOf` answers *what a letter
+ * ⭐ The point of these is the split the module's header argues: `keyAlterationOf` answers *what a letter
  * is altered to* and is the reader everything else should use; `fifthsOf` answers *what the key is
  * called*, and is allowed to answer **nothing**. The tests that matter most are the ones where those
  * two come apart — a signature mixing a sharp and a flat has alterations and no name.
@@ -10,7 +10,7 @@
  * fixtures set the field directly, which is honest for what P1 is: the model and the reads.
  */
 import { describe, it, expect } from 'vitest'
-import { C_MAJOR, fifthsOf, keyAlterOf, keyAt, keyFromFifths, resolveStaffKeys, type KeySignature } from './keySignature'
+import { C_MAJOR, fifthsOf, keyAlterationOf, keyAt, keyFromFifths, resolveStaffKeys, type KeySignature } from './keySignature'
 import { fracCreate as frac } from './fraction'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import type { Score } from '@/types/music'
@@ -38,38 +38,38 @@ function putKey(score: Score, measureNumber: number, key: KeySignature, staffId?
   measure.keys.push({ id: `k${measureNumber}`, beat: frac(0, 1), key, ...(staffId ? { staffId } : {}) })
 }
 
-describe('keyAlterOf', () => {
+describe('keyAlterationOf', () => {
   it('alters nothing in C major', () => {
-    for (const step of STEPS) expect(keyAlterOf(C_MAJOR, step)).toBe(0)
+    for (const step of STEPS) expect(keyAlterationOf(C_MAJOR, step)).toBeUndefined()
   })
 
   it('adds sharps in the order F C G D A E B', () => {
-    expect(keyAlterOf(keyFromFifths(1), 'F')).toBe(1)   // G major
-    expect(keyAlterOf(keyFromFifths(1), 'C')).toBe(0)
-    expect(keyAlterOf(keyFromFifths(2), 'C')).toBe(1)   // D major: F♯ C♯
-    expect(keyAlterOf(keyFromFifths(3), 'G')).toBe(1)   // A major: F♯ C♯ G♯
-    expect(keyAlterOf(keyFromFifths(3), 'D')).toBe(0)
+    expect(keyAlterationOf(keyFromFifths(1), 'F')).toEqual(['sharp'])   // G major
+    expect(keyAlterationOf(keyFromFifths(1), 'C')).toBeUndefined()
+    expect(keyAlterationOf(keyFromFifths(2), 'C')).toEqual(['sharp'])   // D major: F♯ C♯
+    expect(keyAlterationOf(keyFromFifths(3), 'G')).toEqual(['sharp'])   // A major: F♯ C♯ G♯
+    expect(keyAlterationOf(keyFromFifths(3), 'D')).toBeUndefined()
   })
 
   it('adds flats in the order B E A D G C F', () => {
-    expect(keyAlterOf(keyFromFifths(-1), 'B')).toBe(-1) // F major
-    expect(keyAlterOf(keyFromFifths(-1), 'E')).toBe(0)
-    expect(keyAlterOf(keyFromFifths(-2), 'E')).toBe(-1) // B♭ major: B♭ E♭
-    expect(keyAlterOf(keyFromFifths(-4), 'D')).toBe(-1) // A♭ major: B♭ E♭ A♭ D♭
-    expect(keyAlterOf(keyFromFifths(-4), 'G')).toBe(0)
+    expect(keyAlterationOf(keyFromFifths(-1), 'B')).toEqual(['flat']) // F major
+    expect(keyAlterationOf(keyFromFifths(-1), 'E')).toBeUndefined()
+    expect(keyAlterationOf(keyFromFifths(-2), 'E')).toEqual(['flat']) // B♭ major: B♭ E♭
+    expect(keyAlterationOf(keyFromFifths(-4), 'D')).toEqual(['flat']) // A♭ major: B♭ E♭ A♭ D♭
+    expect(keyAlterationOf(keyFromFifths(-4), 'G')).toBeUndefined()
   })
 
   it('is INDEPENDENT OF OCTAVE — a sign drawn in one octave alters the letter in all of them', () => {
     // Gould pp. 93-94: her figure draws C♯ at C5 and it sharpens the C at C4. `octave` is PLACEMENT.
-    const oddlyPlaced: KeySignature = { alterations: [{ step: 'C', alter: 1, octave: 5 }] }
-    expect(keyAlterOf(oddlyPlaced, 'C')).toBe(1)
+    const oddlyPlaced: KeySignature = { alterations: [{ step: 'C', alteration: ['sharp'], octave: 5 }] }
+    expect(keyAlterationOf(oddlyPlaced, 'C')).toEqual(['sharp'])
   })
 
   it('⭐ answers for a signature that mixes a sharp and a flat — the requirement the model exists for', () => {
-    const bartok: KeySignature = { alterations: [{ step: 'B', alter: -1 }, { step: 'F', alter: 1 }] }
-    expect(keyAlterOf(bartok, 'B')).toBe(-1)
-    expect(keyAlterOf(bartok, 'F')).toBe(1)
-    expect(keyAlterOf(bartok, 'E')).toBe(0)
+    const bartok: KeySignature = { alterations: [{ step: 'B', alteration: ['flat'] }, { step: 'F', alteration: ['sharp'] }] }
+    expect(keyAlterationOf(bartok, 'B')).toEqual(['flat'])
+    expect(keyAlterationOf(bartok, 'F')).toEqual(['sharp'])
+    expect(keyAlterationOf(bartok, 'E')).toBeUndefined()
   })
 })
 
@@ -77,8 +77,8 @@ describe('keyFromFifths — the classical constructor', () => {
   it('builds the list in cycle order, which is what makes the printed order right by default', () => {
     expect(keyFromFifths(3).alterations.map(a => a.step)).toEqual(['F', 'C', 'G'])
     expect(keyFromFifths(-3).alterations.map(a => a.step)).toEqual(['B', 'E', 'A'])
-    expect(keyFromFifths(2).alterations.every(a => a.alter === 1)).toBe(true)
-    expect(keyFromFifths(-2).alterations.every(a => a.alter === -1)).toBe(true)
+    expect(keyFromFifths(2).alterations.every(a => a.alteration?.[0] === 'sharp')).toBe(true)
+    expect(keyFromFifths(-2).alterations.every(a => a.alteration?.[0] === 'flat')).toBe(true)
   })
 
   it('C major is an EMPTY list, not a special case', () => {
@@ -96,7 +96,7 @@ describe('keyFromFifths — the classical constructor', () => {
     expect(keyFromFifths(7).alterations).toHaveLength(7)
     expect(keyFromFifths(99).alterations).toHaveLength(7)   // nonsense in, no crash out
     expect(keyFromFifths(-99).alterations).toHaveLength(7)
-    expect(keyFromFifths(99).alterations.every(a => a.alter === 1)).toBe(true)
+    expect(keyFromFifths(99).alterations.every(a => a.alteration?.[0] === 'sharp')).toBe(true)
   })
 })
 
@@ -106,19 +106,19 @@ describe('fifthsOf — the NAME, which is allowed to be absent', () => {
   })
 
   it('⭐⭐ answers NULL for a mixed signature — there is no such position on the circle', () => {
-    const bartok: KeySignature = { alterations: [{ step: 'B', alter: -1 }, { step: 'F', alter: 1 }] }
+    const bartok: KeySignature = { alterations: [{ step: 'B', alteration: ['flat'] }, { step: 'F', alteration: ['sharp'] }] }
     expect(fifthsOf(bartok)).toBeNull()
   })
 
   it('answers NULL for a set that is not a cycle-of-fifths PREFIX', () => {
     // One sharp, but the wrong one: C♯ alone is nobody's key signature.
-    expect(fifthsOf({ alterations: [{ step: 'C', alter: 1 }] })).toBeNull()
+    expect(fifthsOf({ alterations: [{ step: 'C', alteration: ['sharp'] }] })).toBeNull()
     // F♯ and G♯ skips C♯.
-    expect(fifthsOf({ alterations: [{ step: 'F', alter: 1 }, { step: 'G', alter: 1 }] })).toBeNull()
+    expect(fifthsOf({ alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'G', alteration: ['sharp'] }] })).toBeNull()
   })
 
   it('names by CONTENT, so an authored order still has its traditional name', () => {
-    expect(fifthsOf({ alterations: [{ step: 'C', alter: 1 }, { step: 'F', alter: 1 }] })).toBe(2)
+    expect(fifthsOf({ alterations: [{ step: 'C', alteration: ['sharp'] }, { step: 'F', alteration: ['sharp'] }] })).toBe(2)
   })
 
   it('⭐⭐ OPEN/ATONAL IS NOT C MAJOR, and this is the line that keeps them apart', () => {
@@ -127,11 +127,11 @@ describe('fifthsOf — the NAME, which is allowed to be absent', () => {
   })
 
   it('ignores a placement override — the octave is where the sign is drawn, not what it means', () => {
-    expect(fifthsOf({ alterations: [{ step: 'F', alter: 1, octave: 5 }] })).toBe(1)
+    expect(fifthsOf({ alterations: [{ step: 'F', alteration: ['sharp'], octave: 5 }] })).toBe(1)
   })
 
   it('answers NULL for a double accidental, which no traditional signature carries', () => {
-    expect(fifthsOf({ alterations: [{ step: 'B', alter: -2 }] })).toBeNull()
+    expect(fifthsOf({ alterations: [{ step: 'B', alteration: ['doubleFlat'] }] })).toBeNull()
   })
 })
 

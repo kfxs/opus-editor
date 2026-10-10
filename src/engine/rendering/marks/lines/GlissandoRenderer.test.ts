@@ -25,7 +25,7 @@ function makeRenderer() {
 }
 
 const note = (model: ScoreModel, step: NoteParams['step'], octave: number, beat: number) =>
-  model.addNote({ step, alter: 0, octave, duration: 'q', measure: 1, beat: frac(beat, 1) })
+  model.addNote({ step, octave, duration: 'q', measure: 1, beat: frac(beat, 1) })
 
 /** The glissando groups one render drew, each as its one stroked path. */
 function strokes(model: ScoreModel) {
@@ -114,7 +114,7 @@ describe('renderGlissandi', () => {
     const model = new ScoreModel()
     for (let m = 2; m <= 24; m++) model.addMeasure()
     const heads = Array.from({ length: 24 }, (_, i) =>
-      model.addNote({ step: i % 2 ? 'C' : 'G', alter: 0, octave: 4, duration: 'w', measure: i + 1, beat: frac(0, 1) }))
+      model.addNote({ step: i % 2 ? 'C' : 'G', octave: 4, duration: 'w', measure: i + 1, beat: frac(0, 1) }))
     for (const h of heads.slice(0, -1)) addGlissando(model.getScore(), h.id)
 
     const renderer = makeRenderer()

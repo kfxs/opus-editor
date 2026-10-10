@@ -12,8 +12,8 @@ vi.mock('./audio/PlaybackEngine', async () => (await import('@/testing/engineStu
 describe('NoteEntryCoordinator.updateNote — a grace\'s beam', () => {
   it('⭐ the beam key lands on the grace; the main note is untouched; undo takes it back', () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1) })!
-    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: '8', measure: 1, beat: frac(0, 1) })!
+    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     engine.updateNote(g.pitches[0].id, { beam: 'single' })
     expect(g.beam).toBe('single')
     expect(engine.getNote(note.id)?.beam).toBeUndefined()

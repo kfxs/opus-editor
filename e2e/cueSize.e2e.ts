@@ -13,7 +13,7 @@ test('⭐ a cue note’s head, sign, dot and flag are drawn at ¾, and its stem 
     const h = window.__h
     h.engine.addMeasure()
     const add = (measure: number) => h.engine.addNoteAtBeat({
-      step: 'C', alter: 1, octave: 4, duration: '8', dots: 1, measure, beat: h.frac(0, 1), beam: 'single' as const,
+      step: 'C', alteration: ['sharp'], octave: 4, duration: '8', dots: 1, measure, beat: h.frac(0, 1), beam: 'single' as const,
     })!
     add(1)
     h.engine.cue.set([add(2).id], true)
@@ -68,10 +68,10 @@ test('⭐ a cue note’s head, sign, dot and flag are drawn at ¾, and its stem 
 test('⭐ cue and grace heads centre on their line or space — as a full head does', async ({ score }) => {
   const measured = await score.evaluate(async () => {
     const h = window.__h
-    const put = (step: string, beat: number) => h.engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!
+    const put = (step: string, beat: number) => h.engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: h.frac(beat, 1) })!
     const notes = [put('E', 0), put('F', 1), put('E', 2), put('F', 3)]
     h.engine.cue.set([notes[2].id, notes[3].id], true)
-    for (const [i, n] of notes.entries()) h.engine.grace.addGrace(n.id, 'before', { step: i % 2 ? 'F' : 'E', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })
+    for (const [i, n] of notes.entries()) h.engine.grace.addGrace(n.id, 'before', { step: i % 2 ? 'F' : 'E', octave: 4 }, 'appoggiatura', { duration: '8' })
     await h.render()
     const svg = document.querySelector('svg') as SVGGraphicsElement
     const toPage = svg.getScreenCTM()!.inverse()
@@ -115,7 +115,7 @@ test('⭐ cue and grace heads centre on their line or space — as a full head d
 test('⭐ a cue note’s hit box is its drawn head — centre and width', async ({ score }) => {
   const r = await score.evaluate(async () => {
     const h = window.__h
-    const n = h.engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
+    const n = h.engine.addNoteAtBeat({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })!
     h.engine.cue.set([n.id], true)
     await h.render()
     const head = (document.querySelector('g.notehead > text') as SVGGraphicsElement).getBBox()
@@ -139,7 +139,7 @@ test('⭐ a bar of cue notes is closed up: its note gaps about ¾ of a full bar�
     const ids: string[] = []
     for (const bar of [1, 2]) {
       for (let b = 0; b < 4; b++) {
-        const n = h.engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: bar, beat: h.frac(b, 1) })!
+        const n = h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: bar, beat: h.frac(b, 1) })!
         if (bar === 2) ids.push(n.id)
       }
     }
@@ -157,7 +157,7 @@ test('⭐ a bar of cue notes is closed up: its note gaps about ¾ of a full bar�
 test('⭐ with cue armed for entry, the note ghost is drawn at the cue size', async ({ score }) => {
   const sizes = await score.evaluate(async () => {
     const h = window.__h
-    h.engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
     await h.render()
     const real = h.noteheads()
     const ghostSize = (cue: boolean) => {

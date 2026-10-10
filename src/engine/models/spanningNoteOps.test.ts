@@ -20,12 +20,12 @@ describe('splitExistingNoteWithTie — a duration change that overflows the bar'
 
   it('splits a note at beat 0 into the next measure (basic case)', () => {
     // Add a quarter note at beat 0 in measure 1
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
 
     // Request a whole note (4 beats) — only 4 available but note is at beat 0, so no overflow...
     // Let's put it at beat 2 so 2 beats remain, then request a whole note (4 beats) → overflow 2 beats
     scoreModel.deleteNote(note.id)
-    const note2 = scoreModel.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const note2 = scoreModel.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     splitExistingNoteWithTie(scoreModel, note2, 'w', 2) // whole = 4b, available = 2b, overflow = 2b
 
@@ -51,7 +51,7 @@ describe('splitExistingNoteWithTie — a duration change that overflows the bar'
     // Note at beat 1 in 4/4 → 3 beats remain. Request whole (4 beats) → overflow = 1 beat.
     // splitBeatsIntoLengths(3) = [h.], splitBeatsIntoLengths(1) = [q] — the FEWEST values that span
     // it, dots included. It was ['h','q'], which cost an extra note and an extra tie for nothing.
-    const note = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const note = scoreModel.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     splitExistingNoteWithTie(scoreModel, note, 'w', 1) // overflow = 1 beat
 
@@ -78,7 +78,7 @@ describe('splitExistingNoteWithTie — a duration change that overflows the bar'
     const freshModel = new ScoreModel('Test')
     expect(freshModel.getScore().measures).toHaveLength(1)
 
-    const note = freshModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const note = freshModel.addNote({ step: 'A', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
     splitExistingNoteWithTie(freshModel, note, 'w', 2)
 
     expect(freshModel.getScore().measures).toHaveLength(2)
@@ -88,9 +88,9 @@ describe('splitExistingNoteWithTie — a duration change that overflows the bar'
 
   it('displaces existing content in the next measure (MuseScore-style)', () => {
     // Pre-fill measure 2 with a quarter note
-    scoreModel.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    scoreModel.addNote({ step: 'D', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
 
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const note = scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
     splitExistingNoteWithTie(scoreModel, note, 'w', 2) // overflow 2 beats into m2
 
     // The D in measure 2 should be gone; the tied C continuation should be there instead
@@ -111,9 +111,9 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
   it('trims a straddling note instead of deleting it (headline case)', () => {
     // 4/4: E4q at beat 2 → dotted half (3 beats). Overflow = 1 beat.
     // G4h at beat 0 in M2 straddles: remainder = 2 - 1 = 1 beat → G4q at beat 1
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
-    scoreModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
-    const note = scoreModel.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    scoreModel.addNote({ step: 'G', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    scoreModel.addNote({ step: 'A', octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
+    const note = scoreModel.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     splitExistingNoteWithTie(scoreModel, note, 'h', 1) // 2b available, overflow = 1b → M2 gets E4q
 
@@ -134,8 +134,8 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
 
   it('deletes a note fully consumed by the overflow zone', () => {
     // G4q at beat 0 in M2, overflow = 2 beats → G4q entirely within [0,2), deleted
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    scoreModel.addNote({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    const note = scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     splitExistingNoteWithTie(scoreModel, note, 'w', 2) // overflow = 2 beats
 
@@ -146,8 +146,8 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
   it('writes a trimmed 3-beat remainder as ONE dotted half', () => {
     // G4 whole at beat 0 in M2, overflow = 1 beat → remainder = 3 beats. That is a dotted half at
     // beat 1, not h + q tied (the old plain-only split — see splitBeatsIntoLengths).
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+    scoreModel.addNote({ step: 'G', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })
+    const note = scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
 
     splitExistingNoteWithTie(scoreModel, note, 'h', 1) // 1b available, overflow = 1b
 
@@ -161,13 +161,13 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
 
   it('breaks the upstream tiedFrom pointer when eroding a note that has tiedFrom', () => {
     // G4h in M2 is the tied continuation of G4h in M1
-    const g4m1 = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
-    const g4m2 = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    const g4m1 = scoreModel.addNote({ step: 'G', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    const g4m2 = scoreModel.addNote({ step: 'G', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
     scoreModel.updateNote(g4m1.id, { tiedTo: g4m2.id })
     scoreModel.updateNote(g4m2.id, { tiedFrom: g4m1.id })
 
     // Now enter C4 at beat 2 M1 extended to whole → overflow 2 beats, erodes G4m2
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const note = scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
     splitExistingNoteWithTie(scoreModel, note, 'w', 2) // overflow = 2 beats, G4h fully consumed
 
     // Upstream tie pointer on G4m1 should be cleared
@@ -177,12 +177,12 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
 
   it('falls back to deletion when the note to erode has a downstream tiedTo', () => {
     // G4h in M2 is itself tied forward to G4q in M2
-    const g4head = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
-    const g4tail = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(2, 1) })
+    const g4head = scoreModel.addNote({ step: 'G', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    const g4tail = scoreModel.addNote({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(2, 1) })
     scoreModel.updateNote(g4head.id, { tiedTo: g4tail.id })
     scoreModel.updateNote(g4tail.id, { tiedFrom: g4head.id })
 
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const note = scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
     splitExistingNoteWithTie(scoreModel, note, 'h', 1) // overflow = 1 beat, G4h straddles
 
     // G4head must be deleted (punt case), not trimmed
@@ -192,16 +192,16 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
 
   it('erodes for an ENTERED note too — the fresh-head caller (addSplitNoteWithTie)', () => {
     // Same headline scenario, with the chain's head made fresh rather than reused.
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
-    scoreModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
+    scoreModel.addNote({ step: 'G', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    scoreModel.addNote({ step: 'A', octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
 
     // Fill M1 so beat 2 is a rest: add notes at 0 and 1
-    scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    scoreModel.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    scoreModel.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     // Enter E4 dotted-half (3 beats) at beat 2 — overflow 1 beat, should erode G4h → G4q
     const head = addSplitNoteWithTie(scoreModel, {
-      step: 'E', alter: 0, octave: 4, duration: 'h', dots: 1, measure: 1, beat: frac(2, 1),
+      step: 'E', octave: 4, duration: 'h', dots: 1, measure: 1, beat: frac(2, 1),
     }, 1)
     expect(head?.measure).toBe(1)
     // ⚠️ The answer is a flat SNAPSHOT taken before the tie was attached — ask the model.
@@ -217,9 +217,9 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
   it('handles mixed overflow zone: fully-consumed note deleted, straddling note trimmed', () => {
     // M2: G4q at beat 0 (fully consumed), A4h at beat 1 (straddles). Overflow = 2 beats.
     // A4h: start=1, end=3, overflow=2 → remainder = 3-2 = 1b → A4q at beat 2
-    scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    scoreModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(1, 1) })
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    scoreModel.addNote({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    scoreModel.addNote({ step: 'A', octave: 4, duration: 'h', measure: 2, beat: frac(1, 1) })
+    const note = scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     splitExistingNoteWithTie(scoreModel, note, 'w', 2) // overflow = 2 beats
 
@@ -232,9 +232,9 @@ describe('erodeOverflowZone — Sibelius-style erosion of what the chain lands o
   })
   it('⭐ erodes only the overflowing note\'s own VOICE and STAFF — other streams are independent', () => {
     scoreModel.addStaffBelow(0)
-    const v2 = scoreModel.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1), voice: 1 })
-    const low = scoreModel.addNote({ step: 'C', alter: 0, octave: 3, duration: 'h', measure: 2, beat: frac(0, 1), staff: 1 })
-    const note = scoreModel.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const v2 = scoreModel.addNote({ step: 'G', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1), voice: 1 })
+    const low = scoreModel.addNote({ step: 'C', octave: 3, duration: 'h', measure: 2, beat: frac(0, 1), staff: 1 })
+    const note = scoreModel.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     splitExistingNoteWithTie(scoreModel, note, 'w', 2) // 2 beats land on bar 2, voice 0, staff 0
 
@@ -253,7 +253,7 @@ describe('splitChordWithTie — a chord crosses the barline together', () => {
   })
 
   const head = (step: 'C' | 'E' | 'G') =>
-    scoreModel.addNote({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    scoreModel.addNote({ step, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
   const continuationOf = (id: string) => scoreModel.getNote(scoreModel.getNote(id)!.tiedTo!)
 
   it('⭐ EVERY head keeps its continuation — an erosion spares the slot\'s own pieces', () => {
@@ -270,7 +270,7 @@ describe('splitChordWithTie — a chord crosses the barline together', () => {
   })
 
   it('…and what stood in the zone BEFORE the chord arrived is still eroded', () => {
-    const foreign = scoreModel.addNote({ step: 'A', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    const foreign = scoreModel.addNote({ step: 'A', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
     splitChordWithTie(scoreModel, [head('C'), head('E')], 'w', 2)
     expect(scoreModel.getNote(foreign.id)).toBeFalsy()
     expect(scoreModel.getNotesInMeasure(2).filter(n => !n.isRest).map(n => n.step).sort()).toEqual(['C', 'E'])
@@ -280,7 +280,7 @@ describe('splitChordWithTie — a chord crosses the barline together', () => {
     // The mouse path skips a head that is already tied (it has crossed already), so nothing but the
     // erosion's own rule protects its piece in bar 2.
     const entered = (step: 'C' | 'E') =>
-      addSplitNoteWithTie(scoreModel, { step, alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(2, 1) }, 2)!
+      addSplitNoteWithTie(scoreModel, { step, octave: 4, duration: 'w', measure: 1, beat: frac(2, 1) }, 2)!
     const c = entered('C')
     const e = entered('E')
     for (const h of [c, e]) expect(continuationOf(h.id)).toMatchObject({ measure: 2, duration: 'h', step: h.step })
@@ -327,36 +327,36 @@ describe('placeSpanningNote — across several barlines, bar by bar', () => {
 
   it('⭐ a LONGA entered at beat 0 of 4/4 is four tied wholes, one per bar', () => {
     const model = score(4)
-    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'longa', measure: 1, beat: frac(0, 1) }, 12)
+    addSplitNoteWithTie(model, { step: 'C', octave: 5, duration: 'longa', measure: 1, beat: frac(0, 1) }, 12)
     expect([1, 2, 3, 4].map(m => chain(model, m))).toEqual([['C:w~@0'], ['C:w~@0'], ['C:w~@0'], ['C:w@0']])
   })
 
   it('⭐ a WHOLE entered at beat 1 of 2/4 is a quarter, a half and a quarter — ⛔ never a dotted half in a 2-beat bar', () => {
     const model = score(3, { numerator: 2, denominator: 4 })
-    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(1, 1) }, 3)
+    addSplitNoteWithTie(model, { step: 'C', octave: 5, duration: 'w', measure: 1, beat: frac(1, 1) }, 3)
     expect([1, 2, 3].map(m => chain(model, m))).toEqual([['C:q~@1'], ['C:h~@0'], ['C:q@0']])
   })
 
   it('creates every bar the chain needs', () => {
     const model = new ScoreModel('Test')
-    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'longa', measure: 1, beat: frac(0, 1) }, 12)
+    addSplitNoteWithTie(model, { step: 'C', octave: 5, duration: 'longa', measure: 1, beat: frac(0, 1) }, 12)
     expect(model.getScore().measures).toHaveLength(4)
   })
 
   it('⭐ each bar takes ITS OWN capacity — a 4/4 bar, then a 2/4 bar, then the rest', () => {
     const model = score(4)
     model.setTimeSignature(2, { numerator: 2, denominator: 4 }, { extent: 'measure' })
-    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'breve', measure: 1, beat: frac(2, 1) }, 6)
+    addSplitNoteWithTie(model, { step: 'C', octave: 5, duration: 'breve', measure: 1, beat: frac(2, 1) }, 6)
     // 2 beats left in bar 1, bar 2 holds 2, bar 3 (4/4 again) the last 4.
     expect([1, 2, 3].map(m => chain(model, m))).toEqual([['C:h~@2'], ['C:h~@0'], ['C:w@0']])
   })
 
   it('⭐ what the chain covers in a MIDDLE bar is cleared too — its own voice only', () => {
     const model = score(3)
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
-    model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
-    model.addNote({ step: 'A', alter: 0, octave: 3, duration: 'w', measure: 2, beat: frac(0, 1), voice: 1 })
-    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'breve', measure: 1, beat: frac(2, 1) }, 6)
+    model.addNote({ step: 'D', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    model.addNote({ step: 'F', octave: 4, duration: 'h', measure: 2, beat: frac(2, 1) })
+    model.addNote({ step: 'A', octave: 3, duration: 'w', measure: 2, beat: frac(0, 1), voice: 1 })
+    addSplitNoteWithTie(model, { step: 'C', octave: 5, duration: 'breve', measure: 1, beat: frac(2, 1) }, 6)
     expect(chain(model, 2).filter(s => !s.startsWith('A'))).toEqual(['C:w~@0'])
     expect(chain(model, 2), 'the other voice stands').toContain('A:w@0')
     expect(chain(model, 3)).toEqual(['C:h@0'])
@@ -364,7 +364,7 @@ describe('placeSpanningNote — across several barlines, bar by bar', () => {
 
   it('⭐ a DURATION CHANGE to a longa crosses every barline it reaches (the reused head)', () => {
     const model = score(4)
-    const note = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     splitExistingNoteWithTie(model, note, 'longa', 12)
     expect([1, 2, 3, 4].map(m => chain(model, m))).toEqual([['E:w~@0'], ['E:w~@0'], ['E:w~@0'], ['E:w@0']])
     expect(model.getNote(note.id)?.duration, 'the head is the edited note').toBe('w')
@@ -372,8 +372,8 @@ describe('placeSpanningNote — across several barlines, bar by bar', () => {
 
   it('⭐ a CHORD crosses three bars together — every head keeps every continuation', () => {
     const model = score(3)
-    const c = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
-    const e = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const c = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const e = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
     splitChordWithTie(model, [c, e], 'breve', 6)
     for (const m of [2, 3]) {
       expect(chain(model, m).map(s => s[0]).sort(), `bar ${m} holds both heads`).toEqual(['C', 'E'])
@@ -382,7 +382,7 @@ describe('placeSpanningNote — across several barlines, bar by bar', () => {
 
   it('one barline is exactly as before — a half left, a half over', () => {
     const model = score(2)
-    addSplitNoteWithTie(model, { step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(2, 1) }, 2)
+    addSplitNoteWithTie(model, { step: 'C', octave: 5, duration: 'w', measure: 1, beat: frac(2, 1) }, 2)
     expect([1, 2].map(m => chain(model, m))).toEqual([['C:h~@2'], ['C:h@0']])
   })
 })

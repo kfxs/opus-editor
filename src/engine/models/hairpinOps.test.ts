@@ -418,9 +418,9 @@ describe('setHairpinAtStaffSlot — a staff is a place too', () => {
     score = model.getScore()
     // Beats 0 and 1 on the TOP staff; beat 0 only on the lower one (a half note covers 0..1 there).
     for (const b of [0, 1]) {
-      model.addNote({ step: 'C', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+      model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
     }
-    model.addNote({ step: 'C', octave: 3, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
+    model.addNote({ step: 'C', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
     id = addHairpin(score, 1, { type: 'cresc', beat: frac(0, 1), length: frac(2, 1) })!.id
   })
 

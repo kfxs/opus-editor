@@ -37,7 +37,7 @@ describe('stampGraceAtClick', () => {
     hostId = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
     restId = engine.getScore().measures[0].slots.find(s => s.type === 'rest')!.id
     vi.spyOn(engine, 'pixelToMeasure').mockReturnValue(1)
-    vi.spyOn(engine, 'pixelToPosition').mockReturnValue({ measure: 1, beat: frac(1, 1), spelling: { step: 'D', alter: 0, octave: 5 }, staff: 0 })
+    vi.spyOn(engine, 'pixelToPosition').mockReturnValue({ measure: 1, beat: frac(1, 1), spelling: { step: 'D', octave: 5 }, staff: 0 })
     state = createEditorState()
     state.selectedDuration = '8'
     render = vi.fn()
@@ -73,7 +73,7 @@ describe('stampGraceAtClick', () => {
 
   it('⭐ the ghost HEAD in a grace\'s column makes a grace CHORD — its host is still the ordinary note (P2a)', () => {
     state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
-    const grace = engine.grace.addGrace(hostId, 'before', { step: 'C', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = engine.grace.addGrace(hostId, 'before', { step: 'C', octave: 5 }, 'appoggiatura', { duration: '8' })!
     stampGraceAtClick(state, engine, registry([at('note', hostId, 100), at('note', grace.pitches[0].id, 80)]), aim(80), 50, render)
     const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     expect(chord.type === 'chord' && chord.graceBefore?.notes).toHaveLength(1)
@@ -91,7 +91,7 @@ describe('stampGraceAtClick', () => {
 
   it('⭐ the ghost HEAD in the GAP left of a grace puts the new one FIRST (P2a)', () => {
     state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
-    const grace = engine.grace.addGrace(hostId, 'before', { step: 'C', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = engine.grace.addGrace(hostId, 'before', { step: 'C', octave: 5 }, 'appoggiatura', { duration: '8' })!
     stampGraceAtClick(state, engine, registry([at('note', hostId, 100), at('note', grace.pitches[0].id, 80)]), aim(68), 50, render)
     const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
     expect(chord.type === 'chord' && chord.graceBefore?.notes.map(n => n.pitches[0].step)).toEqual(['D', 'C'])
@@ -99,7 +99,7 @@ describe('stampGraceAtClick', () => {
 
   it('⛔ the same pitch in a grace\'s column changes nothing — note entry\'s same-pitch rule', () => {
     state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
-    const grace = engine.grace.addGrace(hostId, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = engine.grace.addGrace(hostId, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     stampGraceAtClick(state, engine, registry([at('note', hostId, 100), at('note', grace.pitches[0].id, 80)]), aim(80), 50, render)
     expect(grace.pitches).toHaveLength(1)
   })
@@ -109,7 +109,7 @@ describe('stampGraceAtClick', () => {
     state.selectedAccidental = '#'
     stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
     const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
-    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alter: 1 })
+    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alteration: ['sharp'] })
     expect(state.selectedAccidental, 'it stays armed — a stamp is used in runs').toBe('#')
   })
 
@@ -118,16 +118,16 @@ describe('stampGraceAtClick', () => {
     state.selectedAccidental = 'n'
     stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
     const chord = engine.getScore().measures[0].slots.find(s => s.type === 'chord')!
-    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alter: 0, forceAccidental: true })
+    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', forceAccidental: true })
   })
 
   it('⭐ with nothing armed it takes what is IN FORCE, as note entry does — the bar\'s running accidental', () => {
     // A D♯ on beat 0 — so a D grace before the beat-1 note is a D♯ too.
-    engine.addNoteAtBeat({ step: 'D', alter: 1, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.addNoteAtBeat({ step: 'D', alteration: ['sharp'], octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
     stampGraceAtClick(state, engine, registry([at('note', hostId, 100)]), 85, 50, render)
     const chord = engine.getScore().measures[0].slots.find(s => s.id !== undefined && s.type === 'chord' && s.graceBefore)!
-    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alter: 1 })
+    expect(chord.type === 'chord' && chord.graceBefore?.notes[0].pitches[0]).toMatchObject({ step: 'D', alteration: ['sharp'] })
   })
 
   it('⭐ the armed DOTS go on the grace (his report — the dot key was ignored)', () => {
@@ -163,11 +163,11 @@ describe('stampGraceAtClick — judged at the GHOST HEAD, not the pointer (his r
     const engine = new Engine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
     const hostId = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
     vi.spyOn(engine, 'pixelToMeasure').mockReturnValue(1)
-    vi.spyOn(engine, 'pixelToPosition').mockReturnValue({ measure: 1, beat: frac(1, 1), spelling: { step: 'G', alter: 0, octave: 5 }, staff: 0 })
+    vi.spyOn(engine, 'pixelToPosition').mockReturnValue({ measure: 1, beat: frac(1, 1), spelling: { step: 'G', octave: 5 }, staff: 0 })
     const state = createEditorState()
     state.selectedDuration = '8'
     state.selectedMarkingTool = { kind: 'grace', form: 'appoggiatura', side: 'before' }
-    const grace = engine.grace.addGrace(hostId, 'before', { step: 'C', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = engine.grace.addGrace(hostId, 'before', { step: 'C', octave: 5 }, 'appoggiatura', { duration: '8' })!
     const el = (id: string, headX: number): ElementInfo =>
       ({ type: 'note', id, measure: 1, staff: 0, headX, bbox: { x: headX - 4, y: 0, width: 8, height: 10 } })
     const reg = {

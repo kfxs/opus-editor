@@ -33,12 +33,12 @@ describe('rebar preserves secondary voices', () => {
 
   it('keeps both voices across a time-signature change (4/4 → 3/4)', () => {
     // V1: four quarters C4 D4 E4 F4. V2: two half notes G3 B3.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
-    model.addNote({ step: 'G', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
-    model.addNote({ step: 'B', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    model.addNote({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+    model.addNote({ step: 'G', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'B', octave: 3, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 })
 
     model.setTimeSignature(1, { numerator: 3, denominator: 4 }) // 4 quarters → two 3/4 bars
 
@@ -58,9 +58,9 @@ describe('rebar preserves secondary voices', () => {
 
   it('keeps both voices when a TS change is removed', () => {
     model.setTimeSignature(2, { numerator: 3, denominator: 4 }) // explicit change at m2
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })
-    model.addNote({ step: 'G', alter: 0, octave: 3, duration: 'h', measure: 2, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })
+    model.addNote({ step: 'G', octave: 3, duration: 'h', measure: 2, beat: frac(0, 1), voice: 1 })
 
     model.removeTimeSignatureChange(2) // 3/4 → inherited 4/4
 
@@ -73,13 +73,13 @@ describe('rebar preserves secondary voices', () => {
 
   it('survives a paste into voice 0 of a two-voice bar (voice 2 untouched)', () => {
     // V1 quarters, V2 a half note in m1.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    model.addNote({ step: 'G', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'G', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), voice: 1 })
 
     // Paste a single quarter at beat 0 of voice 0.
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(1, 1), pitches: [{ step: 'A', alter: 0, octave: 4 }] }] }], spanBeats: frac(1, 1) },
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(1, 1), pitches: [{ step: 'A', octave: 4 }] }] }], spanBeats: frac(1, 1) },
       { measure: 1, beat: frac(0, 1), voice: 0 })
 
     // Voice 2's half note is still there, still tagged voice 1.
@@ -97,10 +97,10 @@ describe('rebar preserves secondary voices', () => {
     // into voice 1's stream, corrupting the re-lay (extra leading rests).
     const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)
     model.refillTupletRemainder(1, tuplet)
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1), voice: 1 })
-    model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1), voice: 1 })
+    model.addNote({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 })
 
     model.setTimeSignature(1, { numerator: 2, denominator: 4 }) // 4 quarters → two 2/4 bars
 

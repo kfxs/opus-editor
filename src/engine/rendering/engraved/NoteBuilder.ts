@@ -195,7 +195,7 @@ export function createStaveNotesFromSlots(
     // Sort pitches low→high by LINE (`EngravedNote` takes its keys in ascending order) — `utils/pitchOrder`
     const sortedPitches = lowToHigh(slot.notes)
     // Build VexFlow key strings directly from spelling — no MIDI lookup table needed
-    const keys = sortedPitches.map(p => spellingToNoteKey(p.step, p.alter, p.octave))
+    const keys = sortedPitches.map(p => spellingToNoteKey(p.step, p.alteration, p.octave))
 
     // Clef in effect at this slot's beat (mid-measure changes move notes).
     const slotClef = resolveClef(slot.beat)

@@ -12,7 +12,7 @@ import type { InspectedElement } from '@/interactions/state/inspectedElement'
  */
 const note = (derived?: { enclosureSpan: 'chord' | null }): InspectedElement[] => ([{
   kind: 'note',
-  data: { id: 'n-1', step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, enclosure: 'round' },
+  data: { id: 'n-1', step: 'C', octave: 5, duration: 'q', measure: 1, enclosure: 'round' },
   ...(derived && { derived }),
 } as unknown as InspectedElement])
 

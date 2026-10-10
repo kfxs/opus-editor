@@ -159,7 +159,7 @@ describe('resizeHairpinBySlot — Ctrl+←/→ on the model', () => {
     // Four quarters in bar 1, four in bar 2 — a lane with slots to step through.
     for (const m of [1, 2]) {
       for (const b of [0, 1, 2, 3]) {
-        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+        model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) } as never)
       }
     }
     score = model.getScore()
@@ -235,9 +235,9 @@ describe('resizeHairpinBySlot — where two voices strike one onset', () => {
     model = new ScoreModel()
     model.addMeasure()
     // Voice 1 FIRST: a half note at beat 2, so it precedes voice 0's quarter there.
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 } as never)
     for (const b of [0, 1, 2, 3]) {
-      model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1), voice: 0 } as never)
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1), voice: 0 } as never)
     }
     score = model.getScore()
   })
@@ -321,7 +321,7 @@ describe('moveHairpinStartBySlot — the start moves, the end does not', () => {
     model.addMeasure()
     for (const m of [1, 2]) {
       for (const b of [0, 1, 2, 3]) {
-        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+        model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) } as never)
       }
     }
     score = model.getScore()
@@ -377,13 +377,13 @@ describe('moveHairpinStartBySlot — the start moves, the end does not', () => {
 
   it('walks the STAFF — it reaches back to another voice\u2019s slot', () => {
     // Voice 1 has a note at beat 1.5, and 1.5 is simply the nearest place behind the wedge's start.
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(3, 2), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(3, 2), voice: 1 } as never)
     expect(moveHairpinStartBySlot(score, id, -1)).toBe(true)
     expect(span(id)).toBe('1@1.5 → 1@4')
   })
 
   it('…and a wedge NARROWED to a voice reaches the SAME slot — scope is not position', () => {
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(3, 2), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(3, 2), voice: 1 } as never)
     const scoped = addHairpin(score, 1, { type: 'cresc', beat: frac(2, 1), length: frac(2, 1), voice: 0 })!.id
     expect(moveHairpinStartBySlot(score, scoped, -1)).toBe(true)
     expect(span(scoped)).toBe('1@1.5 → 1@4')
@@ -407,7 +407,7 @@ describe('setHairpinStartAtSlot / setHairpinEndAtSlot — landing on a dragged-t
     model.addMeasure()
     for (const m of [1, 2]) {
       for (const b of [0, 1, 2, 3]) {
-        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+        model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) } as never)
       }
     }
     score = model.getScore()

@@ -203,7 +203,7 @@ describe('staff-aware clef resolution', () => {
 describe('staffContent on a single-staff (N=1) measure', () => {
   it('returns the whole measure for the only staff', () => {
     const model = new ScoreModel('t')
-    model.addNote({ measure: 1, beat: frac(0, 4), duration: 'q', step: 'C', octave: 4, alter: 0 })
+    model.addNote({ measure: 1, beat: frac(0, 4), duration: 'q', step: 'C', octave: 4 })
     const score = model.getScore()
     const measure = score.measures[0]
     const only = firstStaffId(score)
@@ -223,7 +223,7 @@ describe('staff-aware rest fill (repairMeasureGaps partitions by staff)', () => 
     const m1 = score.measures[0]
     m1.slots.push({
       id: 'n1', type: 'chord', beat: frac(0, 1), duration: 'q', measure: 1, staffId: s2,
-      notes: [{ id: 'p1', step: 'C', alter: 0, octave: 3 }],
+      notes: [{ id: 'p1', step: 'C', octave: 3 }],
     })
 
     model.repairMeasureGaps(1)
@@ -270,7 +270,7 @@ describe('ScoreModel staff-axis scaffolding (N=1)', () => {
 
   it('N=1 note projection carries no staff field (byte-identical output)', () => {
     const model = new ScoreModel('t')
-    model.addNote({ measure: 1, beat: frac(0, 4), duration: 'q', step: 'D', octave: 4, alter: 0 })
+    model.addNote({ measure: 1, beat: frac(0, 4), duration: 'q', step: 'D', octave: 4 })
     for (const note of model.getAllNotes()) {
       expect(note.staff).toBeUndefined()
     }

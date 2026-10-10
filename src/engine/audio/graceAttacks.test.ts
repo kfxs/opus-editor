@@ -4,7 +4,7 @@ import { graceTiming, isCompoundMeter } from './graceAttacks'
 
 /** P3 — MuseScore's grace playback (`gracechordcontext.cpp`), in beats. */
 const group = (durations: NoteDuration[], slash = false): GraceGroup => ({
-  notes: durations.map((duration, i) => ({ pitches: [{ id: `g${i}`, step: 'D', alter: 0, octave: 5 }], duration })),
+  notes: durations.map((duration, i) => ({ pitches: [{ id: `g${i}`, step: 'D', octave: 5 }], duration })),
   ...(slash && { slash: true as const }),
 })
 const at = (g: GraceGroup, side: 'before' | 'after', mainBeats = 1, compound = false) =>

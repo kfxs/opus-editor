@@ -11,7 +11,7 @@
  * gains its row or the sign plays as its nearest key (plan §2, "Sound").
  */
 
-import type { PitchSpelling, PitchStep, PitchAlter } from '@/types/music'
+import type { Alteration, AlterationSignId, PitchSpelling, PitchStep } from '@/types/music'
 
 /** Semitone offset from C within an octave, for each diatonic step */
 const STEP_SEMITONES: Record<PitchStep, number> = {
@@ -19,20 +19,39 @@ const STEP_SEMITONES: Record<PitchStep, number> = {
 }
 
 /**
+ * ⭐ **WHAT EACH SIGN SOUNDS LIKE, in this tuning** — semitones from the plain letter. A row per sign of
+ * `utils/alterationSigns`' table; the ONLY place a sign has a sound (decision D: the doubles must
+ * play right — they are ±2 here). ⛔ A sign with no row here is a COMPILE error, not a silent 0.
+ */
+const SIGN_SEMITONES: Record<AlterationSignId, number> = {
+  doubleFlat: -2,
+  flat: -1,
+  sharp: 1,
+  doubleSharp: 2,
+}
+
+/** How many semitones an alteration moves its letter, in equal temperament. */
+export function alterationSemitones(alteration: Alteration | undefined): number {
+  let semitones = 0
+  for (const id of alteration ?? []) semitones += SIGN_SEMITONES[id]
+  return semitones
+}
+
+/**
  * Convert a pitch spelling to a MIDI note number.
  * Middle C (C4) = 60.
  *
- * Formula: (octave + 1) * 12 + stepSemitone + alter
+ * Formula: (octave + 1) * 12 + stepSemitone + the alteration's semitones ({@link SIGN_SEMITONES})
  *
  * @example
- * spellingToMidi('C',  0, 4) // 60  — middle C
- * spellingToMidi('A',  0, 4) // 69  — concert A
- * spellingToMidi('C',  1, 4) // 61  — C#4
- * spellingToMidi('D', -1, 4) // 61  — Db4  (same MIDI, different spelling)
- * spellingToMidi('B',  0, 3) // 59  — B3
+ * spellingToMidi('C', undefined, 4)  // 60  — middle C
+ * spellingToMidi('A', undefined, 4)  // 69  — concert A
+ * spellingToMidi('C', ['sharp'], 4)  // 61  — C#4
+ * spellingToMidi('D', ['flat'], 4)   // 61  — Db4  (same key, different spelling)
+ * spellingToMidi('B', undefined, 3)  // 59  — B3
  */
-export function spellingToMidi(step: PitchStep, alter: PitchAlter, octave: number): number {
-  return (octave + 1) * 12 + STEP_SEMITONES[step] + alter
+export function spellingToMidi(step: PitchStep, alteration: Alteration | undefined, octave: number): number {
+  return (octave + 1) * 12 + STEP_SEMITONES[step] + alterationSemitones(alteration)
 }
 
 /**
@@ -51,7 +70,7 @@ export function spellingToMidi(step: PitchStep, alter: PitchAlter, octave: numbe
  * can recover which of the two was written (docs/how-it-works/tuning-systems-and-alteration.md).
  */
 export function pitchToMidi(pitch: PitchSpelling): number {
-  return spellingToMidi(pitch.step, pitch.alter, pitch.octave)
+  return spellingToMidi(pitch.step, pitch.alteration, pitch.octave)
 }
 
 // ---------------------------------------------------------------------------
@@ -62,33 +81,8 @@ export function pitchToMidi(pitch: PitchSpelling): number {
 // specs' way to write a fixture as a key number.
 // ---------------------------------------------------------------------------
 
-type SpellingEntry = { step: PitchStep; alter: PitchAlter }
-
-const WHITE_KEYS: Partial<Record<number, SpellingEntry>> = {
-  0:  { step: 'C', alter: 0 },
-  2:  { step: 'D', alter: 0 },
-  4:  { step: 'E', alter: 0 },
-  5:  { step: 'F', alter: 0 },
-  7:  { step: 'G', alter: 0 },
-  9:  { step: 'A', alter: 0 },
-  11: { step: 'B', alter: 0 },
-}
-
-const BLACK_SHARP: Record<number, SpellingEntry> = {
-  1:  { step: 'C', alter: 1 },
-  3:  { step: 'D', alter: 1 },
-  6:  { step: 'F', alter: 1 },
-  8:  { step: 'G', alter: 1 },
-  10: { step: 'A', alter: 1 },
-}
-
-const BLACK_FLAT: Record<number, SpellingEntry> = {
-  1:  { step: 'D', alter: -1 },
-  3:  { step: 'E', alter: -1 },
-  6:  { step: 'G', alter: -1 },
-  8:  { step: 'A', alter: -1 },
-  10: { step: 'B', alter: -1 },
-}
+const PITCH_CLASS_STEP: readonly PitchStep[] = ['C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B']
+const IS_BLACK = [false, true, false, true, false, false, true, false, true, false, true, false]
 
 /**
  * Convert a MIDI note number to a PitchSpelling.
@@ -105,20 +99,18 @@ const BLACK_FLAT: Record<number, SpellingEntry> = {
  * position on the staff to a pitch during note entry/drag.
  *
  * @example
- * midiToSpelling(60)           // { step:'C', alter:0, octave:4 }  — middle C
- * midiToSpelling(61)           // { step:'C', alter:1, octave:4 }  — C#4 (default)
- * midiToSpelling(61, 'b')      // { step:'D', alter:-1, octave:4 } — Db4
- * midiToSpelling(69)           // { step:'A', alter:0, octave:4 }  — A4
- * midiToSpelling(59)           // { step:'B', alter:0, octave:3 }  — B3
+ * midiToSpelling(60)           // { step:'C', octave:4 }                       — middle C
+ * midiToSpelling(61)           // { step:'C', alteration:['sharp'], octave:4 } — C#4 (default)
+ * midiToSpelling(61, 'b')      // { step:'D', alteration:['flat'], octave:4 }  — Db4
+ * midiToSpelling(69)           // { step:'A', octave:4 }                       — A4
  */
 export function midiToSpelling(midi: number, hint?: '#' | 'b' | 'n'): PitchSpelling {
   const pc = ((midi % 12) + 12) % 12  // pitch class 0–11, safe for negative input
   const octave = Math.floor(midi / 12) - 1
 
-  const white = WHITE_KEYS[pc]
-  if (white) return { ...white, octave }
-
-  const useFlat = hint === 'b'
-  const entry = useFlat ? BLACK_FLAT[pc] : BLACK_SHARP[pc]
-  return { ...entry, octave }
+  if (!IS_BLACK[pc]) return { step: PITCH_CLASS_STEP[pc], octave }
+  // A black key is the white key below, sharpened — or, with a ♭ hint, the white key above, flattened.
+  return hint === 'b'
+    ? { step: PITCH_CLASS_STEP[pc + 1], alteration: ['flat'], octave }
+    : { step: PITCH_CLASS_STEP[pc], alteration: ['sharp'], octave }
 }

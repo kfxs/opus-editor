@@ -161,7 +161,7 @@ describe('reanchorArmedSlurEndpoint — a slur on a GRACE (his report: "not rean
     engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     host = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
     after = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
-    grace = engine.grace.addGrace(host, 'before', { step: 'D', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
+    grace = engine.grace.addGrace(host, 'before', { step: 'D', octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
     state = createEditorState()
   })
 

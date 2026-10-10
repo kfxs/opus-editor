@@ -495,7 +495,7 @@ export function wireShortcuts(
             // alteration, then clearing any forced sign. This makes the glyph disappear in
             // every case: a lone sharp/flat → natural (prevailing 0); a required natural
             // (♮ cancelling an earlier sharp) → back to that sharp (prevailing ±1).
-            eng.updateNote(noteId, { alter: eng.getPrevailingAlter(noteId), forceAccidental: undefined })
+            eng.updateNote(noteId, { alteration: eng.getPrevailingAlteration(noteId), forceAccidental: undefined })
             state.selectedElement = null
             selection.selectNote(noteId)
             renderer.renderScore()

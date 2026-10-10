@@ -38,7 +38,7 @@ describe('stampBracketedAtClick', () => {
     hostId = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
     restId = engine.getScore().measures[0].slots.find(s => s.type === 'rest')!.id
     vi.spyOn(engine, 'pixelToMeasure').mockReturnValue(1)
-    vi.spyOn(engine, 'pixelToPosition').mockReturnValue({ measure: 1, beat: frac(1, 1), spelling: { step: 'D', alter: 0, octave: 5 }, staff: 0 })
+    vi.spyOn(engine, 'pixelToPosition').mockReturnValue({ measure: 1, beat: frac(1, 1), spelling: { step: 'D', octave: 5 }, staff: 0 })
     state = createEditorState()
     render = vi.fn()
   })
@@ -50,7 +50,7 @@ describe('stampBracketedAtClick', () => {
   it('⭐ puts a bracketed grace of the CLICK\'s pitch before the nearest note — one undo entry, the tool stays armed', () => {
     state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
     expect(stampBracketedAtClick(state, engine, registry([at('note', hostId, 100)]), aim(90), 50, render)).toBe(true)
-    expect(chord().bracketedBefore).toEqual([{ pitches: [expect.objectContaining({ step: 'D', alter: 0, octave: 5 })], duration: 'q' }])
+    expect(chord().bracketedBefore).toEqual([{ pitches: [expect.objectContaining({ step: 'D', octave: 5 })], duration: 'q' }])
     expect(render).toHaveBeenCalled()
     expect(state.selectedMarkingTool).toEqual({ kind: 'bracketedGrace', side: 'before' })
     engine.undo()
@@ -68,10 +68,10 @@ describe('stampBracketedAtClick', () => {
     state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
     state.selectedAccidental = 'b'
     stampBracketedAtClick(state, engine, registry([at('note', hostId, 100)]), aim(90), 50, render)
-    expect(chord().bracketedBefore![0].pitches[0]).toMatchObject({ step: 'D', alter: -1 })
+    expect(chord().bracketedBefore![0].pitches[0]).toMatchObject({ step: 'D', alteration: ['flat'] })
     state.selectedAccidental = 'n'
     stampBracketedAtClick(state, engine, registry([at('note', hostId, 100)]), aim(90), 50, render)
-    expect(chord().bracketedBefore![1].pitches[0]).toMatchObject({ alter: 0, forceAccidental: true })
+    expect(chord().bracketedBefore![1].pitches[0]).toMatchObject({ forceAccidental: true })
   })
 
   it('⭐ B10 REVERSED: on a REST it hangs on the rest — his report: "similar to grace stamp on empty measure"', () => {
@@ -86,7 +86,7 @@ describe('stampBracketedAtClick', () => {
     const measureRest = empty.getScore().measures[0].slots[0]
     expect(measureRest.type === 'rest' && measureRest.isMeasureRest).toBe(true)
     vi.spyOn(empty, 'pixelToMeasure').mockReturnValue(1)
-    vi.spyOn(empty, 'pixelToPosition').mockReturnValue({ measure: 1, beat: frac(2, 1), spelling: { step: 'D', alter: 0, octave: 5 }, staff: 0 })
+    vi.spyOn(empty, 'pixelToPosition').mockReturnValue({ measure: 1, beat: frac(2, 1), spelling: { step: 'D', octave: 5 }, staff: 0 })
     state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
     stampBracketedAtClick(state, empty, registry([at('rest', measureRest.id, 100)]), aim(100), 50, render)
     const slots = empty.getScore().measures[0].slots
@@ -112,8 +112,8 @@ describe('stampBracketedAtClick', () => {
   describe('⭐ P3 — in a GRACE group, the click targets a GRACE', () => {
     /** Two graces before the note, drawn at 60 and 75 (heads 10 wide), the note at 100. */
     const withGraces = () => {
-      const g1 = engine.grace.addGrace(hostId, 'before', { step: 'G', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
-      const g2 = engine.grace.addGrace(hostId, 'before', { step: 'A', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+      const g1 = engine.grace.addGrace(hostId, 'before', { step: 'G', octave: 4 }, 'appoggiatura', { duration: '8' })!
+      const g2 = engine.grace.addGrace(hostId, 'before', { step: 'A', octave: 4 }, 'appoggiatura', { duration: '8' })!
       const reg = registry([at('note', g1.pitches[0].id, 60), at('note', g2.pitches[0].id, 75), at('note', hostId, 100)])
       state.selectedMarkingTool = { kind: 'bracketedGrace', side: 'before' }
       return { g1, g2, reg }

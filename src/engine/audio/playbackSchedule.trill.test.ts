@@ -27,7 +27,7 @@ const midis = (score: Score) => [...new Set(played(score).map(e => pitchToMidi(e
 /** One whole note at bar 1 beat 0, trilled. */
 function oneTrilledNote(step: 'C' | 'E' = 'C', duration: 'w' | 'h' | 'q' = 'w') {
   const model = new ScoreModel('P')
-  const note = model.addNote({ step, alter: 0, octave: 4, duration, measure: 1, beat: frac(0, 1) })
+  const note = model.addNote({ step, octave: 4, duration, measure: 1, beat: frac(0, 1) })
   model.addTrill({ startNoteId: note.id })
   return { model, score: model.getScore(), noteId: note.id }
 }
@@ -49,8 +49,8 @@ describe('a trill turns one note into an alternation', () => {
 
   it('⭐⭐ an accidental earlier in the BAR moves what sounds — E trills with F♯ after an F♯', () => {
     const model = new ScoreModel('P')
-    model.addNote({ step: 'F', alter: 1, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
-    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    model.addNote({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
     model.addTrill({ startNoteId: e.id })
 
     // ⚠️ Assert over the TRILL'S OWN span (from beat 2), not the whole bar: the F♯ at beat 0 is a
@@ -85,8 +85,8 @@ describe('how far a trill runs', () => {
   it('⭐⭐ keeps going THROUGH A TIE — the one-note trill needs no end anchor', () => {
     const model = new ScoreModel('P')
     model.addMeasure()
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })
     model.updateNote(a.id, { tiedTo: b.id })
     model.updateNote(b.id, { tiedFrom: a.id })
     model.addTrill({ startNoteId: a.id })
@@ -102,7 +102,7 @@ describe('how far a trill runs', () => {
   it('covers every note of a SPAN, each with its own auxiliary', () => {
     const model = new ScoreModel('P')
     const notes = (['C', 'D', 'E'] as const).map((step, i) =>
-      model.addNote({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) }))
+      model.addNote({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) }))
     model.addTrill({ startNoteId: notes[0].id, endNoteId: notes[2].id })
 
     const sounded = new Set(played(model.getScore()).map(e => pitchToMidi(e.pitch)))
@@ -112,8 +112,8 @@ describe('how far a trill runs', () => {
 
   it('an UNTRILLED note nearby is untouched — one attack, its own length', () => {
     const model = new ScoreModel('P')
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'A', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(2, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'A', octave: 3, duration: 'h', measure: 1, beat: frac(2, 1) })
     model.addTrill({ startNoteId: a.id })
 
     const plain = played(model.getScore()).filter(e => pitchToMidi(e.pitch) === A3)
@@ -123,7 +123,7 @@ describe('how far a trill runs', () => {
 
   it('a score with no trills sounds exactly as it did', () => {
     const model = new ScoreModel('P')
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
     expect(played(model.getScore())).toHaveLength(1)
   })
 })
@@ -131,7 +131,7 @@ describe('how far a trill runs', () => {
 describe('⭐ precedence — one re-attack pattern per note', () => {
   it('a TREMOLO wins: the note trills nothing, it tremolos', () => {
     const model = new ScoreModel('P')
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
     model.setTremolo(note.id, 3)
     model.addTrill({ startNoteId: note.id })
     // Tremolo = repeated notes at ONE pitch; a trill would have introduced D4.
@@ -141,7 +141,7 @@ describe('⭐ precedence — one re-attack pattern per note', () => {
 
   it('a FAN wins too — it branches on the slot, before the pitch loop is even reached', () => {
     const model = new ScoreModel('P')
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
     const fan: FanMark = { direction: 'accel', count: 4, beams: 2 }
     model.setFan(note.id, fan)
     model.addTrill({ startNoteId: note.id })
@@ -150,7 +150,7 @@ describe('⭐ precedence — one re-attack pattern per note', () => {
 
   it('…and removing the tremolo lets the trill sound', () => {
     const model = new ScoreModel('P')
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
     model.setTremolo(note.id, 3)
     model.addTrill({ startNoteId: note.id })
     model.setTremolo(note.id, null)
@@ -161,7 +161,7 @@ describe('⭐ precedence — one re-attack pattern per note', () => {
 describe('a trill that no longer resolves', () => {
   it('sounds as nothing — a dangling trill is silent, as it is invisible', () => {
     const model = new ScoreModel('P')
-    const note = model.addNote({ step: 'B', alter: 0, octave: 3, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'B', octave: 3, duration: 'w', measure: 1, beat: frac(0, 1) })
     model.addTrill({ startNoteId: note.id })
     // Point it at an id nothing holds — what a re-bar would leave if the repair had not run.
     model.getScore().trills![0].startNoteId = 'gone'

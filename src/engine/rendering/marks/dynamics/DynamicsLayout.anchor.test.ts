@@ -27,7 +27,7 @@ function slot(voice: 0 | 1 | 2 | 3, beatNum: number, den = 1): ChordRest {
     duration: 'q',
     measure: 0,
     voice,
-    notes: [{ id: `v${voice}@${beatNum}-p`, step: 'C', alter: 0, octave: 4 }],
+    notes: [{ id: `v${voice}@${beatNum}-p`, step: 'C', octave: 4 }],
   } as ChordRest
 }
 

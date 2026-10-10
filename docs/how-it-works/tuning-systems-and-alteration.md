@@ -8,6 +8,11 @@ include it.
 
 ## The diagnosis: `alter` is two things in one field, and they coincide only in 12-TET
 
+> ✅ **Resolved 2026-10-10 (alteration-signs M2):** the field is now `alteration`, a LIST of sign ids
+> (`utils/alterationSigns`), and the semitones live in ONE table, `engine/audio/equalTemperament`'s
+> `SIGN_SEMITONES` — the symbol and its 12-TET sound are two things in two places. What follows is the
+> diagnosis as it was written, kept because it is the reason.
+
 ```ts
 export type PitchAlter = -2 | -1 | 0 | 1 | 2   // -2 = 𝄫   -1 = ♭   0 = ♮   1 = ♯   2 = 𝄪
 ```

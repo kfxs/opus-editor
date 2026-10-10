@@ -125,9 +125,9 @@ const needsLedger = (pitch: NotePitch, clef: Clef): boolean => {
 /**
  * What ONE slot draws, in staff spaces from its notehead x.
  *
- * ⚠️ `signs` is resolved by the caller through `displayedAccidentals`, never from `alter`: whether a
+ * ⚠️ `signs` is resolved by the caller through `displayedAccidentals`, never from `alteration`: whether a
  * sharp is *drawn* is the running-accidental rule's answer, and a bar of four C♯s draws one sign and
- * three bare heads. Reading `alter` here would reserve room for three accidentals that never appear.
+ * three bare heads. Reading `alteration` here would reserve room for three accidentals that never appear.
  *
  * ⚠️ **And `clef` is why this function reads where a note SITS**, which used to be forbidden in the
  * width path — see {@link measureColumns} for why that rule expired.
@@ -484,7 +484,7 @@ export function measureLeadIn(
  * *"more"*. That is the right answer for the same reason the ink boxes are merged: their accidentals
  * stack into columns at one x, and the group really does reach further left.
  *
- * ⭐ It asks {@link displayedSigns}, ⛔ never `alter`: a pitch whose sign is suppressed by the
+ * ⭐ It asks {@link displayedSigns}, ⛔ never `alteration`: a pitch whose sign is suppressed by the
  * running-accidental rule draws nothing and must not close the gap.
  */
 function openingAccidentals(measure: Measure, keyFor: KeyResolver): number {

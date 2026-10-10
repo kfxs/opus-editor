@@ -1,6 +1,6 @@
 {
   "format": "opus-editor-score",
-  "version": 1,
+  "version": 2,
   "savedAt": "2026-08-29T13:50:54.750Z",
   "view": {
     "justifyLastLine": true
@@ -60,7 +60,6 @@
               {
                 "id": "c86d6e54-27db-40c6-b227-054dbc71c4aa",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -84,7 +83,6 @@
               {
                 "id": "d3b353e9-4dca-4507-b00b-7cbd1259bc8c",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "bf8ba488-6327-48bc-8708-9fefd79e3578"
               }
@@ -109,7 +107,6 @@
               {
                 "id": "8a8a1cd3-19e0-43e1-98ff-cd4a9dccfa02",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -132,7 +129,6 @@
               {
                 "id": "c1953aa1-58d8-4bea-b8ed-2b2e0f7f20fe",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -154,7 +150,6 @@
               {
                 "id": "580052ba-0276-415a-bf20-4c13f75aa332",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -177,7 +172,6 @@
               {
                 "id": "bf8ba488-6327-48bc-8708-9fefd79e3578",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "d3b353e9-4dca-4507-b00b-7cbd1259bc8c"
               }
@@ -200,7 +194,6 @@
               {
                 "id": "ad62325c-2edc-420a-ab96-dd146b03e347",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -222,7 +215,6 @@
               {
                 "id": "61764b5d-28cd-40d2-8398-05c0f0314cc5",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -244,7 +236,6 @@
               {
                 "id": "c80099b2-a371-48bd-ada2-6136dcd50bb4",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -295,7 +286,6 @@
               {
                 "id": "43156249-f069-4c47-8246-71056c404d20",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -319,7 +309,6 @@
               {
                 "id": "aa785597-9888-4478-bcb4-c3a7ccd9e80e",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "6239bd86-09b7-42a6-a03b-69c5f34e7b06"
               }
@@ -344,7 +333,6 @@
               {
                 "id": "6f261b73-8b7f-4ec3-8995-e745a0f6d676",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -367,7 +355,6 @@
               {
                 "id": "270deb58-b87e-4a0f-9ed1-bcebc7b0b623",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -389,7 +376,6 @@
               {
                 "id": "cc0c04b9-214b-4414-b668-3e6782181149",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -412,7 +398,6 @@
               {
                 "id": "6239bd86-09b7-42a6-a03b-69c5f34e7b06",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "aa785597-9888-4478-bcb4-c3a7ccd9e80e"
               }
@@ -435,7 +420,6 @@
               {
                 "id": "1eb426e5-956c-4c7f-a347-1306ea0089ad",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -457,7 +441,6 @@
               {
                 "id": "d8f2639e-da93-4999-8d87-c221ac3894e3",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -479,7 +462,6 @@
               {
                 "id": "1161a5f8-5e63-4d9e-8aae-c302d026945f",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -554,7 +536,6 @@
               {
                 "id": "88483769-5b60-442c-a3e4-55ac7886e71f",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -578,7 +559,6 @@
               {
                 "id": "74abf8c2-532f-47fd-93bd-4a85aa526196",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "a65cadb1-dc49-43e4-8cd0-bac8df8aa6cc"
               }
@@ -603,7 +583,6 @@
               {
                 "id": "8093cb92-a1d2-4c33-8885-f0e8a74c58ea",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -625,7 +604,6 @@
               {
                 "id": "5f4b949c-b6eb-44f5-b53d-f22a18477d84",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -647,7 +625,6 @@
               {
                 "id": "5d3bb26b-4f75-4860-8d1d-b74d7558d783",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -670,7 +647,6 @@
               {
                 "id": "a65cadb1-dc49-43e4-8cd0-bac8df8aa6cc",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "74abf8c2-532f-47fd-93bd-4a85aa526196"
               }
@@ -693,7 +669,6 @@
               {
                 "id": "b0d55da8-343d-4dbb-b5d8-235f2d390a3e",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -715,7 +690,6 @@
               {
                 "id": "ae0b9a2e-3ce1-423c-b69c-99433161e35b",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -737,7 +711,6 @@
               {
                 "id": "7dca2cf3-b094-43c3-b0b8-9b1b76c21e25",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -788,7 +761,6 @@
               {
                 "id": "de94d05c-efc4-4b32-b2cc-a14df6da00b1",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -812,7 +784,6 @@
               {
                 "id": "f4e155b9-4709-4f2a-b459-9a34f8354c54",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "bb288720-3d14-45df-89c1-319ccff1780c"
               }
@@ -837,7 +808,6 @@
               {
                 "id": "8e412c6c-7c5d-41db-9187-6b2d1df95875",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -859,7 +829,6 @@
               {
                 "id": "6a39780b-a259-4078-9ac1-8c4f8e511a2b",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -881,7 +850,6 @@
               {
                 "id": "372b804c-e580-440b-b55a-c6b3069a4ab5",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -904,7 +872,6 @@
               {
                 "id": "bb288720-3d14-45df-89c1-319ccff1780c",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "f4e155b9-4709-4f2a-b459-9a34f8354c54"
               }
@@ -927,7 +894,6 @@
               {
                 "id": "6b91f5bd-612b-4917-9d1f-4d4e97308a4d",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -949,7 +915,6 @@
               {
                 "id": "9d23e61d-a31d-432c-bf05-e3c233a343a8",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -971,7 +936,6 @@
               {
                 "id": "7a3620c0-7634-45f5-854f-3974dd12ad72",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1034,7 +998,6 @@
               {
                 "id": "63f1533d-cec1-405d-b00a-4ba862ff765a",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -1058,7 +1021,6 @@
               {
                 "id": "f1a0b123-64f4-4966-b767-dc4a8eef4203",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "5603113c-c1e0-42a7-b3ef-5fc109faf605"
               }
@@ -1083,7 +1045,6 @@
               {
                 "id": "194bc268-a738-48e9-9c60-29e5d48bd390",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1106,7 +1067,6 @@
               {
                 "id": "a25fdc4f-491d-4e8d-8a60-5113bb18df29",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1128,7 +1088,6 @@
               {
                 "id": "ccddef4f-a875-4a3b-b7ff-fc7edbb530df",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1151,7 +1110,6 @@
               {
                 "id": "5603113c-c1e0-42a7-b3ef-5fc109faf605",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "f1a0b123-64f4-4966-b767-dc4a8eef4203"
               }
@@ -1174,7 +1132,6 @@
               {
                 "id": "0bc5f3c6-c48c-4561-8b0b-1f430ee68ceb",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -1196,7 +1153,6 @@
               {
                 "id": "3b6459b9-6f75-49bd-a80e-b8b04aecf843",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1218,7 +1174,6 @@
               {
                 "id": "a0e16e08-c374-4b08-a2d7-66aa721ff3f4",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1269,7 +1224,6 @@
               {
                 "id": "3deccdf3-b4a4-4064-802a-76df82af9a3a",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -1293,7 +1247,6 @@
               {
                 "id": "9a7395fb-a75c-4ee9-b419-e5853f970ba4",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "b0a2928f-5907-4542-8e3a-9d82c57c65db"
               }
@@ -1318,7 +1271,6 @@
               {
                 "id": "b601a41c-72c9-4e96-8c25-190344c5a0f8",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1341,7 +1293,6 @@
               {
                 "id": "682a551d-2326-4d26-8ed3-09f419235079",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1363,7 +1314,6 @@
               {
                 "id": "8d24f25b-ca4b-4be0-95f8-88a7834ad610",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1386,7 +1336,6 @@
               {
                 "id": "b0a2928f-5907-4542-8e3a-9d82c57c65db",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "9a7395fb-a75c-4ee9-b419-e5853f970ba4"
               }
@@ -1409,7 +1358,6 @@
               {
                 "id": "b9053a52-63b4-4007-b7a4-95e66b088a4d",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -1431,7 +1379,6 @@
               {
                 "id": "274e5cc1-39ee-4def-8cf9-26e924f5f32e",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1453,7 +1400,6 @@
               {
                 "id": "7141715d-3ee2-4cca-9efa-d78a93f459c3",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1516,7 +1462,6 @@
               {
                 "id": "73e39877-9b48-44ff-8673-feb85c000952",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1540,7 +1485,6 @@
               {
                 "id": "09e6c0b6-6b44-4645-9221-09d23b16d512",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "2dce2ffa-773f-4c9d-9f4d-1af6673f8d88"
               }
@@ -1565,7 +1509,6 @@
               {
                 "id": "75837474-923d-405a-9db2-401015219c54",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1588,7 +1531,6 @@
               {
                 "id": "51d6aba9-a87e-4c97-8e1f-2a132bbabb58",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1610,7 +1552,6 @@
               {
                 "id": "c7d8e577-0ccf-4080-82c9-8ad59eef34eb",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1633,7 +1574,6 @@
               {
                 "id": "2dce2ffa-773f-4c9d-9f4d-1af6673f8d88",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "09e6c0b6-6b44-4645-9221-09d23b16d512"
               }
@@ -1656,7 +1596,6 @@
               {
                 "id": "53ac6e77-da8f-442c-ad88-922995cb9d36",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -1678,7 +1617,6 @@
               {
                 "id": "0fa2269a-25c5-4b3c-8459-ca937c643b07",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1700,7 +1638,6 @@
               {
                 "id": "1ccc68ec-3466-4713-b91b-f79ca41dc4f5",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1751,7 +1688,6 @@
               {
                 "id": "3d01a536-f5f8-410d-85e6-fe0f1c3a0111",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1775,7 +1711,6 @@
               {
                 "id": "b8d074f1-9817-4ac7-a96c-b78c162c3607",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "5ef8a735-a974-40f8-9a0f-948388013cb4"
               }
@@ -1800,7 +1735,6 @@
               {
                 "id": "df5df417-8031-41b6-938e-b9d92f2874a4",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1823,7 +1757,6 @@
               {
                 "id": "a55e06ff-ce32-40d0-a7ee-9012383783c7",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1845,7 +1778,6 @@
               {
                 "id": "82c89629-a161-4609-a32f-4f2256dd20f6",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1868,7 +1800,6 @@
               {
                 "id": "5ef8a735-a974-40f8-9a0f-948388013cb4",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "b8d074f1-9817-4ac7-a96c-b78c162c3607"
               }
@@ -1891,7 +1822,6 @@
               {
                 "id": "7bbc15a0-f516-4ab1-9fb2-d9208e508964",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -1913,7 +1843,6 @@
               {
                 "id": "efee4ce4-9473-4859-bd9c-99264554595f",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1935,7 +1864,6 @@
               {
                 "id": "a78e6799-288b-4172-b11e-daf0259e4363",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -1998,7 +1926,6 @@
               {
                 "id": "0c159ec2-94e5-4a03-b8ea-a8987eef8809",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -2022,7 +1949,6 @@
               {
                 "id": "19163f83-3b61-4fc1-97c3-b4550e38400d",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "c562ce43-d43b-43d1-a1f3-9c4259edf207"
               }
@@ -2047,7 +1973,6 @@
               {
                 "id": "e9ffaf3a-f4f1-4193-85de-9f0300db2956",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -2070,7 +1995,6 @@
               {
                 "id": "c3338a4b-9ee1-4620-ad6f-8d6fab92e5e7",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2092,7 +2016,6 @@
               {
                 "id": "2897e2f3-4158-409b-85ce-c43088dd4519",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2115,7 +2038,6 @@
               {
                 "id": "c562ce43-d43b-43d1-a1f3-9c4259edf207",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "19163f83-3b61-4fc1-97c3-b4550e38400d"
               }
@@ -2138,7 +2060,6 @@
               {
                 "id": "066a830f-4d11-4d98-8f39-4517e63cc470",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -2160,7 +2081,6 @@
               {
                 "id": "8e6b0fa6-082b-467c-ba48-199076fbc13b",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2182,7 +2102,6 @@
               {
                 "id": "fd541fff-2ee3-4be8-beed-0b9923cf5968",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2233,7 +2152,6 @@
               {
                 "id": "7fa3063f-4cc7-41e3-adf5-4880d6fe306d",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -2257,7 +2175,6 @@
               {
                 "id": "1d39b67a-e6c9-4a3f-9ac1-3588cce2eceb",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "cb878de8-55ff-46b6-9ba2-30a847213d90"
               }
@@ -2282,7 +2199,6 @@
               {
                 "id": "cb2036a9-12c3-453a-b68f-6b393494793d",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -2305,7 +2221,6 @@
               {
                 "id": "eff8b5a6-3601-479b-a61f-54e76684d104",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2327,7 +2242,6 @@
               {
                 "id": "7dd65d56-3cce-4c94-a968-b57031dbab6f",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2350,7 +2264,6 @@
               {
                 "id": "cb878de8-55ff-46b6-9ba2-30a847213d90",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "1d39b67a-e6c9-4a3f-9ac1-3588cce2eceb"
               }
@@ -2373,7 +2286,6 @@
               {
                 "id": "8420cd35-a3f3-426c-bcb2-0e0b2fe0e919",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -2395,7 +2307,6 @@
               {
                 "id": "e1c5f939-78bb-4b34-bc50-6a4ccddff7f0",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2417,7 +2328,6 @@
               {
                 "id": "16c6e047-ad47-4e96-a228-d44ce8504b14",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2480,7 +2390,6 @@
               {
                 "id": "4d19b092-90ef-401e-9514-cf9236622e4b",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -2504,7 +2413,6 @@
               {
                 "id": "38eddb0b-f045-4c05-8720-e51cf7ae9477",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "c9f00803-0094-4727-a1bc-2a5cb88818c5"
               }
@@ -2529,7 +2437,9 @@
               {
                 "id": "7f26f3ec-7d2e-4adc-873b-79e8a32c08ab",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -2551,7 +2461,6 @@
               {
                 "id": "c8e8c985-da21-45db-b8ae-414b91ed8fc9",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -2573,7 +2482,6 @@
               {
                 "id": "cbb37651-3985-4401-8482-73c7b7a69677",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2596,7 +2504,6 @@
               {
                 "id": "c9f00803-0094-4727-a1bc-2a5cb88818c5",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "38eddb0b-f045-4c05-8720-e51cf7ae9477"
               }
@@ -2619,7 +2526,9 @@
               {
                 "id": "91a5d802-4a9f-4201-bd4c-ed3d3faa42b4",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -2641,7 +2550,6 @@
               {
                 "id": "5a321dc9-10d5-4935-a32e-27b3f90a7290",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -2663,7 +2571,6 @@
               {
                 "id": "59cfe69f-d704-4f41-93f4-5181c95ce6e2",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2714,7 +2621,6 @@
               {
                 "id": "2db021ab-8e2f-46cb-8bc9-f05482190469",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -2738,7 +2644,6 @@
               {
                 "id": "e72bb0b8-5d7e-4803-adc5-54b785d84435",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "66227462-659b-4c29-b8a9-ff1daabbca57"
               }
@@ -2763,7 +2668,9 @@
               {
                 "id": "90546e9c-fe63-48d0-a200-dee9df531ccc",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -2785,7 +2692,6 @@
               {
                 "id": "2aff9d77-35f7-4461-b472-822fc151400e",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -2807,7 +2713,6 @@
               {
                 "id": "bf0a5c1c-8116-49e7-89bb-dc034c5631b8",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2830,7 +2735,6 @@
               {
                 "id": "66227462-659b-4c29-b8a9-ff1daabbca57",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "e72bb0b8-5d7e-4803-adc5-54b785d84435"
               }
@@ -2853,7 +2757,9 @@
               {
                 "id": "08baff67-fc1a-4063-84e8-753df467a3dd",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -2875,7 +2781,6 @@
               {
                 "id": "cf4e0cec-7497-4d7e-a16b-0e452643e1f1",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -2897,7 +2802,6 @@
               {
                 "id": "ecf2dd47-b97b-4b54-94a0-bae61cdb20a6",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -2960,7 +2864,6 @@
               {
                 "id": "05898c0c-9e73-4909-96e8-97c1a51fbc50",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -2984,7 +2887,6 @@
               {
                 "id": "a6576073-124a-42cf-8ef0-9779cd1e2dab",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "aab65a38-f633-45cd-ac10-53d7da27b9f8"
               }
@@ -3009,7 +2911,6 @@
               {
                 "id": "10d5917d-9c78-4538-bfda-3915da1f0a0e",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -3032,7 +2933,6 @@
               {
                 "id": "a2ceb473-4df3-4c15-b7d8-656e6a8f7282",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3054,7 +2954,6 @@
               {
                 "id": "e34ac7c1-9ece-4052-8519-161283a52279",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3077,7 +2976,6 @@
               {
                 "id": "aab65a38-f633-45cd-ac10-53d7da27b9f8",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "a6576073-124a-42cf-8ef0-9779cd1e2dab"
               }
@@ -3100,7 +2998,6 @@
               {
                 "id": "1f0f62c7-b189-447e-af06-a8a9b735b590",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3122,7 +3019,6 @@
               {
                 "id": "1a98cca3-2f71-40ad-b553-ada3d5befeac",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3144,7 +3040,6 @@
               {
                 "id": "577cd1ee-233d-4fa6-8885-4cafcfab730b",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3195,7 +3090,6 @@
               {
                 "id": "3d3c01d3-f6d7-4564-85af-a7bb32bcbbb8",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -3219,7 +3113,6 @@
               {
                 "id": "00250e8d-7e16-4c96-870b-890afed86d39",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "175f381a-a54b-4f99-824e-c3ba8598e7ae"
               }
@@ -3244,7 +3137,6 @@
               {
                 "id": "da3702de-3d33-48b4-af81-5eec4b7c54c5",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -3267,7 +3159,6 @@
               {
                 "id": "024efd18-20e9-4a6d-9c44-ec399f00c10a",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3289,7 +3180,6 @@
               {
                 "id": "0543ffd2-7949-4a99-b3fb-d3137128a5a4",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3312,7 +3202,6 @@
               {
                 "id": "175f381a-a54b-4f99-824e-c3ba8598e7ae",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "00250e8d-7e16-4c96-870b-890afed86d39"
               }
@@ -3335,7 +3224,6 @@
               {
                 "id": "0cda57cc-9e3b-4828-a2c6-7381216e1317",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3357,7 +3245,6 @@
               {
                 "id": "27589b4c-9ce9-4702-b63e-594c48ffe9f0",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3379,7 +3266,6 @@
               {
                 "id": "0194310b-7d1a-41bd-a40c-8932fe5f59de",
                 "step": "G",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3442,7 +3328,6 @@
               {
                 "id": "2cffba15-70ef-4170-8957-fdb62100a2b0",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -3466,7 +3351,6 @@
               {
                 "id": "84a5d2b1-2885-4f86-80c4-45a2e96261ae",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "27113643-2ef9-4aef-9a7c-733f0609c4a5"
               }
@@ -3491,7 +3375,6 @@
               {
                 "id": "9d502b36-045b-4986-a736-ce8bda5440ac",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3513,7 +3396,6 @@
               {
                 "id": "dbf3c756-afe8-4dce-ad5f-b8e887a12085",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3535,7 +3417,6 @@
               {
                 "id": "02a22515-9d9b-4d73-aba7-808f07c24e48",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3558,7 +3439,6 @@
               {
                 "id": "27113643-2ef9-4aef-9a7c-733f0609c4a5",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "84a5d2b1-2885-4f86-80c4-45a2e96261ae"
               }
@@ -3581,7 +3461,6 @@
               {
                 "id": "a5686c3f-f285-45a4-92b0-44684954ee7d",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3603,7 +3482,6 @@
               {
                 "id": "4aee454f-3045-45c2-8fcd-0df3e3d21825",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3625,7 +3503,6 @@
               {
                 "id": "e67567eb-dc40-4a3a-8dea-450235098752",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3676,7 +3553,6 @@
               {
                 "id": "252efa49-df4d-4add-87b6-9c6e9400298f",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -3700,7 +3576,6 @@
               {
                 "id": "fd56eb57-d594-4ebc-bb13-4c864524deb7",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "eb9c150f-910d-4864-bbb2-8829c2bfa497"
               }
@@ -3725,7 +3600,6 @@
               {
                 "id": "2c65bda3-d4dc-48a8-82a3-5a2fe55ae49a",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3747,7 +3621,6 @@
               {
                 "id": "e704e7c6-afa2-4313-8a0f-7a3566518841",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3769,7 +3642,6 @@
               {
                 "id": "1d6f0e40-8ceb-4d24-abb8-71a60c5564fc",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3792,7 +3664,6 @@
               {
                 "id": "eb9c150f-910d-4864-bbb2-8829c2bfa497",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "fd56eb57-d594-4ebc-bb13-4c864524deb7"
               }
@@ -3815,7 +3686,6 @@
               {
                 "id": "ea508143-f1c7-4678-80e4-b789e1541c58",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3837,7 +3707,6 @@
               {
                 "id": "50444250-3391-46ba-9b73-7db2d5f578b0",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3859,7 +3728,6 @@
               {
                 "id": "d11a3361-e63a-4cf8-b1f2-839280ca3fc2",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3922,7 +3790,6 @@
               {
                 "id": "b59d5d5e-d220-4bbd-a219-ecac399ed503",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -3946,7 +3813,6 @@
               {
                 "id": "46a0452e-c9c8-419e-98ab-557476730d17",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "546d1fdf-ff6c-4126-b26f-13175eca1a52"
               }
@@ -3971,7 +3837,6 @@
               {
                 "id": "e4163862-42c1-41dc-9440-58d93dd8a8a3",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3993,7 +3858,6 @@
               {
                 "id": "262edb30-68e6-4aa5-9978-a4da7d99b0d9",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4015,7 +3879,6 @@
               {
                 "id": "bbdb502e-a76e-4df8-96b1-b0ad73610c3a",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -4038,7 +3901,6 @@
               {
                 "id": "546d1fdf-ff6c-4126-b26f-13175eca1a52",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "46a0452e-c9c8-419e-98ab-557476730d17"
               }
@@ -4061,7 +3923,6 @@
               {
                 "id": "3092a684-937d-49ac-808f-4c71e9836499",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4083,7 +3944,6 @@
               {
                 "id": "a4483684-9abc-4b37-a739-e65097fe0a2a",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4105,7 +3965,6 @@
               {
                 "id": "9c8b8751-36eb-4aeb-93f3-4310d3b5b9ab",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -4156,7 +4015,6 @@
               {
                 "id": "f9f0850d-9fb6-435c-a5c7-08c2e2d541a3",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -4180,7 +4038,6 @@
               {
                 "id": "55ab2a85-0c9f-4f7a-8142-43224474a767",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "daed46f4-3c13-4913-b53b-bf25d90395e5"
               }
@@ -4205,7 +4062,6 @@
               {
                 "id": "65ce3794-acf9-4ed6-9627-75fc1ba10503",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4227,7 +4083,6 @@
               {
                 "id": "34676ab5-1f3c-4eaa-8938-c509730d7f08",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4249,7 +4104,6 @@
               {
                 "id": "8450fe5a-d7d3-4571-bfa0-8b45b08c3129",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -4272,7 +4126,6 @@
               {
                 "id": "daed46f4-3c13-4913-b53b-bf25d90395e5",
                 "step": "C",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "55ab2a85-0c9f-4f7a-8142-43224474a767"
               }
@@ -4295,7 +4148,6 @@
               {
                 "id": "fd4bd25a-f91b-4c48-8e90-a796857da5ce",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4317,7 +4169,6 @@
               {
                 "id": "f650b583-4414-42e8-af6e-9f6e493af61d",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4339,7 +4190,6 @@
               {
                 "id": "29f722b7-6696-4b9b-9456-3780ce7e2771",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -4402,7 +4252,6 @@
               {
                 "id": "70a82307-b800-4693-b81f-175dd57b1673",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -4426,7 +4275,6 @@
               {
                 "id": "95afbafc-13f0-475d-92e6-555f103fc9d9",
                 "step": "A",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "0eace246-5e10-48d6-82c7-0356e8f003ab"
               }
@@ -4451,7 +4299,6 @@
               {
                 "id": "b7ebeb05-5821-45e8-8f79-24c6f65a7f23",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4473,7 +4320,9 @@
               {
                 "id": "83dd71e9-623e-481e-a84a-7a46fa7d162e",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -4495,7 +4344,6 @@
               {
                 "id": "4c62bc1b-baae-42e4-b82f-6935cbc91573",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -4518,7 +4366,6 @@
               {
                 "id": "0eace246-5e10-48d6-82c7-0356e8f003ab",
                 "step": "A",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "95afbafc-13f0-475d-92e6-555f103fc9d9"
               }
@@ -4541,7 +4388,6 @@
               {
                 "id": "40d4c260-0b96-4886-ae62-7b88d82aa7c0",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4563,7 +4409,9 @@
               {
                 "id": "5fdb0afe-840f-444c-a626-db92963b69d0",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -4585,7 +4433,6 @@
               {
                 "id": "3fe55be8-0dbd-4f1e-89d9-eda6a9c89e8d",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -4636,7 +4483,6 @@
               {
                 "id": "1af0907e-144e-4748-b8e6-51672adab28f",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -4660,7 +4506,6 @@
               {
                 "id": "c9dc6a6e-c7c9-45ad-ae12-ebb40a96b59a",
                 "step": "A",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "98e35d69-d472-4540-af91-ffdc0229d55a"
               }
@@ -4685,7 +4530,6 @@
               {
                 "id": "cd065f2b-de20-4f2f-9e03-889377f2972a",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4707,7 +4551,9 @@
               {
                 "id": "7688e79a-0fc0-4c68-b11f-cc0599db7877",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -4729,7 +4575,6 @@
               {
                 "id": "66e1fb97-5dc6-4ddd-8330-3da2742151a5",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -4752,7 +4597,6 @@
               {
                 "id": "98e35d69-d472-4540-af91-ffdc0229d55a",
                 "step": "A",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "c9dc6a6e-c7c9-45ad-ae12-ebb40a96b59a"
               }
@@ -4775,7 +4619,6 @@
               {
                 "id": "c48adbf9-3725-488a-9550-451e95fc7153",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4797,7 +4640,9 @@
               {
                 "id": "dbb99959-3fe9-46ec-bdf5-ce44f75b1bed",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -4819,7 +4664,6 @@
               {
                 "id": "2f350954-a61e-47a2-b899-139853d9e351",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -4882,7 +4726,6 @@
               {
                 "id": "4a87371f-53f8-48cc-8ace-32501c7a58fb",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -4906,7 +4749,6 @@
               {
                 "id": "b5cede52-184d-449a-a79f-b97fe806a7ee",
                 "step": "B",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "233135cc-557b-4675-9398-22e64a1bf7e4"
               }
@@ -4931,7 +4773,6 @@
               {
                 "id": "14ff3506-1cb5-4eb3-8314-d4eae0db8d25",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4953,7 +4794,6 @@
               {
                 "id": "33a6d098-8232-4a89-be66-5f913554a1aa",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4975,7 +4815,6 @@
               {
                 "id": "9e056cce-57cd-4598-9b0c-28a7c917a606",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4998,7 +4837,6 @@
               {
                 "id": "233135cc-557b-4675-9398-22e64a1bf7e4",
                 "step": "B",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "b5cede52-184d-449a-a79f-b97fe806a7ee"
               }
@@ -5021,7 +4859,6 @@
               {
                 "id": "47275297-7b30-44ea-b437-205d189927dd",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5043,7 +4880,6 @@
               {
                 "id": "4627fccd-4ce6-4d83-a652-b13827033da6",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5065,7 +4901,6 @@
               {
                 "id": "966ca9c2-ff0b-4fb1-9e07-d7f1eb77694c",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5116,7 +4951,6 @@
               {
                 "id": "2d7ee906-b70f-4c5b-8af5-2346a532d90b",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -5140,7 +4974,6 @@
               {
                 "id": "dc98771d-e688-4917-b084-fe8bcf641a0b",
                 "step": "B",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "dbfabad3-65ca-49b2-bbd0-cc5fbee5b97d"
               }
@@ -5165,7 +4998,6 @@
               {
                 "id": "75fa52a2-3703-41c8-839c-d59307bc1e05",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5187,7 +5019,6 @@
               {
                 "id": "dcb16ec0-0872-4757-833b-c5bfa829304e",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5209,7 +5040,6 @@
               {
                 "id": "048b97b5-aa15-4a3c-9819-02688d66ba10",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5232,7 +5062,6 @@
               {
                 "id": "dbfabad3-65ca-49b2-bbd0-cc5fbee5b97d",
                 "step": "B",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "dc98771d-e688-4917-b084-fe8bcf641a0b"
               }
@@ -5255,7 +5084,6 @@
               {
                 "id": "45046ae5-9c46-4bca-b83d-19659a9e54c4",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5277,7 +5105,6 @@
               {
                 "id": "b8ab3569-ad81-4b4f-88f7-b93dcbb95ca9",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5299,7 +5126,6 @@
               {
                 "id": "a431fcc7-eb03-4307-a256-a173896d964a",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5362,7 +5188,6 @@
               {
                 "id": "bb93588b-d596-4238-b531-485cd77d0a1f",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -5386,7 +5211,9 @@
               {
                 "id": "6cee4593-e704-4b41-8581-f4d0e002207f",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedTo": "51bcf6e6-5867-41cf-b95d-8345b0549b8b"
               }
@@ -5411,7 +5238,6 @@
               {
                 "id": "2b148dd3-37cc-41d8-8e0e-317229034002",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5433,7 +5259,6 @@
               {
                 "id": "472bec50-943d-4fa6-96f2-13cd60cca7c6",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5455,7 +5280,9 @@
               {
                 "id": "fa10ca28-945c-4700-a3f6-0abd7eb02010",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ]
@@ -5478,7 +5305,9 @@
               {
                 "id": "51bcf6e6-5867-41cf-b95d-8345b0549b8b",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedFrom": "6cee4593-e704-4b41-8581-f4d0e002207f"
               }
@@ -5501,7 +5330,6 @@
               {
                 "id": "661866b6-4125-4c85-bace-ba4297592d04",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5523,7 +5351,6 @@
               {
                 "id": "c5a33cfa-6156-4ba0-baf8-033e5ffe24a9",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5545,7 +5372,9 @@
               {
                 "id": "77f10131-b4d0-4474-81d0-278006b2246a",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ]
@@ -5596,7 +5425,6 @@
               {
                 "id": "d8d019f0-c2b4-4416-aa58-7f26c668681b",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -5620,7 +5448,9 @@
               {
                 "id": "6832d554-470c-40b7-a728-7186c3328311",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedTo": "098d280f-70df-4694-8875-066e73dd30d6"
               }
@@ -5645,7 +5475,6 @@
               {
                 "id": "d229af6a-de7f-4a7c-a3bb-824c291d73e4",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5667,7 +5496,6 @@
               {
                 "id": "34163261-da49-435b-b778-d4db855fc11f",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5689,7 +5517,9 @@
               {
                 "id": "50c17f1f-8beb-4c2e-8485-2c8571c65e9a",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ]
@@ -5712,7 +5542,9 @@
               {
                 "id": "098d280f-70df-4694-8875-066e73dd30d6",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedFrom": "6832d554-470c-40b7-a728-7186c3328311"
               }
@@ -5735,7 +5567,6 @@
               {
                 "id": "c6da3467-2061-43e3-8abb-404c1422022d",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5757,7 +5588,6 @@
               {
                 "id": "07098ebd-5832-4fe4-838a-1d8cf4cd1e0b",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5779,7 +5609,9 @@
               {
                 "id": "342d6530-5f02-44da-8e02-426dec93fe1d",
                 "step": "C",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 5
               }
             ]
@@ -5842,7 +5674,6 @@
               {
                 "id": "23309a04-699b-44e1-ae91-87135cd41a4d",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -5866,7 +5697,6 @@
               {
                 "id": "d18e871b-1685-4c59-9246-d3d4ccfcf151",
                 "step": "A",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "5e0d8a6e-7334-424a-94e4-7aea1e821e1d"
               }
@@ -5891,7 +5721,6 @@
               {
                 "id": "fe6d65ee-e450-4be4-bcab-d923192b8988",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5913,7 +5742,6 @@
               {
                 "id": "4f6e67f6-bc02-4166-a072-d1bf3766dee7",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -5935,7 +5763,6 @@
               {
                 "id": "62ac0b23-0987-4871-99f1-c00ba737a2d2",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -5957,7 +5784,6 @@
               {
                 "id": "5e0d8a6e-7334-424a-94e4-7aea1e821e1d",
                 "step": "A",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "d18e871b-1685-4c59-9246-d3d4ccfcf151"
               }
@@ -5981,7 +5807,6 @@
               {
                 "id": "3061d9db-cf9d-47ff-a37e-7ff678ca2068",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6003,7 +5828,6 @@
               {
                 "id": "e67a7226-3ac1-4dfc-84c8-339b05fce8af",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6025,7 +5849,6 @@
               {
                 "id": "bb53de46-c91b-47e2-95ef-e84031d3feb4",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -6076,7 +5899,6 @@
               {
                 "id": "783d7ca8-33cf-4f82-8b38-ad6928b0ca90",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -6100,7 +5922,6 @@
               {
                 "id": "a92f2bba-8fc2-42ea-ad89-4fd25da42807",
                 "step": "A",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "1b36639c-b507-4080-b14f-7c4e2bf77d4f"
               }
@@ -6125,7 +5946,6 @@
               {
                 "id": "f3797a93-9c73-41d3-b22d-9a33d7116c8b",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6147,7 +5967,6 @@
               {
                 "id": "3e9ca0d4-3a1a-45f6-9bf8-bb09f3b4284b",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6169,7 +5988,6 @@
               {
                 "id": "6441ec21-5f57-4bb5-b697-80d1a615b59f",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -6191,7 +6009,6 @@
               {
                 "id": "1b36639c-b507-4080-b14f-7c4e2bf77d4f",
                 "step": "A",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "a92f2bba-8fc2-42ea-ad89-4fd25da42807"
               }
@@ -6215,7 +6032,6 @@
               {
                 "id": "abcdf001-513d-4ada-97c3-4372504f2666",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6237,7 +6053,6 @@
               {
                 "id": "62e9cb8d-470f-416e-9044-b093ab037289",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6259,7 +6074,6 @@
               {
                 "id": "b2b0430d-b2a0-435c-9110-55e5f54a2d97",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -6322,7 +6136,6 @@
               {
                 "id": "2b4944b4-546a-4a66-84c1-95423825f82e",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -6346,7 +6159,9 @@
               {
                 "id": "5b3f49df-2fb4-4acf-8c83-869811d5f98d",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedTo": "9943e1f9-7242-4bc6-8e22-bc4e46aba1c7"
               }
@@ -6371,7 +6186,6 @@
               {
                 "id": "73deccf5-da31-4e7c-9046-277429425675",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6393,7 +6207,6 @@
               {
                 "id": "ef091e84-451a-427a-b9af-3a343f388d65",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6415,7 +6228,6 @@
               {
                 "id": "7f986b07-a094-43d3-9457-6ee50e05aa7c",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6437,7 +6249,9 @@
               {
                 "id": "9943e1f9-7242-4bc6-8e22-bc4e46aba1c7",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedFrom": "5b3f49df-2fb4-4acf-8c83-869811d5f98d"
               }
@@ -6461,7 +6275,6 @@
               {
                 "id": "928bc5e6-e66c-42f2-b853-29f78ab9f5a2",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6483,7 +6296,6 @@
               {
                 "id": "cce73c3b-8f3e-41f3-9eaf-a350550046d3",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6505,7 +6317,6 @@
               {
                 "id": "e4b8218b-1836-4a54-81b2-1f4095ab0053",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6556,7 +6367,6 @@
               {
                 "id": "7f907ed0-0b6c-4d78-a79a-1a8c520cf50f",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -6580,7 +6390,9 @@
               {
                 "id": "c89e2e5f-784c-4c5a-886e-828d9b372cff",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedTo": "451b45e9-5491-481d-becd-c0d1ab9e0c0b"
               }
@@ -6605,7 +6417,6 @@
               {
                 "id": "edb08432-43db-46a0-8d50-676511a20e60",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6627,7 +6438,6 @@
               {
                 "id": "403516a8-f555-41a2-be06-f51bb18bbd5d",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6649,7 +6459,6 @@
               {
                 "id": "b9941098-16ce-4979-9894-1595f11a933e",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6671,7 +6480,9 @@
               {
                 "id": "451b45e9-5491-481d-becd-c0d1ab9e0c0b",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedFrom": "c89e2e5f-784c-4c5a-886e-828d9b372cff"
               }
@@ -6695,7 +6506,6 @@
               {
                 "id": "6cd888a5-a893-41b9-a1dd-09fc40d68727",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6717,7 +6527,6 @@
               {
                 "id": "49634d5b-4d40-4a45-add4-a770b7af32a4",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6739,7 +6548,6 @@
               {
                 "id": "c7d8b830-7f85-43e5-a0c0-6d11684ce448",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6802,7 +6610,6 @@
               {
                 "id": "a1454d5e-2847-43be-8087-e2f71c197a15",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -6826,7 +6633,6 @@
               {
                 "id": "a92fa0f1-eea8-4a30-9750-273ba6d1d3c0",
                 "step": "G",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "236cd3b0-9655-48bf-98b3-6c70db0b0866"
               }
@@ -6851,7 +6657,6 @@
               {
                 "id": "c05a89ef-c3eb-4c12-a571-ce10f97e9e85",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6873,7 +6678,6 @@
               {
                 "id": "5639f579-5e8d-4368-8173-3303c606f15b",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6895,7 +6699,6 @@
               {
                 "id": "aaa6e94a-8e78-48ef-858b-487998f5ab8d",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -6917,7 +6720,6 @@
               {
                 "id": "236cd3b0-9655-48bf-98b3-6c70db0b0866",
                 "step": "G",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "a92fa0f1-eea8-4a30-9750-273ba6d1d3c0"
               }
@@ -6941,7 +6743,6 @@
               {
                 "id": "b700f044-9ab2-4c96-abb2-2f027524b834",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6963,7 +6764,6 @@
               {
                 "id": "afba5a61-98bf-423b-997a-9cc161a91375",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6985,7 +6785,6 @@
               {
                 "id": "35f35417-1fb8-4671-9280-8152aee3a54d",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -7036,7 +6835,6 @@
               {
                 "id": "7f5a9ec6-f26d-4dcc-876b-bed110b0186a",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -7060,7 +6858,6 @@
               {
                 "id": "7158c8ac-4855-4329-b9a2-92441294edad",
                 "step": "G",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "a76b3fa3-d4d2-426a-8a4a-a5f7d097ed6d"
               }
@@ -7085,7 +6882,6 @@
               {
                 "id": "805bcb18-b60a-4065-ab4a-4fb399111425",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7107,7 +6903,6 @@
               {
                 "id": "c54f107a-9ca5-4144-b971-f8f3ef8351d9",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7129,7 +6924,6 @@
               {
                 "id": "a1daa93d-8858-4c18-ab6e-05997011304e",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -7151,7 +6945,6 @@
               {
                 "id": "a76b3fa3-d4d2-426a-8a4a-a5f7d097ed6d",
                 "step": "G",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "7158c8ac-4855-4329-b9a2-92441294edad"
               }
@@ -7175,7 +6968,6 @@
               {
                 "id": "b5d622d2-9d38-42bf-8732-6bf9220af224",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7197,7 +6989,6 @@
               {
                 "id": "f6474468-5f3c-4ed4-8839-dd96be5a07d6",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7219,7 +7010,6 @@
               {
                 "id": "3625ea13-28f8-4b1e-a7bc-e38805803909",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -7282,7 +7072,6 @@
               {
                 "id": "26a73754-a95d-4053-916e-d7871dd2021d",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -7306,7 +7095,6 @@
               {
                 "id": "7955509c-4e15-4e5b-a3c5-c5844caa8ca1",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "c1f2b63c-282e-48c6-8bad-0ef2f81dfbb4"
               }
@@ -7331,7 +7119,6 @@
               {
                 "id": "582c59b2-9076-481a-bc86-f6a9918c20c9",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -7353,7 +7140,6 @@
               {
                 "id": "977ba8d6-4d09-4371-82ac-7cc21cb7a44c",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7375,7 +7161,6 @@
               {
                 "id": "8087069c-51d7-4d48-9c3e-9b8691efff31",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7397,7 +7182,6 @@
               {
                 "id": "c1f2b63c-282e-48c6-8bad-0ef2f81dfbb4",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "7955509c-4e15-4e5b-a3c5-c5844caa8ca1"
               }
@@ -7421,7 +7205,6 @@
               {
                 "id": "99c3082a-27af-4269-b217-7833f1f40a5e",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -7443,7 +7226,6 @@
               {
                 "id": "2b3addb9-62d8-4e1b-a129-3b4dda717160",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7465,7 +7247,6 @@
               {
                 "id": "ca2bc6af-ac81-40c9-9c37-498ad91b1f8f",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7516,7 +7297,6 @@
               {
                 "id": "eca4bf36-409e-4636-b927-897dbba2e87d",
                 "step": "E",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -7540,7 +7320,6 @@
               {
                 "id": "83f34809-7068-4aff-8934-284896fa3f11",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "4e0d1d13-f972-4c58-abe1-7cb1902ddac4"
               }
@@ -7565,7 +7344,6 @@
               {
                 "id": "c357c69e-7f78-44af-931a-64d1d6f534d6",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -7587,7 +7365,6 @@
               {
                 "id": "c93634a6-94e7-46dd-812f-34b133bf08db",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7609,7 +7386,6 @@
               {
                 "id": "61ddf164-9335-411d-b882-d652a756ab1e",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7631,7 +7407,6 @@
               {
                 "id": "4e0d1d13-f972-4c58-abe1-7cb1902ddac4",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "83f34809-7068-4aff-8934-284896fa3f11"
               }
@@ -7655,7 +7430,6 @@
               {
                 "id": "5172bf62-1f1a-4f32-afee-3c7ad326e014",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -7677,7 +7451,6 @@
               {
                 "id": "8b784563-4c2b-4ca2-9608-8fb2db7912a8",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7699,7 +7472,6 @@
               {
                 "id": "2486db34-233d-429c-b463-22c2d89abdb3",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7762,7 +7534,6 @@
               {
                 "id": "dd2dc4b4-06fa-4c15-8664-f94f0be21528",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -7786,7 +7557,6 @@
               {
                 "id": "b84afda9-0217-4a1a-a3a1-dd2c1fb0b2ed",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "f54f8f87-cd1e-4afb-8307-05a3861c3beb"
               }
@@ -7811,7 +7581,6 @@
               {
                 "id": "37d483d7-4051-4bca-9d14-0f8f11514e4c",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -7833,7 +7602,6 @@
               {
                 "id": "e636de3e-ca2d-496c-8b32-bb39d32f15d5",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7855,7 +7623,6 @@
               {
                 "id": "20c5d4cc-eddb-45a6-b792-38c4ec5d1c78",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7877,7 +7644,6 @@
               {
                 "id": "f54f8f87-cd1e-4afb-8307-05a3861c3beb",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "b84afda9-0217-4a1a-a3a1-dd2c1fb0b2ed"
               }
@@ -7901,7 +7667,6 @@
               {
                 "id": "1c2aedac-1879-452b-91db-4bdb60834200",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -7923,7 +7688,6 @@
               {
                 "id": "ad46b0b4-111e-417d-8557-71a72cf9d924",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7945,7 +7709,6 @@
               {
                 "id": "64e4cd26-cddd-4aca-bd13-f952968946c2",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7996,7 +7759,6 @@
               {
                 "id": "29cee22a-1ea6-4e23-852a-76fedab7c7ca",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -8020,7 +7782,6 @@
               {
                 "id": "3d303a01-73d8-4858-a59d-9d52079cbca2",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "056660bd-031b-45ba-9093-27767e2faa44"
               }
@@ -8045,7 +7806,6 @@
               {
                 "id": "3bcc3ed3-fff0-49c2-ba08-ec8aa8e780bc",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8067,7 +7827,6 @@
               {
                 "id": "aa17f0de-121e-43ad-82ba-33ef167d3c6c",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8089,7 +7848,6 @@
               {
                 "id": "12ca48ae-78c2-496f-92f8-7f72d64b3518",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8111,7 +7869,6 @@
               {
                 "id": "056660bd-031b-45ba-9093-27767e2faa44",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "3d303a01-73d8-4858-a59d-9d52079cbca2"
               }
@@ -8135,7 +7892,6 @@
               {
                 "id": "0f195634-3abb-4d58-b52c-6c2869202731",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8157,7 +7913,6 @@
               {
                 "id": "6146362c-cf5a-4b05-9855-2586619840a9",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8179,7 +7934,6 @@
               {
                 "id": "7addaab8-a854-45ed-a831-e5afa407998b",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8242,7 +7996,6 @@
               {
                 "id": "e50ceec2-8b14-4220-b344-1084481c290d",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -8266,7 +8019,6 @@
               {
                 "id": "c91cfb59-35a4-4795-894f-1c60661a224d",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "332c9f60-7e6d-4214-b193-ac97e012dc77"
               }
@@ -8291,7 +8043,6 @@
               {
                 "id": "0a8878b7-cc56-4ceb-bfe5-a3aa299ee18b",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8313,7 +8064,6 @@
               {
                 "id": "f1d10a7d-cf3c-4c3b-8ab2-daec644422a1",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8335,7 +8085,6 @@
               {
                 "id": "792c63d9-5871-4947-a0f1-af838421efd2",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8357,7 +8106,6 @@
               {
                 "id": "332c9f60-7e6d-4214-b193-ac97e012dc77",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "c91cfb59-35a4-4795-894f-1c60661a224d"
               }
@@ -8381,7 +8129,6 @@
               {
                 "id": "d06e2435-414a-47c4-b5ac-c7fd84d58645",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8403,7 +8150,6 @@
               {
                 "id": "030763ed-49ec-47d5-9cd8-9e9bd61ac8d1",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8425,7 +8171,6 @@
               {
                 "id": "31403c71-91d6-43cd-8929-86c1808f5adf",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8476,7 +8221,6 @@
               {
                 "id": "5af2fd56-21a3-4605-82ed-3b52443c1318",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -8500,7 +8244,6 @@
               {
                 "id": "6b94f7c2-63d7-46b7-8cf5-f0b7d59fd1ab",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "43dead81-3161-4891-b529-8e6abde9c0b3"
               }
@@ -8525,7 +8268,6 @@
               {
                 "id": "d4f98fc1-5f3e-43e3-8abc-66105dada97a",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8547,7 +8289,6 @@
               {
                 "id": "101253b4-0fce-45f7-8b5b-c0cb8a5ac467",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8569,7 +8310,6 @@
               {
                 "id": "c3365e65-7953-4653-af85-73248600c692",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8591,7 +8331,6 @@
               {
                 "id": "43dead81-3161-4891-b529-8e6abde9c0b3",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "6b94f7c2-63d7-46b7-8cf5-f0b7d59fd1ab"
               }
@@ -8615,7 +8354,6 @@
               {
                 "id": "4ae631da-fe3a-4356-b059-1c84a141705c",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8637,7 +8375,6 @@
               {
                 "id": "18e13a36-27f3-4bf5-b1b0-80fcf55d711e",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8659,7 +8396,6 @@
               {
                 "id": "ae0f8b2f-3fed-4200-9ff5-4602dadf421e",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8722,7 +8458,6 @@
               {
                 "id": "47fa0a50-2576-40bd-b841-0a487de0265a",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -8746,7 +8481,6 @@
               {
                 "id": "d404eda5-8098-4556-afa9-58086ea0bdc2",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "b14f29b7-2fa3-4e15-8e67-cb289643dec7"
               }
@@ -8771,7 +8505,6 @@
               {
                 "id": "c88170e4-25b0-4a9d-acfe-eb92aa04ac94",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8793,7 +8526,6 @@
               {
                 "id": "b02474e0-38ae-4970-8d5a-3094660b376b",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8815,7 +8547,6 @@
               {
                 "id": "a1610273-023c-4c0b-b8b8-030c7191a939",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8837,7 +8568,6 @@
               {
                 "id": "b14f29b7-2fa3-4e15-8e67-cb289643dec7",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "d404eda5-8098-4556-afa9-58086ea0bdc2"
               }
@@ -8861,7 +8591,6 @@
               {
                 "id": "4371d41f-a756-4275-803d-f1a1207c7210",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -8883,7 +8612,6 @@
               {
                 "id": "7f3fff7c-8058-486f-8f77-0e12f182b0cd",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8905,7 +8633,6 @@
               {
                 "id": "fe154d17-d57f-400e-b9d4-b1818d7ad968",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -8956,7 +8683,6 @@
               {
                 "id": "c9356ad5-e75f-4288-b7e1-429d111e4f32",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -8980,7 +8706,6 @@
               {
                 "id": "a36476b7-0e13-4914-a17f-5dea36aa9541",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "6af5b6c6-22db-4194-8330-f653463270c3"
               }
@@ -9005,7 +8730,6 @@
               {
                 "id": "4ef6e004-3f53-43d8-b237-ee83f94e2e74",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -9027,7 +8751,6 @@
               {
                 "id": "511d07d4-cf9a-43af-a97a-d15b0a5a7c7c",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9049,7 +8772,6 @@
               {
                 "id": "57e9da22-d3e3-48a1-93f9-77952dc1326a",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9071,7 +8793,6 @@
               {
                 "id": "6af5b6c6-22db-4194-8330-f653463270c3",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "a36476b7-0e13-4914-a17f-5dea36aa9541"
               }
@@ -9095,7 +8816,6 @@
               {
                 "id": "8c341125-2ea1-4588-be9f-2c1145eecb18",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -9117,7 +8837,6 @@
               {
                 "id": "e1949760-6cec-44bd-b511-c5fdfdb9439f",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9139,7 +8858,6 @@
               {
                 "id": "b53cb698-bf0a-4433-8fa6-d7071b72ad9a",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9202,7 +8920,6 @@
               {
                 "id": "c044ef8d-88a4-45c4-9bd4-0d827dbbc93e",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -9226,7 +8943,6 @@
               {
                 "id": "181a016b-7abf-4db7-9714-7ead875c6117",
                 "step": "G",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "8b65df6a-7565-4ce3-8080-5e6d4e148c0f"
               }
@@ -9251,7 +8967,9 @@
               {
                 "id": "3b141268-3fbf-4bdb-8453-5a98eeaa3f9e",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3
               }
             ]
@@ -9273,7 +8991,6 @@
               {
                 "id": "acc25637-9a49-421a-b766-74412699fa2b",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9295,7 +9012,6 @@
               {
                 "id": "b0795bf6-1acb-4ee1-9c2b-d5f04d63731b",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9317,7 +9033,6 @@
               {
                 "id": "8b65df6a-7565-4ce3-8080-5e6d4e148c0f",
                 "step": "G",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "181a016b-7abf-4db7-9714-7ead875c6117"
               }
@@ -9341,7 +9056,9 @@
               {
                 "id": "980965e3-d6df-465b-a1c2-49fe935be891",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3
               }
             ]
@@ -9363,7 +9080,6 @@
               {
                 "id": "dfe992bf-d513-43ba-ae65-6cf1a5fe762c",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9385,7 +9101,6 @@
               {
                 "id": "c01ba89f-9a77-4816-820b-dd3df1fd4e0b",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9436,7 +9151,6 @@
               {
                 "id": "2aa275c6-d11f-4946-b2ca-7825151dd541",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               }
             ],
@@ -9460,7 +9174,6 @@
               {
                 "id": "194631b2-9721-4bc4-a5fe-b9909a130887",
                 "step": "G",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "0dfe1d86-f816-44be-b01b-190a03b47062"
               }
@@ -9485,7 +9198,9 @@
               {
                 "id": "142b618d-0d59-40f9-b952-52d0b8aca388",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3
               }
             ]
@@ -9507,7 +9222,6 @@
               {
                 "id": "697a8be0-bcaf-4662-944c-2f3ffb649ead",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9529,7 +9243,6 @@
               {
                 "id": "8c644dbc-3b3a-4811-b00a-c92a451ae669",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9551,7 +9264,6 @@
               {
                 "id": "0dfe1d86-f816-44be-b01b-190a03b47062",
                 "step": "G",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "194631b2-9721-4bc4-a5fe-b9909a130887"
               }
@@ -9575,7 +9287,9 @@
               {
                 "id": "443a4b2b-404d-433e-acc1-a687add7b96b",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3
               }
             ]
@@ -9597,7 +9311,6 @@
               {
                 "id": "2fe26d9b-878d-407a-837c-2e15bd93c819",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9619,7 +9332,6 @@
               {
                 "id": "9e1b0d0b-eb13-4715-afff-17f747795d2e",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9682,7 +9394,6 @@
               {
                 "id": "0d765286-2ecb-4e41-9244-45abcc7bf61a",
                 "step": "F",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9706,7 +9417,6 @@
               {
                 "id": "d79b94e9-af68-4904-8ff1-772d82007395",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "6ebdaa80-f0ef-46fd-b81a-c96933c903d7"
               }
@@ -9731,7 +9441,6 @@
               {
                 "id": "96643c59-9d72-4463-9cd4-24a90a89c931",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -9753,7 +9462,6 @@
               {
                 "id": "8da68798-ae00-46dc-9926-636b1b575e7d",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9775,7 +9483,6 @@
               {
                 "id": "c65ba5f3-455a-4eaf-8325-f9c1a237527f",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9797,7 +9504,6 @@
               {
                 "id": "6ebdaa80-f0ef-46fd-b81a-c96933c903d7",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "d79b94e9-af68-4904-8ff1-772d82007395"
               }
@@ -9821,7 +9527,6 @@
               {
                 "id": "c2aa1494-d495-4475-9f4c-ab58e2474b71",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -9843,7 +9548,6 @@
               {
                 "id": "41054b81-dde6-484f-945e-7368971dabf4",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9865,7 +9569,6 @@
               {
                 "id": "c55c0688-67eb-4e60-a3ea-d47ab1c62f4a",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -9916,7 +9619,6 @@
               {
                 "id": "47d7ec04-219c-4552-afc3-e5bd8dc57f6a",
                 "step": "F",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -9940,7 +9642,6 @@
               {
                 "id": "62317d17-ae92-4086-87f3-db4cc14ac0f9",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "0564c269-cd6c-4450-b60d-31d49fcedb7b"
               }
@@ -9965,7 +9666,6 @@
               {
                 "id": "efb78dbc-3fb7-48ac-8525-fb3d7aeee43f",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -9987,7 +9687,6 @@
               {
                 "id": "5b638211-ce16-4b9d-99ec-6aa183023f52",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10009,7 +9708,6 @@
               {
                 "id": "18e0967f-c973-4fc5-9e41-ff58371a97a0",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10031,7 +9729,6 @@
               {
                 "id": "0564c269-cd6c-4450-b60d-31d49fcedb7b",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "62317d17-ae92-4086-87f3-db4cc14ac0f9"
               }
@@ -10055,7 +9752,6 @@
               {
                 "id": "9e9251c5-d978-4f3a-b32b-49d80ba9d85b",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10077,7 +9773,6 @@
               {
                 "id": "25498a42-f82f-4411-8790-f98b10d437e9",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10099,7 +9794,6 @@
               {
                 "id": "de88fac5-67c6-41ad-a1a2-b39faacfe601",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10162,7 +9856,9 @@
               {
                 "id": "e85e4514-d9c1-4651-b186-aa45b227555f",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 2
               }
             ],
@@ -10186,7 +9882,6 @@
               {
                 "id": "c6246789-2efd-411b-b393-2ee0912818c3",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "2728e2b1-8a5d-404a-a5a0-bb97f5ab9cfc"
               }
@@ -10211,7 +9906,6 @@
               {
                 "id": "53d0d200-4298-4beb-85b5-baaf33ff8791",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10233,7 +9927,6 @@
               {
                 "id": "46ceb5ea-4d5b-488e-8f00-f1f3f7707b39",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10255,7 +9948,9 @@
               {
                 "id": "9a8b128a-690c-4e28-bea4-e65a56be3adb",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -10277,7 +9972,6 @@
               {
                 "id": "2728e2b1-8a5d-404a-a5a0-bb97f5ab9cfc",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "c6246789-2efd-411b-b393-2ee0912818c3"
               }
@@ -10301,7 +9995,6 @@
               {
                 "id": "b1a3f852-e32a-4175-82ab-0b231482875f",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10323,7 +10016,6 @@
               {
                 "id": "be25e6b3-88d6-45d5-85c3-73e27640ca00",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10345,7 +10037,9 @@
               {
                 "id": "eaadf7fe-a906-484e-a7a9-bb448decb31b",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -10396,7 +10090,9 @@
               {
                 "id": "2ebc0358-b2e0-4496-9856-daa2797c0e13",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 2
               }
             ],
@@ -10420,7 +10116,6 @@
               {
                 "id": "fa89f443-fa67-4fba-8ee8-4d7899bfb36c",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "cb2a25fe-519b-4988-914f-cc96b5f57abf"
               }
@@ -10445,7 +10140,6 @@
               {
                 "id": "6d2fdc13-4e6d-425a-b848-3b9070df1eb3",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10467,7 +10161,6 @@
               {
                 "id": "f7700dee-3829-4793-a86d-283a1bb9af10",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10489,7 +10182,9 @@
               {
                 "id": "2671e386-fca7-43c6-b0d5-185bf6b0d194",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -10511,7 +10206,6 @@
               {
                 "id": "cb2a25fe-519b-4988-914f-cc96b5f57abf",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "fa89f443-fa67-4fba-8ee8-4d7899bfb36c"
               }
@@ -10535,7 +10229,6 @@
               {
                 "id": "7c64eabc-b2e6-46e9-baae-6d243a49a627",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10557,7 +10250,6 @@
               {
                 "id": "c85bf5f6-a554-4214-a9b5-5640a46de00e",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10579,7 +10271,9 @@
               {
                 "id": "937d1687-a331-4727-903e-7b7cfeffe3d7",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -10642,7 +10336,9 @@
               {
                 "id": "329fafdc-967f-4342-a555-f253d1c764b6",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 2
               }
             ],
@@ -10666,7 +10362,6 @@
               {
                 "id": "00879b9a-9d2c-493a-9513-58ba4ba60d88",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "forceAccidental": true,
                 "tiedTo": "7fbf4841-4698-46b0-a479-4459e0c38473"
@@ -10692,7 +10387,6 @@
               {
                 "id": "c76dd7bc-f3b1-471a-86b5-80251b2f0ec6",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10714,7 +10408,6 @@
               {
                 "id": "5b89a173-bbdd-4b4d-92d0-87687eb0fad1",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10736,7 +10429,6 @@
               {
                 "id": "9764771e-79bd-4ac2-aa77-6786a970cdaf",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10758,7 +10450,6 @@
               {
                 "id": "7fbf4841-4698-46b0-a479-4459e0c38473",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "00879b9a-9d2c-493a-9513-58ba4ba60d88"
               }
@@ -10782,7 +10473,6 @@
               {
                 "id": "bf65c1f3-02db-4cf3-90c9-13de9a8ad848",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10804,7 +10494,6 @@
               {
                 "id": "244e6a3c-3de4-44a8-adaf-48e93ff56151",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10826,7 +10515,6 @@
               {
                 "id": "4658e817-b133-4b83-97a4-21b68316894b",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10877,7 +10565,9 @@
               {
                 "id": "68f248cd-b6e5-421c-b7cf-39f0d3e31d61",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 2
               }
             ],
@@ -10901,7 +10591,6 @@
               {
                 "id": "91a7a74b-e773-4cc8-a8af-8756c0ebbbde",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "55dfcddf-9acc-45be-8b91-6aabff819301"
               }
@@ -10926,7 +10615,6 @@
               {
                 "id": "bb8f9028-22c1-47f7-a5b9-82dace98807f",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -10948,7 +10636,6 @@
               {
                 "id": "70945bcb-affe-4f31-bcb5-74c2da44f27e",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10970,7 +10657,6 @@
               {
                 "id": "7a05746f-9afb-43de-8fde-af12ed25d5e8",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -10992,7 +10678,6 @@
               {
                 "id": "55dfcddf-9acc-45be-8b91-6aabff819301",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "91a7a74b-e773-4cc8-a8af-8756c0ebbbde"
               }
@@ -11016,7 +10701,6 @@
               {
                 "id": "e3da7566-f05f-4dc3-97e1-2d0f132172ab",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11038,7 +10722,6 @@
               {
                 "id": "3085b817-5691-490b-a643-1bc494b8d980",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11060,7 +10743,6 @@
               {
                 "id": "8de45b58-7489-4232-a6d0-d7545f492e38",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11123,7 +10805,6 @@
               {
                 "id": "c506793b-bee6-4dd7-8e2d-cb1f6e3e0924",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -11147,7 +10828,6 @@
               {
                 "id": "383ec490-9364-43df-b383-6fc4b14d004f",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "3c64bdd5-1168-4b7c-9e01-57dcc6b3dab3"
               }
@@ -11172,7 +10852,6 @@
               {
                 "id": "54149284-99cb-4f8d-9138-26abd63ccb7e",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11194,7 +10873,6 @@
               {
                 "id": "d7369b67-0886-4a76-be6d-8d2aec3da6b3",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11216,7 +10894,6 @@
               {
                 "id": "faeb0ef6-9380-46ef-aa15-d9e6b124dda1",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11238,7 +10915,6 @@
               {
                 "id": "3c64bdd5-1168-4b7c-9e01-57dcc6b3dab3",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "383ec490-9364-43df-b383-6fc4b14d004f"
               }
@@ -11262,7 +10938,6 @@
               {
                 "id": "79db0493-0af6-42bf-9521-fe610383638f",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11284,7 +10959,6 @@
               {
                 "id": "62385e14-88fa-4a99-b2f8-03fd7dbecf7d",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11306,7 +10980,6 @@
               {
                 "id": "d25d0ae6-7755-48d5-beb6-16950de1d321",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11357,7 +11030,6 @@
               {
                 "id": "e8b362cf-025a-42ac-8281-7281c41be6a2",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -11381,7 +11053,6 @@
               {
                 "id": "7bdb07c9-f205-44d5-95a6-5d070e9145f5",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "9f12f0d8-c984-4cee-87ce-4804c44153bf"
               }
@@ -11406,7 +11077,6 @@
               {
                 "id": "5a6864ca-4223-46b6-b15a-9fdbb49cfa19",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11428,7 +11098,6 @@
               {
                 "id": "034a2827-5fce-42f9-8c06-18f9529d522f",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11450,7 +11119,6 @@
               {
                 "id": "c1a31c93-9098-40d2-a551-09050d0610d6",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11472,7 +11140,6 @@
               {
                 "id": "9f12f0d8-c984-4cee-87ce-4804c44153bf",
                 "step": "F",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "7bdb07c9-f205-44d5-95a6-5d070e9145f5"
               }
@@ -11496,7 +11163,6 @@
               {
                 "id": "797073b3-531c-4749-ac4b-fe71de7d1fce",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11518,7 +11184,6 @@
               {
                 "id": "ebd97ec6-a14f-4b48-a45c-bd546c997ee0",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11540,7 +11205,6 @@
               {
                 "id": "f995a66e-ede0-46d6-9c2e-20266bc0ba51",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11603,7 +11267,6 @@
               {
                 "id": "af00d895-76cf-4ac3-a292-3f82a3d0c5ee",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -11627,7 +11290,6 @@
               {
                 "id": "20c6ba67-b1d1-4cdb-9607-97d906ef3173",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "56b5f498-b5d7-49ef-ad53-5c29d8bd875d"
               }
@@ -11652,7 +11314,6 @@
               {
                 "id": "637b6c14-3229-4ef1-b568-a2c0e2157808",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11674,7 +11335,6 @@
               {
                 "id": "ab15ee23-44b6-4e9d-8619-8310a4224d38",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11696,7 +11356,6 @@
               {
                 "id": "4789da64-5e9e-45ac-83d4-47c3c96c2f9a",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11718,7 +11377,6 @@
               {
                 "id": "56b5f498-b5d7-49ef-ad53-5c29d8bd875d",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "20c6ba67-b1d1-4cdb-9607-97d906ef3173"
               }
@@ -11742,7 +11400,6 @@
               {
                 "id": "ccccc2aa-1ce0-43d5-9971-653156767e80",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11764,7 +11421,6 @@
               {
                 "id": "caef5565-72dd-4c26-8b5a-a7d6b6648860",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11786,7 +11442,6 @@
               {
                 "id": "21b2345f-33d6-49a9-8054-9d7173a4ddf1",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11837,7 +11492,6 @@
               {
                 "id": "9adc6ee2-ea6f-4f62-ab4c-07c7bfb5354c",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -11861,7 +11515,6 @@
               {
                 "id": "db0eb9a4-9af7-42e6-8efe-1b89bd5e8234",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "d70b5033-028d-4954-9956-7aac64f70d2e"
               }
@@ -11886,7 +11539,6 @@
               {
                 "id": "b9d32379-d146-4665-b829-1d2a6c8362b8",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11908,7 +11560,6 @@
               {
                 "id": "7466a8f8-2f5c-4513-b220-22a36b16f537",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11930,7 +11581,6 @@
               {
                 "id": "8d9c3f04-b47d-4edd-9bd1-2ee811ee9b46",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -11952,7 +11602,6 @@
               {
                 "id": "d70b5033-028d-4954-9956-7aac64f70d2e",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "db0eb9a4-9af7-42e6-8efe-1b89bd5e8234"
               }
@@ -11976,7 +11625,6 @@
               {
                 "id": "6fa28e45-6346-46d8-9d33-94f10eaccfcb",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -11998,7 +11646,6 @@
               {
                 "id": "486da357-96d3-48da-82c6-d7e96b3600ff",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12020,7 +11667,6 @@
               {
                 "id": "544a48aa-9558-4fa3-a564-0b26b421d071",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12083,7 +11729,6 @@
               {
                 "id": "8cadc207-856a-4376-881c-e516b92c2a43",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -12107,7 +11752,6 @@
               {
                 "id": "06373dd7-ea70-4ce2-9fe1-1a57b757a24d",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "2fcc1804-f03d-4a95-8f32-ae91e0d2c438"
               }
@@ -12132,7 +11776,6 @@
               {
                 "id": "e3686a10-1ebf-4874-84b6-a08b87bb6699",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12154,7 +11797,6 @@
               {
                 "id": "f7b237e1-5f4e-4b42-a93d-9d96687b57a3",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12176,7 +11818,6 @@
               {
                 "id": "212422ae-2f66-4a16-9dac-c39c93eb5d6a",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12198,7 +11839,6 @@
               {
                 "id": "2fcc1804-f03d-4a95-8f32-ae91e0d2c438",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "06373dd7-ea70-4ce2-9fe1-1a57b757a24d"
               }
@@ -12222,7 +11862,6 @@
               {
                 "id": "b1d756de-9118-4048-b32c-816368a22b33",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12244,7 +11883,6 @@
               {
                 "id": "47dbf1d5-c9c0-4fcd-a77c-71be1770748b",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12266,7 +11904,6 @@
               {
                 "id": "392c1715-f2d4-41a6-b829-6383b84d2aa7",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12317,7 +11954,6 @@
               {
                 "id": "88df349f-2cf6-4f5c-b115-3889295c3e70",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -12341,7 +11977,6 @@
               {
                 "id": "113e30ea-92fe-458e-808b-5c3352b92a6a",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "1f448b03-a3c5-4e5a-9e9f-b420680c5f0d"
               }
@@ -12366,7 +12001,6 @@
               {
                 "id": "dcb5c640-1603-4e32-aa23-e77e3bbb0171",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12388,7 +12022,6 @@
               {
                 "id": "d7517fa1-5c4d-40cc-ac32-b7239f5694e4",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12410,7 +12043,6 @@
               {
                 "id": "985f302d-0c75-4115-8398-039ec0ee65db",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12432,7 +12064,6 @@
               {
                 "id": "1f448b03-a3c5-4e5a-9e9f-b420680c5f0d",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "113e30ea-92fe-458e-808b-5c3352b92a6a"
               }
@@ -12456,7 +12087,6 @@
               {
                 "id": "5f024a96-118f-4594-ab89-a192f41009e3",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12478,7 +12108,6 @@
               {
                 "id": "b2dccb7c-337f-455a-a011-4ad352523636",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12500,7 +12129,6 @@
               {
                 "id": "2a19946a-0bec-4777-b8d8-bb2b6aadf190",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12563,7 +12191,6 @@
               {
                 "id": "311ac578-2323-47e7-90a8-f36b8de407ff",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -12587,7 +12214,6 @@
               {
                 "id": "39043506-61a5-41eb-8809-c2c1ada7ea78",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "7f37abd7-0fe4-4149-8cd5-aeb61e4ad851"
               }
@@ -12612,7 +12238,6 @@
               {
                 "id": "9b06f1ce-2dd9-4d44-abe1-c7cf2872d0b5",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12634,7 +12259,6 @@
               {
                 "id": "3e23d110-5579-41a9-9eb3-476f683e4480",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12656,7 +12280,6 @@
               {
                 "id": "62f80a7a-d296-4d2f-8b2f-e45855dc0552",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12678,7 +12301,6 @@
               {
                 "id": "7f37abd7-0fe4-4149-8cd5-aeb61e4ad851",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "39043506-61a5-41eb-8809-c2c1ada7ea78"
               }
@@ -12702,7 +12324,6 @@
               {
                 "id": "6bb14971-65d3-4d52-a112-2bade7a3e7ac",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12724,7 +12345,6 @@
               {
                 "id": "ca2b612c-c926-4925-9977-5167fd7ee4c3",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12746,7 +12366,6 @@
               {
                 "id": "ca676104-2ee1-4ced-9727-019abdc829d0",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12797,7 +12416,6 @@
               {
                 "id": "8f61538a-c9db-4c17-8333-0fd4202d685e",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -12821,7 +12439,6 @@
               {
                 "id": "1a0990a5-f633-4e82-87de-7850a918f8ed",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "ef54f0c5-ffdd-422a-a79f-75c1b8264a78"
               }
@@ -12846,7 +12463,6 @@
               {
                 "id": "dfc3fc7c-5231-41e3-81c5-3ec249e0c8d3",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12868,7 +12484,6 @@
               {
                 "id": "4e425620-a727-496f-88ed-b30c71a80f9b",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12890,7 +12505,6 @@
               {
                 "id": "763299b4-7663-4104-90ce-55996d82f759",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -12912,7 +12526,6 @@
               {
                 "id": "ef54f0c5-ffdd-422a-a79f-75c1b8264a78",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "1a0990a5-f633-4e82-87de-7850a918f8ed"
               }
@@ -12936,7 +12549,6 @@
               {
                 "id": "0a317b7c-f971-423d-a40c-e11190258048",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12958,7 +12570,6 @@
               {
                 "id": "9c0b8349-16a1-4753-951b-66151e67e8ec",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -12980,7 +12591,6 @@
               {
                 "id": "96f5af0e-d860-4ecf-ab38-94174d968403",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13043,7 +12653,6 @@
               {
                 "id": "050c7aea-591a-43b2-b5c0-ea45b9844ebe",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -13067,7 +12676,9 @@
               {
                 "id": "13e8605b-1232-4288-ae74-a458aeccd6e4",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedTo": "21792dd3-79a1-4e2e-9e10-ad4e61ecdbd2"
               }
@@ -13092,7 +12703,6 @@
               {
                 "id": "98127f47-d38d-4416-be7a-1322e9d404f4",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -13114,7 +12724,6 @@
               {
                 "id": "5ab09a01-484d-4f57-9ce2-1f1d1da22754",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13136,7 +12745,9 @@
               {
                 "id": "a2037fa7-96df-41e9-acf1-ede33590977c",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -13158,7 +12769,9 @@
               {
                 "id": "21792dd3-79a1-4e2e-9e10-ad4e61ecdbd2",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedFrom": "13e8605b-1232-4288-ae74-a458aeccd6e4"
               }
@@ -13182,7 +12795,6 @@
               {
                 "id": "f0a3049b-3b99-45ed-8166-356368e52ec6",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -13204,7 +12816,6 @@
               {
                 "id": "1813aa49-909e-4884-9820-39d92eba968d",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13226,7 +12837,9 @@
               {
                 "id": "d55b7307-0c8b-41b2-a645-96c904e5defb",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -13277,7 +12890,6 @@
               {
                 "id": "fb313ebc-015c-4d0a-9825-429aee9ef69b",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -13301,7 +12913,9 @@
               {
                 "id": "bb7d3c94-a2bf-4df8-b575-34f85654675b",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedTo": "20acc576-524c-4cb1-bbb7-d94b43d8c707"
               }
@@ -13326,7 +12940,6 @@
               {
                 "id": "7de2b3f2-fa92-496e-8701-88d75671ac00",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -13348,7 +12961,6 @@
               {
                 "id": "1e3aece1-79e0-4a80-99f1-a70b2b89d5fe",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13370,7 +12982,9 @@
               {
                 "id": "97c850cb-7d5d-4704-81d9-149767be1be7",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -13392,7 +13006,9 @@
               {
                 "id": "20acc576-524c-4cb1-bbb7-d94b43d8c707",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3,
                 "tiedFrom": "bb7d3c94-a2bf-4df8-b575-34f85654675b"
               }
@@ -13416,7 +13032,6 @@
               {
                 "id": "52a8877f-0d1a-4b2d-bd65-e8ab267aea71",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -13438,7 +13053,6 @@
               {
                 "id": "5d61f8cb-5841-44a2-8f1c-8a6b449ccf04",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13460,7 +13074,9 @@
               {
                 "id": "8aa732d0-93f8-47d0-8fc3-15efe342025f",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -13523,7 +13139,6 @@
               {
                 "id": "434b344a-b7d5-4923-955c-efaa515affbf",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -13547,7 +13162,6 @@
               {
                 "id": "a6f9e59a-3079-4a96-9500-f74ceee64f68",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "forceAccidental": true,
                 "tiedTo": "653e4ae2-16e7-4eda-86f8-24672dd8fcb0"
@@ -13573,7 +13187,6 @@
               {
                 "id": "afd6ab96-234e-4d10-b4f7-9775cc9c5450",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -13595,7 +13208,6 @@
               {
                 "id": "d2a6f423-5461-45ee-959f-985c76757a4f",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13617,7 +13229,6 @@
               {
                 "id": "e24e2426-cfa8-49f3-8726-da7377566ba8",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13639,7 +13250,6 @@
               {
                 "id": "653e4ae2-16e7-4eda-86f8-24672dd8fcb0",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "a6f9e59a-3079-4a96-9500-f74ceee64f68"
               }
@@ -13663,7 +13273,6 @@
               {
                 "id": "fd787042-0522-470a-b39d-ed89576f93ce",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -13685,7 +13294,6 @@
               {
                 "id": "e077e4af-3295-41ed-826b-fd607b5631e0",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13707,7 +13315,6 @@
               {
                 "id": "96f78c76-5144-4ee5-b809-01b05f002916",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13758,7 +13365,6 @@
               {
                 "id": "ac4822a6-6a19-4dd6-b885-938ac964ef65",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -13782,7 +13388,6 @@
               {
                 "id": "7316943f-094a-4d65-8848-d8c03169404a",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "e109ac93-1a8e-40ce-a26b-83911cc5ef2a"
               }
@@ -13807,7 +13412,6 @@
               {
                 "id": "b7db81bf-eb37-4964-b477-ca5f7f9409f1",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -13829,7 +13433,6 @@
               {
                 "id": "f34da940-a5ed-42f4-a65f-68a70bd96206",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13851,7 +13454,6 @@
               {
                 "id": "c529c633-a42b-418e-b56c-6a3c48f396e4",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13873,7 +13475,6 @@
               {
                 "id": "e109ac93-1a8e-40ce-a26b-83911cc5ef2a",
                 "step": "E",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "7316943f-094a-4d65-8848-d8c03169404a"
               }
@@ -13897,7 +13498,6 @@
               {
                 "id": "1ae148f1-b559-45e8-b492-977128fde857",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -13919,7 +13519,6 @@
               {
                 "id": "e866cea0-04b8-4290-b501-7d8b6b5d86d8",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -13941,7 +13540,6 @@
               {
                 "id": "31830784-97a3-486f-a874-641ca4554ca8",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14004,7 +13602,6 @@
               {
                 "id": "c8ff9c8a-8b83-48f6-a5e3-7c36aab2fb47",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -14028,7 +13625,6 @@
               {
                 "id": "b23e46a8-6441-4c36-9657-a149e76c74ed",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "1b391288-31c3-4279-be62-5a2c942e7483"
               }
@@ -14053,7 +13649,6 @@
               {
                 "id": "eddde1ca-f1ec-43e3-9de0-ed0a687a9205",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14075,7 +13670,6 @@
               {
                 "id": "e86fd764-c36d-469d-a5e8-bdde66ed3da9",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14097,7 +13691,6 @@
               {
                 "id": "f8ef2718-39e9-4fc2-96e3-dc2ec46a5f7f",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14119,7 +13712,6 @@
               {
                 "id": "1b391288-31c3-4279-be62-5a2c942e7483",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "b23e46a8-6441-4c36-9657-a149e76c74ed"
               }
@@ -14143,7 +13735,6 @@
               {
                 "id": "05dc634e-3d2b-4b62-96e4-766465c26b24",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14165,7 +13756,6 @@
               {
                 "id": "0d2d5efe-8d89-454e-bc15-daee505cb02b",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14187,7 +13777,6 @@
               {
                 "id": "f17955d6-8719-410e-9edc-f68a3b29e339",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14238,7 +13827,6 @@
               {
                 "id": "01e79c63-1bc4-4458-9058-d2b0bca4938b",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -14262,7 +13850,6 @@
               {
                 "id": "9f94e26f-e359-489b-8bb1-742f808f3750",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "178500dc-2e2c-45f9-aaf7-14abab21a480"
               }
@@ -14287,7 +13874,6 @@
               {
                 "id": "86b09df1-93df-467a-92a3-7a0f9225d40f",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14309,7 +13895,6 @@
               {
                 "id": "4d8bab23-6cb6-4497-9dbc-5fb10cb3f29b",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14331,7 +13916,6 @@
               {
                 "id": "0a3c1051-a38b-44b5-a2d1-4a1758a2ab38",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14353,7 +13937,6 @@
               {
                 "id": "178500dc-2e2c-45f9-aaf7-14abab21a480",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "9f94e26f-e359-489b-8bb1-742f808f3750"
               }
@@ -14377,7 +13960,6 @@
               {
                 "id": "3b1a7690-dfc1-4faf-8be0-5fe45509749c",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14399,7 +13981,6 @@
               {
                 "id": "3186394a-7062-48d9-9bd5-60ed10040547",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14421,7 +14002,6 @@
               {
                 "id": "26d0f657-54ab-4649-bfba-55933ff39737",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14484,7 +14064,6 @@
               {
                 "id": "d322d597-715b-4823-a454-158b1e272cf9",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -14508,7 +14087,6 @@
               {
                 "id": "63ae7925-8afa-4d7d-9911-84a65f6842ca",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "8a4b1ef2-e3d8-4177-8ad2-d5038f052fd6"
               }
@@ -14533,7 +14111,6 @@
               {
                 "id": "a5886046-b08d-4e7e-a324-14f54c0c1568",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14555,7 +14132,6 @@
               {
                 "id": "bc05a66a-9828-46d4-81d8-100e29c168b9",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14577,7 +14153,6 @@
               {
                 "id": "51912f90-70aa-441a-8b77-6bdd48b34fa5",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14599,7 +14174,6 @@
               {
                 "id": "8a4b1ef2-e3d8-4177-8ad2-d5038f052fd6",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "63ae7925-8afa-4d7d-9911-84a65f6842ca"
               }
@@ -14623,7 +14197,6 @@
               {
                 "id": "76272ff9-2773-43cd-9945-37cf2ab2d4f3",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14645,7 +14218,6 @@
               {
                 "id": "aa0f417d-1704-4431-8783-8ec43947ed80",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14667,7 +14239,6 @@
               {
                 "id": "bf2547da-23e0-442b-94f8-1ba6862c5f1d",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14718,7 +14289,6 @@
               {
                 "id": "ebe73b8b-29a7-47bb-96e7-1347a84661c1",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -14742,7 +14312,6 @@
               {
                 "id": "8dc0ccde-f62b-43fe-ad8a-315c3a5e6fe4",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "383ce2ba-5037-4084-8c5a-4245f13dea3f"
               }
@@ -14767,7 +14336,6 @@
               {
                 "id": "cded11ea-584c-4745-b34c-eac7dfe96b4c",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14789,7 +14357,6 @@
               {
                 "id": "63f60265-7412-4614-b440-464397560f7d",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14811,7 +14378,6 @@
               {
                 "id": "56a6b194-92af-47f8-bf4a-a389f77db82f",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14833,7 +14399,6 @@
               {
                 "id": "383ce2ba-5037-4084-8c5a-4245f13dea3f",
                 "step": "D",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "8dc0ccde-f62b-43fe-ad8a-315c3a5e6fe4"
               }
@@ -14857,7 +14422,6 @@
               {
                 "id": "43edcea0-b9cb-4bca-8e78-444cee29203f",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14879,7 +14443,6 @@
               {
                 "id": "b17de35d-3b5f-45b9-b12b-cd16801a9de5",
                 "step": "B",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -14901,7 +14464,6 @@
               {
                 "id": "907dca90-16c1-4089-94aa-2f5b21d158cf",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -14964,7 +14526,6 @@
               {
                 "id": "241190ac-d9e8-4da6-b586-15d1f8ffca71",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -14988,7 +14549,6 @@
               {
                 "id": "4a82821b-ddc7-4436-80a4-6337f85c9d8f",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "2bb820b4-1f83-4e60-9ace-7ed87afa1e95"
               }
@@ -15013,7 +14573,6 @@
               {
                 "id": "197d83bc-7cdd-4994-8364-ec078769bd1d",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15035,7 +14594,9 @@
               {
                 "id": "50fc7022-3a3e-4418-a079-7b9bd059cac7",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3
               }
             ]
@@ -15057,7 +14618,6 @@
               {
                 "id": "8a06254e-c83c-4c09-abc8-4b77ae43ca28",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -15079,7 +14639,6 @@
               {
                 "id": "2bb820b4-1f83-4e60-9ace-7ed87afa1e95",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "4a82821b-ddc7-4436-80a4-6337f85c9d8f"
               }
@@ -15103,7 +14662,6 @@
               {
                 "id": "7f3bf86c-3a92-4da0-8992-7a54d20e9897",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15125,7 +14683,9 @@
               {
                 "id": "ca6bea53-d5a1-4567-b1b8-960c6f07d009",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3
               }
             ]
@@ -15147,7 +14707,6 @@
               {
                 "id": "7827f166-60ff-4f48-a6ed-5738b5f8ddc0",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -15198,7 +14757,6 @@
               {
                 "id": "f29f3530-78b9-4c86-815e-588ad892d968",
                 "step": "G",
-                "alter": 0,
                 "octave": 2
               }
             ],
@@ -15222,7 +14780,6 @@
               {
                 "id": "2a359ede-dc64-4811-aaa4-ad6b991d279d",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "b9ee7fe9-88f5-416c-8c49-3308a4d7945a"
               }
@@ -15247,7 +14804,6 @@
               {
                 "id": "a4291118-248e-4786-b63e-da33d7c31f1f",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15269,7 +14825,9 @@
               {
                 "id": "cacdd2a8-1862-4ee9-b85e-7c602bce0dfb",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3
               }
             ]
@@ -15291,7 +14849,6 @@
               {
                 "id": "6bf4e9c5-93c2-4a20-a245-6b7984578a52",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -15313,7 +14870,6 @@
               {
                 "id": "b9ee7fe9-88f5-416c-8c49-3308a4d7945a",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "2a359ede-dc64-4811-aaa4-ad6b991d279d"
               }
@@ -15337,7 +14893,6 @@
               {
                 "id": "87a41fd1-e90b-4762-9819-45008c961d4e",
                 "step": "G",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15359,7 +14914,9 @@
               {
                 "id": "6ecc0340-3887-4280-8ab2-89787ad34b55",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 3
               }
             ]
@@ -15381,7 +14938,6 @@
               {
                 "id": "a415e916-8088-4567-b51a-f561329b8da6",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -15430,7 +14986,6 @@
               {
                 "id": "d852c474-8722-47ab-8ff7-e2b3c259e587",
                 "step": "C",
-                "alter": 0,
                 "octave": 2,
                 "tiedTo": "7e057094-9344-4978-ad30-cfed58ef6818"
               }
@@ -15470,7 +15025,6 @@
               {
                 "id": "95caeb26-b452-4645-a2cb-3df4d43bca48",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "82886d1b-0564-4eba-a0a0-ca42393185aa"
               }
@@ -15496,7 +15050,6 @@
               {
                 "id": "625b9d31-775a-4f57-a68f-727ff96379d7",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15518,7 +15071,6 @@
               {
                 "id": "922b899c-d6ba-4ea2-b31b-7939a8d05e87",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15540,7 +15092,6 @@
               {
                 "id": "82886d1b-0564-4eba-a0a0-ca42393185aa",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "d8361bbf-13f9-43e6-8c8e-76536641f2b5",
                 "tiedFrom": "95caeb26-b452-4645-a2cb-3df4d43bca48"
@@ -15565,7 +15116,6 @@
               {
                 "id": "5c17ef68-1f02-42c0-94ba-a4bfbd8bde08",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -15587,7 +15137,6 @@
               {
                 "id": "d95b2cfa-a81c-4ae4-8329-14cfd0e1bed7",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -15609,7 +15158,6 @@
               {
                 "id": "b9321595-5318-41cf-9173-442a33322d01",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -15631,7 +15179,6 @@
               {
                 "id": "674f0b20-40c0-46ac-bb80-ae910f53ed26",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15653,7 +15200,6 @@
               {
                 "id": "7e057094-9344-4978-ad30-cfed58ef6818",
                 "step": "C",
-                "alter": 0,
                 "octave": 2,
                 "tiedFrom": "d852c474-8722-47ab-8ff7-e2b3c259e587"
               }
@@ -15678,7 +15224,6 @@
               {
                 "id": "481272f9-02cf-401c-a6a9-db3e722edb74",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -15702,7 +15247,6 @@
               {
                 "id": "d8361bbf-13f9-43e6-8c8e-76536641f2b5",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "82886d1b-0564-4eba-a0a0-ca42393185aa"
               }
@@ -15725,7 +15269,6 @@
               {
                 "id": "dbd5cd5a-70ef-4b76-ba13-0d6ef6b84e2f",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15747,7 +15290,6 @@
               {
                 "id": "30a0bffc-207e-4c3b-a376-eac06d85ede5",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15769,7 +15311,6 @@
               {
                 "id": "6bb42ae5-1b18-4190-a4fd-f39c35abd02f",
                 "step": "A",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15791,7 +15332,6 @@
               {
                 "id": "44cd9522-2031-450b-836a-bd0dcb6b4e27",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15813,7 +15353,6 @@
               {
                 "id": "5f47a820-0173-498d-865b-dbfdf78c5080",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15835,7 +15374,6 @@
               {
                 "id": "4a2bf77b-5cf4-4252-844e-e8ca4e444650",
                 "step": "F",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15857,7 +15395,6 @@
               {
                 "id": "c0c8d78f-af9c-42e1-b8f1-cc993156160b",
                 "step": "D",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -15930,7 +15467,6 @@
               {
                 "id": "fb1fc06f-6c89-40a0-8abb-28249ba93ceb",
                 "step": "C",
-                "alter": 0,
                 "octave": 2,
                 "tiedTo": "d7c88594-5079-4fdb-b1bb-8b64fa530712"
               }
@@ -15956,7 +15492,6 @@
               {
                 "id": "a0ccf557-6d15-4180-8609-1a05822bd38c",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedTo": "46075c08-14d3-4dcf-987f-04d34be2ec85"
               }
@@ -15981,7 +15516,6 @@
               {
                 "id": "3f63eccf-7fdf-4f7d-99fa-4f90c5f82c9d",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16003,7 +15537,6 @@
               {
                 "id": "304a42c6-7b2a-4bb0-95b6-f0a8af3edc5c",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16025,7 +15558,6 @@
               {
                 "id": "c1d717b5-e21a-45c5-bcba-cd2943e98b0b",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -16047,7 +15579,6 @@
               {
                 "id": "46075c08-14d3-4dcf-987f-04d34be2ec85",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "a0ccf557-6d15-4180-8609-1a05822bd38c",
                 "tiedTo": "90e3fc09-8df0-48be-832d-303a2dc5c6a6"
@@ -16072,7 +15603,6 @@
               {
                 "id": "85213f95-0708-45b4-9cb8-5c38acfa3bf1",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -16094,7 +15624,6 @@
               {
                 "id": "ba0cad5d-150c-4519-9432-b0e5d527f5d4",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -16116,7 +15645,6 @@
               {
                 "id": "b371321f-811c-4252-b0b9-67eaf7b7494a",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16138,7 +15666,6 @@
               {
                 "id": "d26ae2b5-5de7-4a77-a23f-77bb80d69f9f",
                 "step": "D",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -16160,7 +15687,6 @@
               {
                 "id": "90e3fc09-8df0-48be-832d-303a2dc5c6a6",
                 "step": "C",
-                "alter": 0,
                 "octave": 3,
                 "tiedFrom": "46075c08-14d3-4dcf-987f-04d34be2ec85"
               }
@@ -16186,7 +15712,6 @@
               {
                 "id": "d7c88594-5079-4fdb-b1bb-8b64fa530712",
                 "step": "C",
-                "alter": 0,
                 "octave": 2,
                 "tiedFrom": "fb1fc06f-6c89-40a0-8abb-28249ba93ceb"
               }
@@ -16209,7 +15734,6 @@
               {
                 "id": "fd5d597a-c35b-41c5-ad2b-927650d363b8",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16231,7 +15755,6 @@
               {
                 "id": "e6e7572c-1189-4e9b-8c25-cc403b590384",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16253,7 +15776,6 @@
               {
                 "id": "5813e914-b0a9-4821-a8c9-1791946f871a",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16275,7 +15797,6 @@
               {
                 "id": "b10acf3a-550a-4b47-8825-53b285ceb5a3",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16297,7 +15818,6 @@
               {
                 "id": "10c8591b-40bb-44d1-a3a4-50f9e82be9a9",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16319,7 +15839,6 @@
               {
                 "id": "fc00cea0-93ab-4eb7-a3b8-4355f6b82c43",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16341,7 +15860,6 @@
               {
                 "id": "332e1a17-3f34-40b8-b3e5-14532200eb58",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -16387,13 +15905,11 @@
               {
                 "id": "81f67888-e180-4bb5-b04b-cbfb52f207ac",
                 "step": "C",
-                "alter": 0,
                 "octave": 2
               },
               {
                 "id": "a6ffbc08-ab02-4223-8ff4-4c4d5e22b384",
                 "step": "C",
-                "alter": 0,
                 "octave": 3
               }
             ]
@@ -16416,19 +15932,16 @@
               {
                 "id": "496a2099-c2b1-424c-85e2-2385cfc018b6",
                 "step": "E",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "3685d44e-d200-4d52-8262-e3e8641bf875",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               },
               {
                 "id": "59c4b83e-3793-4014-980d-1f5cfd86c3dc",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]

@@ -72,7 +72,7 @@ describe('KeyboardController', () => {
 
   describe('enterNoteByLetter — edit in place (selection mode)', () => {
     it('replaces the selected note in place and switches to entry mode', () => {
-      const id = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
       state.selectedTool = 'selection'
       state.selectedNoteId = id
 
@@ -88,7 +88,7 @@ describe('KeyboardController', () => {
 
     it('turns a selected rest into a note in place', () => {
       // beat 1 left as a rest after placing a note on beat 0
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const rest = getMeasureNotes(measure1(engine)).find(n => n.isRest && fracEq(n.beat, frac(1, 1)))!
       state.selectedTool = 'selection'
       state.selectedNoteId = rest.id
@@ -107,7 +107,7 @@ describe('KeyboardController', () => {
     })
 
     it('ignores non-letter keys', () => {
-      const id = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
       state.selectedTool = 'selection'
       state.selectedNoteId = id
       kb.enterNoteByLetter('z')
@@ -118,7 +118,7 @@ describe('KeyboardController', () => {
 
   describe('enterNoteByLetter — cursor placement (entry mode)', () => {
     it('places a new note at the beat after the cursor and advances the cursor', () => {
-      const n0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const n0 = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
       state.selectedTool = 'entry'
       state.selectedNoteId = n0
 
@@ -136,7 +136,7 @@ describe('KeyboardController', () => {
       // Two measures; voice 2 fills measure 1 (a whole note) but has NO content in
       // measure 2. The voice-2 beat stream therefore ends at the m1 barline.
       while (engine.getScore().measures.length < 2) engine.addMeasure()
-      const v2 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+      const v2 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'w', measure: 1, beat: frac(0, 1), voice: 1 })!.id
       state.selectedTool = 'entry'
       state.selectedDuration = 'q'
       state.selectedNoteId = v2
@@ -155,7 +155,7 @@ describe('KeyboardController', () => {
     // ⭐ The octave is the NEAREST LINE, counted in staff steps (`utils/pitchOrder`) — his call,
     //    2026-10-10; MuseScore's rule too. It used to be the nearest in semitones, rounding up.
     it('B4 then F goes DOWN to F4 — three steps, not up a tritone', () => {
-      const b4 = engine.addNoteAtBeat({ step: 'B', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const b4 = engine.addNoteAtBeat({ step: 'B', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
       state.selectedTool = 'entry'
       state.selectedNoteId = b4
 
@@ -165,7 +165,7 @@ describe('KeyboardController', () => {
     })
 
     it('the caret note\'s accidental plays no part: F♯4 then C is C4', () => {
-      const fs4 = engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const fs4 = engine.addNoteAtBeat({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
       state.selectedTool = 'entry'
       state.selectedNoteId = fs4
 
@@ -177,9 +177,9 @@ describe('KeyboardController', () => {
 
   describe('enterNoteByLetter — after a GRACE (his rule, 2026-09-22: the grace stamp behaves like note entry)', () => {
     it('⭐ the letter is the grace\'s MAIN note — on a rest it takes the rest\'s place, and keeps the grace', () => {
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const rest = measure1(engine).slots.find(s => s.type === 'rest' && fracEq(s.beat, frac(1, 1)))!
-      const grace = engine.grace.addGrace(rest.id, 'before', { step: 'A', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+      const grace = engine.grace.addGrace(rest.id, 'before', { step: 'A', octave: 4 }, 'appoggiatura', { duration: '8' })!
       state.selectedTool = 'entry'
       state.selectedNoteId = grace.pitches[0].id
 
@@ -195,7 +195,7 @@ describe('KeyboardController', () => {
 
   describe('GRACES from the keyboard (his ask, 2026-09-22) — the grace stamp armed in note entry', () => {
     it('⭐ letters type graces before the caret\'s next place; Shift adds a pitch; disarmed, the letter is the MAIN note', () => {
-      const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const c = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
       state.selectedTool = 'entry'
       state.selectedNoteId = c.id
       state.selectedDuration = '16'
@@ -222,7 +222,7 @@ describe('KeyboardController', () => {
 
   describe('startEntryAtSelection — SPACE on a selection (his ask, 2026-09-22)', () => {
     it('on a note: entry starts, nothing armed', () => {
-      const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const c = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
       state.selectedTool = 'selection'
       state.selectedNoteId = c.id
       expect(kb.startEntryAtSelection()).toBe(true)
@@ -231,8 +231,8 @@ describe('KeyboardController', () => {
     })
 
     it('⭐ on a GRACE: entry starts AND its status comes with it — the grace stamp in its group\'s form', () => {
-      const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
-      const g = engine.grace.addGrace(c.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '16' })!
+      const c = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const g = engine.grace.addGrace(c.id, 'before', { step: 'D', octave: 5 }, 'acciaccatura', { duration: '16' })!
       state.selectedTool = 'selection'
       state.selectedNoteId = g.pitches[0].id
       expect(kb.startEntryAtSelection()).toBe(true)
@@ -246,7 +246,7 @@ describe('KeyboardController', () => {
 
   describe('addChordNoteByLetter (Shift + letter)', () => {
     it('adds a higher note to the chord at the selected note', () => {
-      const id = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const id = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
       state.selectedTool = 'selection'
       state.selectedNoteId = id
 
@@ -259,8 +259,8 @@ describe('KeyboardController', () => {
     })
 
     it('stacks the chord note in the SELECTED note\'s voice (multi-voice)', () => {
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })
-      const v2 = engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })
+      const v2 = engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
       state.selectedTool = 'selection'
       state.selectedNoteId = v2
 
@@ -275,17 +275,17 @@ describe('KeyboardController', () => {
     })
 
     it('never on the top note\'s own line: Shift+D on a D♭4 adds D5', () => {
-      const db4 = engine.addNoteAtBeat({ step: 'D', alter: -1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+      const db4 = engine.addNoteAtBeat({ step: 'D', alteration: ['flat'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
       state.selectedTool = 'selection'
       state.selectedNoteId = db4
 
       kb.addChordNoteByLetter('d')
 
-      expect(notesAtBeat(engine, 0).find(n => n.alter !== -1)).toMatchObject({ step: 'D', octave: 5 })
+      expect(notesAtBeat(engine, 0).find(n => !n.alteration)).toMatchObject({ step: 'D', octave: 5 })
     })
 
     it('falls back to edit-in-place when a rest is selected', () => {
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const rest = getMeasureNotes(measure1(engine)).find(n => n.isRest && fracEq(n.beat, frac(1, 1)))!
       state.selectedTool = 'selection'
       state.selectedNoteId = rest.id
@@ -326,7 +326,7 @@ describe('KeyboardController.enterRestAtCursor (SPACE)', () => {
 
   /** Put the caret on a note at beat 0 of bar 1, in keyboard entry with the rest stamp armed. */
   const armAtBeat0 = () => {
-    const n = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const n = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
     state.selectedTool = 'entry'
     state.selectedNoteId = n.id
     state.selectedMarkingTool = { kind: 'rest' }
@@ -478,7 +478,7 @@ describe('KeyboardController — cursor after a tie-split entry', () => {
     // lands on the QUARTER (correctly — it is the end of the note), and the palette synced to it, so
     // the Keypad said "negra" and the next note came out a quarter. The split is what the barline
     // allowed; the armed length is what you asked for.
-    const g = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const g = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
     state.selectedTool = 'entry'
     state.selectedNoteId = g.id
     state.selectedDuration = 'w'
@@ -495,7 +495,7 @@ describe('KeyboardController — cursor after a tie-split entry', () => {
     // Reported: G4 quarter at beat 0, then a WHOLE from beat 1 of 4/4 → h@1 tied to q@3 tied to
     // q@m2b0. The caret landed on the h at beat 1 — inside the note just typed — so the next entry
     // would overwrite it.
-    const g = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const g = engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
     state.selectedTool = 'entry'
     state.selectedNoteId = g.id
     state.selectedDuration = 'w'
@@ -533,7 +533,7 @@ describe('KeyboardController — an armed accidental does not leak past its note
   })
 
   it('arms #, types A (→ A#), then B comes out NATURAL and the sharp is disarmed', () => {
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
     state.selectedTool = 'entry'
     state.selectedNoteId = c.id
     state.selectedDuration = 'q'
@@ -542,20 +542,20 @@ describe('KeyboardController — an armed accidental does not leak past its note
     kb.enterNoteAtCursorPosition('A')        // → A# at beat 1
 
     const a = getMeasureNotes(measure1(engine)).find(n => !n.isRest && n.step === 'A')!
-    expect(a.alter).toBe(1)                  // the sharp DID apply to the note it was armed for
+    expect(a.alteration).toEqual(['sharp'])                  // the sharp DID apply to the note it was armed for
     expect(state.selectedAccidental).toBeNull() // …and cleared after entry — the null now STICKS
 
     kb.enterNoteAtCursorPosition('B')        // → B at beat 2, nobody armed a sharp for it
 
     const b = getMeasureNotes(measure1(engine)).find(n => !n.isRest && n.step === 'B')!
-    expect(b.alter).toBe(0)                  // NATURAL — the sharp did not leak forward
+    expect(b.alteration).toBeUndefined()                  // NATURAL — the sharp did not leak forward
     expect(state.selectedAccidental).toBeNull()
   })
 
   it('chord entry (Shift+letter) clears the armed accidental too — same rule as plain entry', () => {
     // A chord note is still keyboard entry, so the accidental must behave identically: apply to this
     // note, then clear. Otherwise chord entry keeps the sharp while plain entry drops it — two rules.
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
     state.selectedTool = 'entry'
     state.selectedNoteId = c.id
     state.selectedAccidental = '#'          // arm a sharp
@@ -563,7 +563,7 @@ describe('KeyboardController — an armed accidental does not leak past its note
     kb.addChordNoteByLetter('e')            // stack E# onto the C
 
     const e = getMeasureNotes(measure1(engine)).find(n => !n.isRest && n.step === 'E')!
-    expect(e.alter).toBe(1)                  // the sharp applied to the chord note it was armed for
+    expect(e.alteration).toEqual(['sharp'])                  // the sharp applied to the chord note it was armed for
     expect(state.selectedAccidental).toBeNull() // …and cleared after, not left sticky
   })
 })

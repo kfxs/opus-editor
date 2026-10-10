@@ -13,7 +13,7 @@ vi.mock('./audio/PlaybackEngine', async () => (await import('@/testing/engineStu
  */
 describe('NoteEntryCoordinator — entry with cue armed', () => {
   const put = (engine: ReturnType<typeof makeEngine>, beat: number, extra: object = {}) =>
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(beat, 1), ...extra })!
+    engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(beat, 1), ...extra })!
 
   it('⭐ a new note entered with cue armed is cue; one entered without is not', () => {
     const engine = makeEngine()
@@ -34,7 +34,7 @@ describe('NoteEntryCoordinator — entry with cue armed', () => {
     const root = put(engine, 0)
     // A pitch joins a chord by `addChordNote` (Shift+letter) — `addNoteAtBeat` on a taken beat overwrites.
     const chordNote = (step: 'E' | 'G', extra: object = {}) =>
-      engine.addChordNote({ step, alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), ...extra })
+      engine.addChordNote({ step, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), ...extra })
     chordNote('E', { cue: true })
     expect(engine.getNote(root.id)!.cue).toBe(true)
     chordNote('G')
@@ -44,7 +44,7 @@ describe('NoteEntryCoordinator — entry with cue armed', () => {
   it('⭐ a note entered ACROSS the barline with cue armed: every piece is cue', () => {
     const engine = makeEngine()
     engine.addMeasure()
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(3, 1), cue: true })
+    engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: frac(3, 1), cue: true })
     const pieces = engine.getScore().measures.flatMap(m => m.slots).filter((s): s is Chord => s.type === 'chord')
     expect(pieces.length).toBe(2)
     expect(pieces.every(c => c.cue)).toBe(true)

@@ -108,8 +108,22 @@ describe('scoreFile', () => {
     })
 
     it('refuses an envelope whose score has no measures array', () => {
-      const text = JSON.stringify({ format: SCORE_FILE_FORMAT, version: 1, score: { id: 'x' } })
+      const text = JSON.stringify({ format: SCORE_FILE_FORMAT, version: SCORE_FILE_VERSION, score: { id: 'x' } })
       expect(readScoreFile(text).scoreJson).toBeNull()
+      expect(errors).toHaveLength(1)
+    })
+
+    it('⭐ refuses a v1 file and SAYS WHY — its accidentals are numbers (alteration-signs M2)', () => {
+      const text = JSON.stringify({ format: SCORE_FILE_FORMAT, version: 1, score: MINIMAL })
+      const read = readScoreFile(text)
+      expect(read.scoreJson).toBeNull()
+      expect(read.summary).toMatch(/older file \(v1\).*alter/)
+      expect(errors).toHaveLength(1)
+    })
+
+    it('⭐ refuses a BARE score whose pitches still say `alter` — it has no version to ask', () => {
+      const bare = { ...MINIMAL, measures: [{ slots: [{ notes: [{ step: 'F', alter: 1, octave: 4 }] }] }] }
+      expect(readScoreFile(JSON.stringify(bare)).scoreJson).toBeNull()
       expect(errors).toHaveLength(1)
     })
 

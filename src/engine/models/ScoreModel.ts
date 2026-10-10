@@ -1,6 +1,6 @@
 import { dbg } from '@/utils/debug'
 import { isTestRun } from '@/utils/env'
-import type { KeySignature, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchAlter, PitchStep, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStyle, ClefChange, FractionalBeamSide } from '@/types/music'
+import type { KeySignature, Score, Measure, Note, NoteParams, TimeSignature, Tuplet, TupletFormat, NoteDuration, ChordRest, Chord, Rest, NotePitch, PitchSpelling, Clef, Dynamic, Hairpin, Ottava, Pedal, TempoMark, Slur, Trill, TrillContinuationLabel, StaffInfo, StaffGroup, EngravingOverride, CurveControlPointDeltas, SlurSegmentAddress, SlurSegmentEndpointAddress, CautionaryOverride, CautionaryClefOverride, TremoloMark, FanMark, SoundRef, SoundAssignment, BarlineStyle, ClefChange, FractionalBeamSide } from '@/types/music'
 import { engravingOverridesOf, engravingOverrideOf, cautionaryKey, cautionaryAllowedOf, cautionaryClefKey, cautionaryClefAllowedOf } from './engravingOverrides'
 import { splitBeatsIntoDurations } from '@/utils/musicUtils'
 import { measureCapacityFrac, getMeasureDurationFrac } from '@/utils/measureCapacity'
@@ -15,7 +15,8 @@ import { fillRests } from '@/utils/restFill'
 import { type BeamRole } from '@/utils/beaming'
 import { beamRoleOf } from './beamRoleOps'
 import { fanMemberPitches, fanMemberBeats } from '@/utils/fannedBeam'
-import { alterToString } from '@/utils/pitchSpelling'
+import { formatPitch } from '@/utils/pitchSpelling'
+import { alterationField, setAlteration } from '@/utils/alterationSigns'
 import type { Clip, ClipTarget } from '@/utils/clip'
 import {
   type Fraction,
@@ -91,7 +92,7 @@ import type { VoiceScope } from '@/utils/dynamicScope'
  * set is absent on purpose — the rhythm fields belong to the slot (writing one would move the whole
  * group) and a TIE is a pitch-to-pitch continuation a member has no length to continue into.
  */
-const FAN_MEMBER_UPDATE_FIELDS = new Set(['step', 'alter', 'octave', 'forceAccidental', 'articulations', 'articulationPlacement'])
+const FAN_MEMBER_UPDATE_FIELDS = new Set(['step', 'alteration', 'octave', 'forceAccidental', 'articulations', 'articulationPlacement'])
 
 /**
  * True under the unit-test runner (Vitest). It flips the measure-integrity check
@@ -1961,12 +1962,12 @@ export class ScoreModel {
    * group's FIRST head (which is what happened before this existed — his report). Refuses (null)
    * for anything that is not a member, so the ordinary chord path stays the only door to `slot.notes`.
    */
-  addFanMemberPitch(noteId: string, spelling: { step: PitchStep; alter: PitchAlter; octave: number }): Note | null {
+  addFanMemberPitch(noteId: string, spelling: PitchSpelling): Note | null {
     const found = this.findSlot(noteId, { fanMembers: true })
     if (found?.type !== 'chord' || !found.member) return null
-    const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alter: spelling.alter, octave: spelling.octave }
+    const pitch: NotePitch = { id: uuidv4(), step: spelling.step, ...alterationField(spelling.alteration), octave: spelling.octave }
     found.member.pitches.push(pitch)
-    dbg(`[Model.addFanMemberPitch] member ${found.member.index}: +${pitch.step}${alterToString(pitch.alter)}${pitch.octave} (${found.member.pitches.length} pitches)`)
+    dbg(`[Model.addFanMemberPitch] member ${found.member.index}: +${formatPitch(pitch)} (${found.member.pitches.length} pitches)`)
     return this.toFlatNote(found.chord, pitch)
   }
 
@@ -2032,7 +2033,7 @@ export class ScoreModel {
       const notePitch: NotePitch = {
         id: uuidv4(),
         step: params.step!,
-        alter: (params.alter ?? 0) as PitchAlter,
+        ...alterationField(params.alteration),
         octave: params.octave!,
         forceAccidental: params.forceAccidental,
         tiedTo: params.tiedTo,
@@ -2059,7 +2060,7 @@ export class ScoreModel {
       if (params.actualDuration !== undefined) {
         existingChord.actualDuration = params.actualDuration
       }
-      dbg(`[Model.addNote] add pitch ${params.step}${alterToString(params.alter ?? 0)}${params.octave} → existing chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s))`)
+      dbg(`[Model.addNote] add pitch ${formatPitch(params)} → existing chord ${fmtSlot(existingChord)} (now ${existingChord.notes.length} note(s))`)
       return this.toFlatNote(existingChord, notePitch)
     }
 
@@ -2067,7 +2068,7 @@ export class ScoreModel {
     const notePitch: NotePitch = {
       id: uuidv4(),
       step: params.step!,
-      alter: (params.alter ?? 0) as PitchAlter,
+      ...alterationField(params.alteration),
       octave: params.octave!,
       forceAccidental: params.forceAccidental,
       tiedTo: params.tiedTo,
@@ -2352,7 +2353,7 @@ export class ScoreModel {
     if (found.pitch && (found.grace || found.bracketed || (found.type === 'chord' && found.member))) {
       const { pitch } = found
       if (updates.step !== undefined) pitch.step = updates.step
-      if (updates.alter !== undefined) pitch.alter = updates.alter
+      if ('alteration' in updates) setAlteration(pitch, updates.alteration)
       if (updates.octave !== undefined) pitch.octave = updates.octave
       if ('forceAccidental' in updates) pitch.forceAccidental = updates.forceAccidental
       // ⭐ The MEMBER's own marks, on the member's own record — not on `chord`, which is member 0's.
@@ -2433,7 +2434,7 @@ export class ScoreModel {
 
     // Pitch updates — apply spelling fields directly
     if (updates.step !== undefined) pitch.step = updates.step
-    if (updates.alter !== undefined) pitch.alter = updates.alter
+    if ('alteration' in updates) setAlteration(pitch, updates.alteration)
     if (updates.octave !== undefined) pitch.octave = updates.octave
     if ('forceAccidental' in updates) pitch.forceAccidental = updates.forceAccidental
     if (updates.tiedTo !== undefined) pitch.tiedTo = updates.tiedTo
@@ -2589,7 +2590,7 @@ export class ScoreModel {
           measure.slots.splice(idx, 1)
         } else {
           // Remove just this pitch from the chord
-          dbg(`[Model.deleteNote] delete pitch ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} from chord ${fmtSlot(chord)} (now ${chord.notes.length - 1} note(s))`)
+          dbg(`[Model.deleteNote] delete pitch ${formatPitch(pitch)} from chord ${fmtSlot(chord)} (now ${chord.notes.length - 1} note(s))`)
           chord.notes = chord.notes.filter(n => n.id !== pitch.id)
         }
         return true

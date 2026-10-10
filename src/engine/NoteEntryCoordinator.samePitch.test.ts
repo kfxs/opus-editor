@@ -33,19 +33,19 @@ describe('NoteEntryCoordinator — the same pitch is the same WRITTEN pitch', ()
 
   const pitchesAtBeat0 = () => engine.getScore().measures[0].slots
     .flatMap(s => (s.type === 'chord' && s.beat.num === 0 ? s.notes : []))
-    .map(p => `${p.step}${p.alter}${p.octave}`)
+    .map(p => `${p.step}${p.alteration ?? ''}${p.octave}`)
 
   it('⭐ a D♭ clicked beside a C♯ joins it — two pitches, one chord', () => {
-    engine.addNoteAtBeat({ step: 'C', alter: 1, octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) } as NoteParams)
+    engine.addNoteAtBeat({ step: 'C', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) } as NoteParams)
 
     expect(clickOnLine('D', 'b')).not.toBeNull()
-    expect(pitchesAtBeat0().sort()).toEqual(['C14', 'D-14'])
+    expect(pitchesAtBeat0().sort()).toEqual(['Csharp4', 'Dflat4'])
   })
 
   it('⛔ the C♯ itself, clicked again, adds nothing', () => {
-    engine.addNoteAtBeat({ step: 'C', alter: 1, octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) } as NoteParams)
+    engine.addNoteAtBeat({ step: 'C', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) } as NoteParams)
 
     clickOnLine('C', '#')
-    expect(pitchesAtBeat0()).toEqual(['C14'])
+    expect(pitchesAtBeat0()).toEqual(['Csharp4'])
   })
 })

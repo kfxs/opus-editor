@@ -9,7 +9,7 @@ describe('noteReportKind', () => {
   it('⭐ a grace is reported as a GRACE, its main note as a note, a rest as a rest', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const g = addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const g = addGrace(model.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
     const score = model.getScore()
     expect(noteReportKind(score, model.getNote(g.pitches[0].id)!)).toBe('grace')
@@ -20,14 +20,14 @@ describe('noteReportKind', () => {
   it('⭐ a BRACKETED grace is reported as what it is — its panel is the grace\'s (the offset)', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addBracketed(model.getScore(), host.id, 'before', { step: 'B', alter: -1, octave: 4 })!
+    const b = addBracketed(model.getScore(), host.id, 'before', { step: 'B', alteration: ['flat'], octave: 4 })!
     expect(noteReportKind(model.getScore(), model.getNote(b.pitches[0].id)!)).toBe('bracketed')
   })
 
   it('⭐ P6: a bracketed grace\'s report carries its SIDE and whether it may go after; a note\'s carries nothing', () => {
     const model = new ScoreModel()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addBracketed(model.getScore(), host.id, 'before', { step: 'B', alter: -1, octave: 4 })!
+    const b = addBracketed(model.getScore(), host.id, 'before', { step: 'B', alteration: ['flat'], octave: 4 })!
     expect(noteReportDerived(model.getScore(), model.getNote(b.pitches[0].id)!)).toEqual({ derived: { side: 'before', canBeAfter: true } })
     expect(noteReportDerived(model.getScore(), model.getNote(host.id)!)).toEqual({})
   })

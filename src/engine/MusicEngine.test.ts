@@ -68,38 +68,38 @@ describe('MusicEngine.setNoteAccidental / noteDisplaysAccidental', () => {
   })
 
   it('sets a sharp / flat (changes the pitch) and reports it displayed', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(false)
 
     engine.setNoteAccidental(note.id, '#')
-    expect(engine.getNote(note.id)!.alter).toBe(1)
+    expect(engine.getNote(note.id)!.alteration).toEqual(['sharp'])
     expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(true)
 
     engine.setNoteAccidental(note.id, 'b')
-    expect(engine.getNote(note.id)!.alter).toBe(-1)
+    expect(engine.getNote(note.id)!.alteration).toEqual(['flat'])
     expect(engine.noteDisplaysAccidental(note.id, 'b')).toBe(true)
     expect(engine.noteDisplaysAccidental(note.id, '#')).toBe(false)
   })
 
   it('a courtesy natural (nothing to cancel) is forced, so its sign shows', () => {
-    const note = addNote(engine, { step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     // A plain natural note shows no sign — nothing to cancel and not forced.
     expect(engine.noteDisplaysAccidental(note.id, 'n')).toBe(false)
 
     engine.setNoteAccidental(note.id, 'n')
     const updated = engine.getNote(note.id)!
-    expect(updated.alter).toBe(0)
+    expect(updated.alteration).toBeUndefined()
     expect(updated.forceAccidental).toBe(true)
     expect(engine.noteDisplaysAccidental(note.id, 'n')).toBe(true)
   })
 
   it('a natural that cancels an earlier same-bar accidental shows without forcing', () => {
-    addNote(engine, { step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const second = addNote(engine, { step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    // Prevailing alter at the 2nd F is +1 (from the 1st), so its natural auto-shows — no force flag.
+    addNote(engine, { step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const second = addNote(engine, { step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    // Prevailing alteration at the 2nd F is a sharp (from the 1st), so its natural auto-shows — no force flag.
     engine.setNoteAccidental(second.id, 'n')
     const updated = engine.getNote(second.id)!
-    expect(updated.alter).toBe(0)
+    expect(updated.alteration).toBeUndefined()
     expect(updated.forceAccidental).toBeUndefined()
     expect(engine.noteDisplaysAccidental(second.id, 'n')).toBe(true)
   })
@@ -122,23 +122,23 @@ describe('BeamMode — storage and retrieval', () => {
   })
 
   it('note created with beam:begin stores the value', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: 'begin' })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: 'begin' })
     expect(note.beam).toBe('begin')
   })
 
   it('note created without beam has no beam value', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
     expect(note.beam).toBeUndefined()
   })
 
   it('updateNote sets beam on a chord', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
     const updated = engine.updateNote(note.id, { beam: 'end' })
     expect(updated.beam).toBe('end')
   })
 
   it('updateNote with beam:auto clears the beam value', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: 'begin' })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: 'begin' })
     const updated = engine.updateNote(note.id, { beam: 'auto' })
     expect(updated.beam).toBeUndefined()
   })
@@ -146,7 +146,7 @@ describe('BeamMode — storage and retrieval', () => {
   it('all five BeamMode values round-trip correctly', () => {
     const modes = ['single', 'begin', 'continue', 'end'] as const
     for (const mode of modes) {
-      const note = addNote(engine, { step: 'D', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: mode })
+      const note = addNote(engine, { step: 'D', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), beam: mode })
       expect(note.beam).toBe(mode)
       // reset for next iteration
       engine.updateNote(note.id, { beam: 'auto' })
@@ -162,7 +162,7 @@ describe('secondaryBreak — subdividing a beam (6 sixteenths as 3+3)', () => {
   })
 
   const sixteenth = (i: number, extra: Record<string, unknown> = {}) =>
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '16', measure: 1, beat: frac(i, 4), ...extra })
+    addNote(engine, { step: 'C', octave: 4, duration: '16', measure: 1, beat: frac(i, 4), ...extra })
 
   it('stores the flag, projects it on the flat note, and clears it back to absent', () => {
     const note = sixteenth(0, { secondaryBreak: true })
@@ -197,7 +197,7 @@ describe('MusicEngine.getBeamRole — what the beam ACTUALLY is', () => {
   it('4/4 eighths beamed 2+2 report begin/end while all of them are auto', () => {
     // The fact `getNote().beam` cannot give you: four untouched notes, two beams.
     const ids = [0, 1, 2, 3].map(i =>
-      addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(i, 2) }).id)
+      addNote(engine, { step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(i, 2) }).id)
     expect(ids.map(id => engine.getNote(id)?.beam)).toEqual([undefined, undefined, undefined, undefined])
     expect(ids.map(id => engine.getBeamRole(id))).toEqual(['begin', 'end', 'begin', 'end'])
   })
@@ -221,13 +221,13 @@ describe('MusicEngine.flipArticulation — articulation side override', () => {
   })
 
   it('notes default to auto placement (no override stored)', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'staccato')
     expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
   })
 
   it('Sibelius toggle: first flip pins a side, second flip returns to auto', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'accent')
 
     const first = engine.flipArticulation(note.id)!.articulationPlacement
@@ -241,19 +241,19 @@ describe('MusicEngine.flipArticulation — articulation side override', () => {
   it('the stored side is the opposite of the auto (stem-derived) side', () => {
     // C4 sits below the treble middle line → stem up → articulations auto BELOW,
     // so the first flip must store 'above'.
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'tenuto')
     expect(engine.flipArticulation(note.id)!.articulationPlacement).toBe('above')
   })
 
   it('is a no-op (returns null) for a note with no articulations', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(engine.flipArticulation(note.id)).toBeNull()
     expect(engine.getNote(note.id)!.articulationPlacement).toBeUndefined()
   })
 
   it('clearArticulations removes every articulation (and the side override) at once', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'staccato')
     engine.toggleArticulation(note.id, 'accent')
     engine.flipArticulation(note.id)
@@ -269,12 +269,12 @@ describe('MusicEngine.flipArticulation — articulation side override', () => {
   })
 
   it('clearArticulations is a no-op (returns null) when there are none', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(engine.clearArticulations(note.id)).toBeNull()
   })
 
   it('flip is undoable', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'accent')
     engine.flipArticulation(note.id)
     expect(engine.getNote(note.id)!.articulationPlacement).toBe('above')
@@ -288,7 +288,7 @@ describe('MusicEngine.setArticulationStemAlign — stem-side alignment', () => {
   beforeEach(() => { engine = makeEngine() })
 
   it('defaults off; set stores true, clearing serializes clean (flag deleted)', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'accent')
     expect(engine.getNote(note.id)!.articulationStemAlign).toBeUndefined()
 
@@ -300,13 +300,13 @@ describe('MusicEngine.setArticulationStemAlign — stem-side alignment', () => {
   })
 
   it('is a no-op (returns null) for a note with no articulations', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(engine.setArticulationStemAlign(note.id, true)).toBeNull()
     expect(engine.getNote(note.id)!.articulationStemAlign).toBeUndefined()
   })
 
   it('is undoable', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.toggleArticulation(note.id, 'accent')
     engine.setArticulationStemAlign(note.id, true)
     engine.undo()
@@ -339,7 +339,7 @@ describe('MusicEngine.setTimeSignature', () => {
     // makeEngine starts with 2 measures. Four quarters fill measure 1 (4/4);
     // switching to 3/4 re-bars the 4th quarter into measure 2.
     for (let b = 0; b < 4; b++) {
-      addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+      addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
     }
     engine.setTimeSignature(1, { numerator: 3, denominator: 4 })
     const after = engine.getScore().measures
@@ -388,7 +388,7 @@ describe('MusicEngine.setTimeSignature', () => {
     // m1 & m2 each full of 16 sixteenths in 4/4; 5/8 at m2, then 2/4 at m1.
     for (const m of [1, 2]) {
       for (let k = 0; k < 16; k++) {
-        addNote(engine, { step: 'C', alter: 0, octave: 4, duration: '16', measure: m, beat: frac(k, 4) })
+        addNote(engine, { step: 'C', octave: 4, duration: '16', measure: m, beat: frac(k, 4) })
       }
     }
     engine.setTimeSignature(2, { numerator: 5, denominator: 8 })
@@ -452,7 +452,7 @@ describe('MusicEngine — measure rest duration change (regression)', () => {
     engine.setTimeSignature(1, { numerator: 3, denominator: 4 })
     const mr = engine.getScore().measures.find(m => m.number === 1)!
       .slots.find(s => s.type === 'rest' && (s as { isMeasureRest?: boolean }).isMeasureRest)!
-    engine.updateNote(mr.id, { step: 'A', alter: 0, octave: 3, isRest: false, duration: 'q' })
+    engine.updateNote(mr.id, { step: 'A', octave: 3, isRest: false, duration: 'q' })
 
     const slots = engine.getScore().measures.find(m => m.number === 1)!.slots
     const chord = slots.find(s => s.type === 'chord')!
@@ -489,14 +489,14 @@ describe('MusicEngine.nudgeNoteOffset / resetNoteOffset — client #12 horizonta
   }
 
   it('accumulates dx onto any existing offset (staff-spaces, +right)', () => {
-    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const n = addNote(engine, { step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(engine.nudgeNoteOffset(n.id, 1)).toBe(true)
     expect(engine.nudgeNoteOffset(n.id, 0.25)).toBe(true)
     expect(offsetOfNote(n.id)).toMatchObject({ kind: 'noteOffset', x: 1.25 })
   })
 
   it('clears the override when the net offset returns to 0 (JSON stays clean)', () => {
-    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const n = addNote(engine, { step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.nudgeNoteOffset(n.id, 1)
     expect(offsetOfNote(n.id)).toBeDefined()
     engine.nudgeNoteOffset(n.id, -1)
@@ -504,8 +504,8 @@ describe('MusicEngine.nudgeNoteOffset / resetNoteOffset — client #12 horizonta
   })
 
   it('keys by slot, so every pitch of a chord shares one offset (a chord moves as a unit)', () => {
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const e = engine.addChordNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const c = addNote(engine, { step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = engine.addChordNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
     expect(engine.offsetTargetOf(c.id)).toEqual(engine.offsetTargetOf(e.id))
     engine.nudgeNoteOffset(c.id, 1)
     // Nudging via the other pitch id lands on the same entry and accumulates.
@@ -527,7 +527,7 @@ describe('MusicEngine.nudgeNoteOffset / resetNoteOffset — client #12 horizonta
   })
 
   it('resetNoteOffset drops the offset outright; no-op when there is none', () => {
-    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const n = addNote(engine, { step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(engine.resetNoteOffset(n.id)).toBe(false) // nothing to reset yet
     engine.nudgeNoteOffset(n.id, 2)
     expect(engine.resetNoteOffset(n.id)).toBe(true)
@@ -535,7 +535,7 @@ describe('MusicEngine.nudgeNoteOffset / resetNoteOffset — client #12 horizonta
   })
 
   it('undo restores the prior offset (one step per press)', () => {
-    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const n = addNote(engine, { step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.nudgeNoteOffset(n.id, 1)
     engine.nudgeNoteOffset(n.id, 1)
     expect(offsetOfNote(n.id)).toMatchObject({ x: 2 })
@@ -555,9 +555,9 @@ describe('MusicEngine.runBatch — atomic multi-element undo', () => {
   })
 
   it('deleting 3 notes in a batch is ONE undo step that restores all of them', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
     expect(liveNotes(1)).toHaveLength(3)
 
     const pushed = engine.runBatch('Delete 3 note(s)', () => {
@@ -572,7 +572,7 @@ describe('MusicEngine.runBatch — atomic multi-element undo', () => {
   })
 
   it('an empty batch (no change) pushes nothing and is not undoable', () => {
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const undoableBefore = engine.canUndo()
     const pushed = engine.runBatch('noop', () => { /* nothing */ })
     expect(pushed).toBe(false)
@@ -581,8 +581,8 @@ describe('MusicEngine.runBatch — atomic multi-element undo', () => {
   })
 
   it('redo replays the whole batched group', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     engine.runBatch('Delete 2 note(s)', () => { engine.deleteNote(a.id); engine.deleteNote(b.id) })
 
     engine.undo()
@@ -604,7 +604,7 @@ describe('MusicEngine.moveNoteToVoice — facade (Phase 1)', () => {
   }
 
   it('moves a note to another voice, preserving its id, in one undo step', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(voiceOf(1, note.id)).toBe(0)
 
     expect(engine.moveNoteToVoice(note.id, 1)).toBe(true)
@@ -615,7 +615,7 @@ describe('MusicEngine.moveNoteToVoice — facade (Phase 1)', () => {
   })
 
   it('returns false (no undo entry) for a no-op move', () => {
-    const note = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const couldUndo = engine.canUndo()
     expect(engine.moveNoteToVoice(note.id, 0)).toBe(false)
     expect(engine.canUndo()).toBe(couldUndo) // history unchanged
@@ -635,9 +635,9 @@ describe('MusicEngine.moveSelectionToVoice — the undo entry', () => {
   }
 
   it('moves several notes to a voice in ONE undo step, ids preserved', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     expect(engine.moveSelectionToVoice([c.id, a.id, b.id], 1)).toBe(true)
     expect(engine.getUndoDescription()).toBe('Move 3 note(s) to voice 2')
@@ -650,7 +650,7 @@ describe('MusicEngine.moveSelectionToVoice — the undo entry', () => {
   })
 
   it('returns false (no undo entry) when every note is a no-op', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const couldUndo = engine.canUndo()
     expect(engine.moveSelectionToVoice([a.id], 0)).toBe(false) // already voice 0
     expect(engine.canUndo()).toBe(couldUndo)
@@ -676,8 +676,8 @@ describe('MusicEngine — a new rest evicts the rests it overlaps', () => {
 
   it('does not overfill the bar when a rest lands on a LONGER rest (the reported bug)', () => {
     // Two quarters at 0 and 1 leave an auto-filled half rest at beat 2 — the reported state.
-    addNote(engine, { step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(1, 1) })
+    addNote(engine, { step: 'A', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'A', octave: 3, duration: 'q', measure: 1, beat: frac(1, 1) })
     const restAt2 = engine.getScore().measures[0].slots.find(s => fracToNumber(s.beat) === 2)!
     expect(restAt2.type).toBe('rest')
     expect(restAt2.duration).toBe('h') // the rest that gets landed on
@@ -711,7 +711,7 @@ describe('MusicEngine — a new rest evicts the rests it overlaps', () => {
 describe('MusicEngine.convertToRest — the undo entry', () => {
   it('names the pitch, and one Ctrl+Z brings the note back', () => {
     const engine = makeEngine()
-    const n = addNote(engine, { step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const n = addNote(engine, { step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const rest = engine.convertToRest(n.id)!
     expect(rest.isRest).toBe(true)
     expect(engine.getUndoDescription()).toBe('Convert C5 to rest')
@@ -721,8 +721,8 @@ describe('MusicEngine.convertToRest — the undo entry', () => {
 
   it('⚠️ is filed even when the rest COLLAPSED with its voice and there is nothing to hand back', () => {
     const engine = makeEngine()
-    addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
-    const v2 = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    addNote(engine, { step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const v2 = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
     expect(engine.convertToRest(v2.id)).toBeNull()
     expect(engine.getUndoDescription()).toBe('Convert E4 to rest')
   })
@@ -750,7 +750,7 @@ describe('MusicEngine.renderScoreWithPreview — beat quantization uses the hove
     const added = ['getAt', 'staffIndexAtY', 'pixelYToPitch', 'findNearestNoteOrRest', 'pixelXToBeat']
     registry.getAt = vi.fn(() => null)
     registry.staffIndexAtY = vi.fn(() => 0)
-    registry.pixelYToPitch = vi.fn(() => ({ step: 'C', alter: 0, octave: 4 }))
+    registry.pixelYToPitch = vi.fn(() => ({ step: 'C', octave: 4 }))
     registry.findNearestNoteOrRest = vi.fn(() => null)
     // Nothing DRAWN in that bar — the registry declines and the even-division mapper answers,
     // which is the path whose barQuarters this test is about.
@@ -779,8 +779,8 @@ describe('MusicEngine — multi-voice (Phase 1)', () => {
   })
 
   it('entering a voice-2 note at an occupied beat does not clobber voice 1', () => {
-    const v1 = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const v2 = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const v1 = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const v2 = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
 
     // Both notes survive as independent slots (not merged into one chord).
     expect(engine.getNote(v1.id)?.step).toBe('C')
@@ -799,8 +799,8 @@ describe('MusicEngine — multi-voice (Phase 1)', () => {
   })
 
   it('buildBeatMap scopes to a single voice (guards the getMeasureNotes voice projection)', () => {
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const e = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    const c = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
     const score = engine.getScore()
 
     const v1 = buildBeatMap(score, 0)
@@ -814,7 +814,7 @@ describe('MusicEngine — multi-voice (Phase 1)', () => {
   })
 
   it('navBeatMap falls back to all voices when the cursor sits on another voice', () => {
-    const c = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const score = engine.getScore()
 
     // Active voice 2, but the cursor is a voice-1 note (just switched) → fall back so

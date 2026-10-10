@@ -10,7 +10,7 @@ import type { NotePitch } from '@/types/music'
  */
 describe('headEnclosure — a cue head’s brackets', () => {
   afterEach(() => resetCueSize())
-  const B4: NotePitch = { id: 'b', step: 'B', alter: 0, octave: 4, enclosure: 'round' }
+  const B4: NotePitch = { id: 'b', step: 'B', octave: 4, enclosure: 'round' }
   const layout = (cue: boolean) => enclosureLayout({ notes: [B4], duration: 'q', ...(cue && { cue: true as const }) }, () => null, 'treble')!
 
   it('⭐ `gould`: full-size brackets, standing CLOSER in round the smaller head', () => {

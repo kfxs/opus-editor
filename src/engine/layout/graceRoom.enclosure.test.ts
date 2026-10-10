@@ -8,7 +8,7 @@ import type { GraceGroup, GraceNote, NotePitch } from '@/types/music'
  */
 describe('graceRoom — a parenthesised grace', () => {
   const pitch = (id: string, enclosed: boolean): NotePitch =>
-    ({ id, step: 'D', alter: 0, octave: 5, ...(enclosed && { enclosure: 'round' as const }) })
+    ({ id, step: 'D', octave: 5, ...(enclosed && { enclosure: 'round' as const }) })
   const grace = (enclosed: boolean, id = 'g'): GraceNote => ({ pitches: [pitch(id, enclosed)], duration: '8' })
   const group = (...notes: GraceNote[]): GraceGroup => ({ notes })
   const none = () => null

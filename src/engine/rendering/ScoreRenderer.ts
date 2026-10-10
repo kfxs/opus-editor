@@ -57,6 +57,7 @@ import { planCrossBarBeams, laneKey, type CrossBarBeamPlan, type CrossBarJoin, t
 import { ElementRegistry, offsetStaffGeometry, type ClefSegment, type ElementInfo, type StaffGeometry } from '@/engine/ElementRegistry'
 import { measureShapeKey } from './MeasureRedrawKey'
 import { lowToHigh, staffPosition } from '@/utils/pitchOrder'
+import { alterationCode } from '@/utils/alterationSigns'
 import type { FanMemberAnchor, RenderPass } from './RenderPass'
 import { renderTies } from './curves/TieRenderer'
 import { renderNoteLines } from './marks/lines/noteLinePasses'
@@ -776,7 +777,7 @@ export class ScoreRenderer {
    * Register every dot glyph VexFlow drew on `staveNote`, all against ONE `anchorNoteId`.
    *
    * `dots` is a property of the SLOT (`Chord` or `Rest`) — it modifies the duration — not of a
-   * notehead, the way `alter` is. But VexFlow draws one dot per notehead per dot, so a
+   * notehead, the way `alteration` is. But VexFlow draws one dot per notehead per dot, so a
    * double-dotted three-note chord emits SIX glyphs for that one value. Registering them against a
    * shared anchor (the chord's lowest pitch, exactly as articulations anchor; a rest's own id) is
    * what makes clicking ANY of them select the slot's dots and light all of them. "Dot one head of
@@ -2936,9 +2937,9 @@ export class ScoreRenderer {
               }
 
               // Register whatever accidental VexFlow actually drew — including a
-              // courtesy/auto natural (alter 0, not forced) that shows because an
+              // courtesy/auto natural (no alteration, not forced) that shows because an
               // earlier note in the measure altered this pitch. The inner loop only
-              // acts when an Accidental modifier exists, so no guard on alter/force.
+              // acts when an Accidental modifier exists, so no guard on alteration/force.
               //
               // 🚨🚨 **A modifier names its own pitch — ASK IT.** `getIndex()` is the index
               // `addModifier(acc, idx)` put there, and it is public API. This used to try that,
@@ -2955,8 +2956,7 @@ export class ScoreRenderer {
                       if (accidental.getIndex() === keyIndex) {
                         const accBox = accidentalHitBox(accidental)
                         if (accBox) {
-                          const accStr = pitch.alter === 2 ? '##' : pitch.alter === 1 ? '#'
-                            : pitch.alter === -1 ? 'b' : pitch.alter === -2 ? 'bb' : 'n'
+                          const accStr = alterationCode(pitch.alteration) || 'n'
                           this.elementRegistry.add({
                             type: 'accidental',
                             noteId: pitch.id,

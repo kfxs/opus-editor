@@ -17,7 +17,7 @@ import { buildClipboardFromSelection } from '@/interactions/clipboard/clipboard'
  * OF, the toggle's rule, the report on load, and that the field TRAVELS through the model's copies.
  */
 describe('cueOps', () => {
-  const D4 = { step: 'D' as const, alter: 0 as const, octave: 4 }
+  const D4 = { step: 'D' as const, octave: 4 }
   let model: ScoreModel
   beforeEach(() => { model = new ScoreModel() })
   const score = () => model.getScore()
@@ -155,7 +155,7 @@ describe('cueOps', () => {
       add('C', 0)
       const rest = restAt(1)
       cueOps.setCue(score(), [rest.id], true)
-      model.updateNote(rest.id, { isRest: false, step: 'E', alter: 0, octave: 4 })
+      model.updateNote(rest.id, { isRest: false, step: 'E', octave: 4 })
       expect(cueOps.isCue(score(), rest.id)).toBe(true)
       expect(model.getNote(rest.id)!.isRest).toBeFalsy()
     })
@@ -183,7 +183,7 @@ describe('cueOps', () => {
     it('⭐ a TUPLET note moved to another voice keeps it (the tuplet path builds new slots)', () => {
       const t = model.createTuplet(1, frac(0, 1), '8', 3, 2, 0)
       const ids = (['A', 'B', 'C'] as const).map((step, i) => model.addNote({
-        step, alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(i, 3), tupletId: t.id, actualDuration: frac(1, 3),
+        step, octave: 4, duration: '8', measure: 1, beat: frac(i, 3), tupletId: t.id, actualDuration: frac(1, 3),
       }).id)
       cueOps.setCue(score(), [ids[1]], true)
       expect(moveNoteToVoice(score(), ids[1], 1)).toBe(true)

@@ -28,7 +28,7 @@ describe('slotPlacementOps', () => {
       .map(s => `${s.type === 'rest' ? 'r' : 'n'}${s.duration}@${fracToNumber(s.beat)}`)
   const chordAt = (beat: number, duration: Chord['duration'], over: Partial<Chord> = {}): Chord => ({
     id: `chord-${beat}`, type: 'chord', beat: frac(beat, 1), duration, measure: 1,
-    notes: [{ id: `p-${beat}`, step: 'C', alter: 0, octave: 4 }], ...over,
+    notes: [{ id: `p-${beat}`, step: 'C', octave: 4 }], ...over,
   })
 
   describe('computeActualDurationForSlot', () => {
@@ -46,21 +46,21 @@ describe('slotPlacementOps', () => {
 
   describe('evictRestsOverlapping — evicts, and deliberately does NOT fill', () => {
     it('takes the same-voice rests the span covers and leaves the hole for the caller', () => {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) }) // nq@0 rq@1 rh@2
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) }) // nq@0 rq@1 rh@2
       evictRestsOverlapping(model.getScore(), bar, chordAt(1, 'h'))
       expect(shape()).toEqual(['nq@0']) // rq@1 and rh@2 both overlapped [1,3); nothing refilled
     })
 
     it('never another voice\'s or another staff\'s rests', () => {
       model.addStaffBelow(0)
-      model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+      model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
       const others = shape(s => s.type === 'rest' && (s.voice === 1 || s.staffId !== undefined))
       evictRestsOverlapping(model.getScore(), bar, chordAt(0, 'w'))
       expect(shape(s => s.type === 'rest' && (s.voice === 1 || s.staffId !== undefined))).toEqual(others)
     })
 
     it('a tie that pointed AT an evicted rest moves onto what replaces it', () => {
-      const src = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const src = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
       const rest = bar.slots.find((s): s is Rest => s.type === 'rest' && fracToNumber(s.beat) === 1)!
       model.updateNote(src.id, { tiedTo: rest.id })
       rest.tiedFrom = src.id
@@ -99,7 +99,7 @@ describe('slotPlacementOps', () => {
   })
 
   it('evictRestsOverlappingChord: a chord that GREW in place takes the rests it now covers', () => {
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const chord = bar.slots.find((s): s is Chord => s.type === 'chord')!
     chord.duration = 'h'
     chord.actualDuration = computeActualDurationForSlot(chord, bar)
@@ -120,7 +120,7 @@ describe('slotPlacementOps', () => {
     })
 
     it('a quarter rest landing on a HALF rest replaces it — the bar is never overfull', () => {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) }) // nh@0 rh@2
+      model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) }) // nh@0 rh@2
       addRestSlot(model.getScore(), bar, { duration: 'q', measure: 1, beat: frac(2, 1), isRest: true })
       expect(shape()).toEqual(['nh@0', 'rq@2']) // the half rest went; beat 3 is the CALLER's to fill
     })
@@ -128,7 +128,7 @@ describe('slotPlacementOps', () => {
 
   describe('insertPitch — the supplied pitch id is KEPT', () => {
     const payload = (over = {}) => ({
-      id: 'kept-id', step: 'G' as const, alter: 0 as const, octave: 4, duration: 'q' as const,
+      id: 'kept-id', step: 'G' as const, octave: 4, duration: 'q' as const,
       beat: frac(0, 1), voice: 0, ...over,
     })
 
@@ -139,7 +139,7 @@ describe('slotPlacementOps', () => {
     })
 
     it('onto a chord at that beat and lane: merged, and the SHORTER duration wins', () => {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
       insertPitch(model.getScore(), bar, payload({ duration: 'q' }))
       const chord = bar.slots.find((s): s is Chord => s.type === 'chord')!
       expect(chord.notes.map(n => n.id)).toContain('kept-id')

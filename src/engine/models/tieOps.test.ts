@@ -10,7 +10,7 @@ import { ScoreModel } from './ScoreModel'
 import { applyTiePairs, planTieSelection, repairDanglingTies, tieTargetOf, toggleTie } from './tieOps'
 
 const n = (id: string, beat: number, over: Partial<Note> = {}): Note =>
-  ({ id, measure: 1, beat: frac(beat, 1), duration: 'q', step: 'C', alter: 0, octave: 4, ...over }) as Note
+  ({ id, measure: 1, beat: frac(beat, 1), duration: 'q', step: 'C', octave: 4, ...over }) as Note
 
 describe('tieTargetOf — which note a tie joins to', () => {
   it('the next slot STRICTLY after — never a sibling on the same beat', () => {
@@ -24,7 +24,7 @@ describe('tieTargetOf — which note a tie joins to', () => {
   })
 
   it('…and an accidental is part of the pitch: C♯ does not match C', () => {
-    const notes = [n('src', 0, { alter: 1 }), n('plain', 1), n('sharp', 1, { alter: 1 })]
+    const notes = [n('src', 0, { alteration: ['sharp'] }), n('plain', 1), n('sharp', 1, { alteration: ['sharp'] })]
     expect(tieTargetOf(notes, notes[0])!.id).toBe('sharp')
   })
 
@@ -52,7 +52,7 @@ describe('toggleTie / planTieSelection — through a ScoreModel', () => {
   beforeEach(() => {
     model = new ScoreModel() // measure 1, 4/4
     ids = [0, 1, 2].map(i =>
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) }).id)
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) }).id)
   })
 
   it('adds the tie on BOTH notes, and a second press takes both halves off', () => {
@@ -102,7 +102,7 @@ describe('repairDanglingTies — a tie is severed, never left pointing at nothin
   it('clears a pointer to an id that is gone, on either end, and leaves a whole tie alone', () => {
     const model = new ScoreModel()
     const [a, b, c] = [0, 1, 2].map(i =>
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) }))
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) }))
     toggleTie(model, a.id) // a → b, whole
     // What a re-bar leaves when it re-mints ids: pointers at notes that no longer exist.
     model.updateNote(b.id, { tiedTo: 'gone' })

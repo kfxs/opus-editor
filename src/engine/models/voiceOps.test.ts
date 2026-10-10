@@ -32,7 +32,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
     slots.reduce((sum, s) => sum + fracToNumber(s.actualDuration!), 0)
 
   it('moves a plain note into another voice, keeping its pitch id', () => {
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(model.moveNoteToVoice(note.id, 1)).toBe(true)
 
     const slots = slotsOf(model, 1)
@@ -49,7 +49,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
   })
 
   it('collapses the source secondary voice when its last note leaves', () => {
-    const note = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const note = model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
     expect(model.moveNoteToVoice(note.id, 0)).toBe(true)
 
     const slots = slotsOf(model, 1)
@@ -61,7 +61,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
 
   it('carries the beam statement across the voice move', () => {
     const ids = [0, 1, 2, 3].map(i => model.addNote({
-      step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(i, 2),
+      step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(i, 2),
     }).id)
     // Beam all four as one explicit group, with a secondary break in front of the third.
     model.updateNote(ids[0], { beam: 'begin' })
@@ -78,14 +78,14 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
   })
 
   it('is a no-op (returns false) when the note is already in the target voice', () => {
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(model.moveNoteToVoice(note.id, 0)).toBe(false)
   })
 
   it('moves just one pitch out of a chord, leaving the others behind', () => {
-    const c = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const e = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const g = model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const c = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const g = model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
 
     expect(model.moveNoteToVoice(g.id, 1)).toBe(true)
 
@@ -98,8 +98,8 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
   })
 
   it('drops a tie whose partner stays behind (both reciprocal sides cleared)', () => {
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     model.updateNote(a.id, { tiedTo: b.id })
     model.updateNote(b.id, { tiedFrom: a.id })
 
@@ -110,8 +110,8 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
   })
 
   it('keeps a slur valid by preserving the moved note id', () => {
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = model.addSlur({ startNoteId: a.id, endNoteId: b.id, voice: 0 })
 
     expect(model.moveNoteToVoice(a.id, 1)).toBe(true)
@@ -122,8 +122,8 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
   })
 
   it("syncs a slur's stored voice once BOTH its anchors have moved", () => {
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = model.addSlur({ startNoteId: a.id, endNoteId: b.id, voice: 0 })
 
     model.moveNoteToVoice(a.id, 1)
@@ -136,8 +136,8 @@ describe('ScoreModel.moveNoteToVoice — Phase 1 (plain notes)', () => {
   })
 
   it("syncs a TRILL's stored voice — with the one-note trill needing only ONE anchor to move", () => {
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const spanning = model.addTrill({ startNoteId: a.id, endNoteId: b.id, voice: 0 })!
     const lone = model.addTrill({ startNoteId: b.id, voice: 0 })!
     // (Both trills are on b, but only one names it as its START; `trillOnNote` keys on the start.)
@@ -170,8 +170,8 @@ describe('ScoreModel.moveNoteToVoice — Phase 2 (collision: shorter wins)', () 
 
   it('chords with target when both share a beat; keeps the EXISTING shorter duration', () => {
     // Target voice 1 has a quarter at beat 1; move a voice-0 HALF onto it.
-    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
-    const half = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(1, 1) })
+    model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    const half = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(1, 1) })
 
     expect(model.moveNoteToVoice(half.id, 1)).toBe(true)
 
@@ -184,8 +184,8 @@ describe('ScoreModel.moveNoteToVoice — Phase 2 (collision: shorter wins)', () 
 
   it('adopts the INCOMING shorter duration and rest-fills the freed time', () => {
     // Target voice 1 has a quarter at beat 0; move a voice-0 EIGHTH onto it.
-    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    const eighth = model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const eighth = model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1) })
 
     expect(model.moveNoteToVoice(eighth.id, 1)).toBe(true)
 
@@ -199,8 +199,8 @@ describe('ScoreModel.moveNoteToVoice — Phase 2 (collision: shorter wins)', () 
   })
 
   it('equal durations just chord together, no extra rests', () => {
-    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    const q = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const q = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
 
     expect(model.moveNoteToVoice(q.id, 1)).toBe(true)
 
@@ -224,7 +224,7 @@ describe('ScoreModel.moveNoteToVoice — the OTHER lane axis (staff)', () => {
     slotsOf(model, 1).filter(s => s.staffId === staffId)
 
   it('keeps a lower-staff note on ITS staff — a voice move is not a staff move', () => {
-    const note = model.addNote({ step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+    const note = model.addNote({ step: 'A', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
     expect(model.moveNoteToVoice(note.id, 1)).toBe(true)
 
     const moved = onStaff(lower).find(s => s.type === 'chord') as any
@@ -238,8 +238,8 @@ describe('ScoreModel.moveNoteToVoice — the OTHER lane axis (staff)', () => {
 
   it('does not chord into a same-beat, same-voice note on the OTHER staff', () => {
     // Upper staff already sounds voice 1 at beat 0 — a different lane, not a collision.
-    const upperNote = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    const lowerNote = model.addNote({ step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
+    const upperNote = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const lowerNote = model.addNote({ step: 'A', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })
 
     expect(model.moveNoteToVoice(lowerNote.id, 1)).toBe(true)
 
@@ -268,7 +268,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () =>
     const slot = frac(1, 3) // actual spacing of an eighth-triplet slot
     return steps.map((st, i) =>
       model.addNote({
-        step: st.step as any, alter: 0, octave: st.octave,
+        step: st.step as any, octave: st.octave,
         duration: '8', measure: 1, beat: frac(i, 3), voice: (voice || undefined) as any,
         tupletId: t.id, actualDuration: slot,
       }).id)
@@ -300,8 +300,8 @@ describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () =>
   it('4b: pours existing target-voice notes into the free slots → d·B·e', () => {
     const [, b] = buildTriplet(0, [{ step: 'A', octave: 4 }, { step: 'B', octave: 4 }, { step: 'C', octave: 5 }])
     // Voice 1 already has two eighths d, e on beat 1's span.
-    const d = model.addNote({ step: 'D', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
-    const e = model.addNote({ step: 'E', alter: 0, octave: 5, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+    const d = model.addNote({ step: 'D', octave: 5, duration: '8', measure: 1, beat: frac(0, 1), voice: 1 })
+    const e = model.addNote({ step: 'E', octave: 5, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
 
     expect(model.moveNoteToVoice(b, 1)).toBe(true)
     expect(model.validateMeasure(1)).toEqual([])
@@ -317,7 +317,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () =>
     const [, b] = buildTriplet(0, [{ step: 'A', octave: 4 }, { step: 'B', octave: 4 }, { step: 'C', octave: 5 }])
     // Voice 1 has FOUR sixteenths in beat 1's span — more than the 2 free slots.
     const ids = [0, 1, 2, 3].map(i =>
-      model.addNote({ step: 'D', alter: 0, octave: 5, duration: '16', measure: 1, beat: frac(i, 4), voice: 1 }).id)
+      model.addNote({ step: 'D', octave: 5, duration: '16', measure: 1, beat: frac(i, 4), voice: 1 }).id)
 
     expect(model.moveNoteToVoice(b, 1)).toBe(true)
     expect(model.validateMeasure(1)).toEqual([]) // no crash / no half-formed bar
@@ -357,7 +357,7 @@ describe('ScoreModel.moveNoteToVoice — Phase 4 (tuplets, ordinal fill)', () =>
     const midRest = slotsOf(model, 1)
       .filter(s => s.tupletId === t.id && s.type === 'rest')
       .sort((a, b) => fracCompare(a.beat, b.beat))[1]
-    const b = model.updateNote(midRest.id, { step: 'B', alter: 0, octave: 4, isRest: false }).id
+    const b = model.updateNote(midRest.id, { step: 'B', octave: 4, isRest: false }).id
 
     expect(model.moveNoteToVoice(b, 1)).toBe(true)
     expect(model.validateMeasure(1)).toEqual([])
@@ -375,7 +375,7 @@ describe('moveSelectionToVoice — a selection moved as ONE gesture (Phase 3)', 
   beforeEach(() => { model = new ScoreModel('MV') })
 
   const add = (step: 'C' | 'E' | 'G', beat: number, duration: 'q' | '8' = 'q', den = 1) =>
-    model.addNote({ step, alter: 0, octave: 4, duration, measure: 1, beat: frac(beat, den) })
+    model.addNote({ step, octave: 4, duration, measure: 1, beat: frac(beat, den) })
   const v0 = (s: ChordRest) => (s.voice ?? 0) === 0
   const laneOf = (id: string) => {
     for (const s of slotsOf(model, 1)) if (s.type === 'chord' && s.notes.some(n => n.id === id)) return s.voice ?? 0

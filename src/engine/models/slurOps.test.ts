@@ -393,7 +393,7 @@ describe('ScoreModel.resetSlurSegmentEndpointOffset', () => {
 
 describe('repairDanglingSlurs — the belt behind a re-bar\'s slur restore', () => {
   const note = (model: ScoreModel, beat: number) =>
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: fracOf(beat, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: fracOf(beat, 1) })
 
   it('drops a slur with a missing anchor — and its overrides with it — and keeps a whole one', () => {
     const model = new ScoreModel()
@@ -411,7 +411,7 @@ describe('repairDanglingSlurs — the belt behind a re-bar\'s slur restore', () 
 
   it('⭐ a FANNED MEMBER is an anchor — a slur between two members survives the sweep', () => {
     const model = new ScoreModel()
-    const owner = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: fracOf(0, 1) })
+    const owner = model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: fracOf(0, 1) })
     model.setFan(owner.id, { direction: 'accel', count: 4, beams: 3 })
     const slot = model.getScore().measures[0].slots.find(s => s.type === 'chord')!
     if (slot.type !== 'chord') throw new Error('expected a chord')
@@ -425,8 +425,8 @@ describe('repairDanglingSlurs — the belt behind a re-bar\'s slur restore', () 
 
   it('⭐ a GRACE is an anchor — a slur from a grace to its main note survives the sweep', () => {
     const model = new ScoreModel()
-    const host = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: fracOf(0, 1) })
-    const grace = addGrace(model.getScore(), host.id, 'before', { step: 'F', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' })!
+    const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: fracOf(0, 1) })
+    const grace = addGrace(model.getScore(), host.id, 'before', { step: 'F', octave: 5 }, 'acciaccatura', { duration: '8' })!
     const slur = model.addSlur({ startNoteId: grace.pitches[0].id, endNoteId: host.id })
 
     repairDanglingSlurs(model.getScore())

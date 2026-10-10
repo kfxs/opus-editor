@@ -20,8 +20,8 @@ import { makeEngine } from '@/testing/makeEngine'
 vi.mock('../../engine/rendering/ScoreRenderer', async () => (await import('@/testing/engineStubs')).scoreRendererStub())
 vi.mock('../../engine/audio/PlaybackEngine', async () => (await import('@/testing/engineStubs')).playbackEngineStub())
 
-const D5 = { step: 'D' as const, alter: 0 as const, octave: 5 }
-const B4 = { step: 'B' as const, alter: 0 as const, octave: 4 }
+const D5 = { step: 'D' as const, octave: 5 }
+const B4 = { step: 'B' as const, octave: 4 }
 
 /** The chord at (measure, beat) in `voice` — a re-laid slot has a fresh id, so it is found by place. */
 function chordAt(engine: MusicEngine, m: number, beat: number, voice = 0): Chord | undefined {
@@ -124,7 +124,7 @@ describe('graces — copy/paste', () => {
   })
 
   it('a pasted TUPLET does not share its graces\' ids with its source', () => {
-    expect(engine.createTupletAtBeat(1, 0, '8', { step: 'C', alter: 0, octave: 4 }, 3, 2)).toBeTruthy()
+    expect(engine.createTupletAtBeat(1, 0, '8', { step: 'C', octave: 4 }, 3, 2)).toBeTruthy()
     const member = chordAt(engine, 1, 0)!
     expect(member.tupletId).toBeDefined()
     graceOps.addGrace(engine.getScore(), member.notes[0].id, 'before', D5, 'appoggiatura', { duration: '8' })

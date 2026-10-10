@@ -22,7 +22,7 @@
  */
 import type { Fraction } from '@/utils/fraction'
 import type { RebarEvent } from '@/utils/rebar'
-import type { EngravingOverride, NoteDuration } from '@/types/music'
+import type { Alteration, EngravingOverride, NoteDuration } from '@/types/music'
 
 /**
  * One copied lane: a `(staff, voice)` pair and its event stream. The staff is a
@@ -243,7 +243,7 @@ export interface ClipPedal {
 }
 
 /** A pitch identity used to re-find a slur endpoint on the pasted notes. */
-export interface ClipSlurPitch { step: string; alter: number; octave: number }
+export interface ClipSlurPitch { step: string; alteration?: Alteration; octave: number }
 
 /**
  * A slur inside the clip window, re-anchored on paste. Both endpoints are addressed by

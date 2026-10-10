@@ -25,7 +25,7 @@ test('a slur over several bars is the SAME arch after its system moves down', as
       for (let beat = 0; beat < 4; beat++) {
         const high = bar === 2
         ids.push(e.addNoteAtBeat({
-          step: high ? 'A' : 'D', alter: 0, octave: 5, duration: 'q', measure: bar, beat: f(beat), staff: 0, voice: 0,
+          step: high ? 'A' : 'D', octave: 5, duration: 'q', measure: bar, beat: f(beat), staff: 0, voice: 0,
         })!.id)
       }
     }

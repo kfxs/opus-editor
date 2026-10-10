@@ -45,9 +45,9 @@ describe('wireKeypadGrace', () => {
 
   it('⭐ a SELECTED grace lights its form, a selected bracketed grace lights `-` — the toolbar\'s lit rules', () => {
     const { engine, state } = setup()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
-    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
-    const b = engine.bracketed.add(note.id, 'before', { step: 'B', alter: -1, octave: 4 })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const g = engine.grace.addGrace(note.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const b = engine.bracketed.add(note.id, 'before', { step: 'B', alteration: ['flat'], octave: 4 })!
     state.selectedTool = 'selection'
     state.selectedItems = new Map([g.pitches[0].id, b.pitches[0].id].map(id => [itemKey({ kind: 'note', id }), { kind: 'note', id }]))
     expect(bus.grace.isActive('appoggiatura')).toBe(true)
@@ -57,7 +57,7 @@ describe('wireKeypadGrace', () => {
 
   it('⭐ a press on a selected NOTE converts it — the same function, so the same rule', () => {
     const { engine, state } = setup()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
     state.selectedTool = 'selection'
     state.selectedItems = new Map([[itemKey({ kind: 'note', id: note.id }), { kind: 'note', id: note.id }]])
     bus.grace.press('bracketed')
@@ -80,7 +80,7 @@ describe('wireKeypadGrace', () => {
       // The light follows the MODEL, whose notice is one per turn (`MusicEngine.onModelChange`, a microtask).
       const settle = () => new Promise<void>(r => queueMicrotask(r))
       const { engine, state } = setup()
-      const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
       state.selectedTool = 'selection'
       state.selectedItems = new Map([[itemKey({ kind: 'note', id: note.id }), { kind: 'note', id: note.id }]])
       bus.grace.press('parenthesised')
@@ -98,7 +98,7 @@ describe('wireKeypadGrace', () => {
     it('a selected note: `2` double-dots it and lights `2`; `3` SWITCHES to three (the counts are a radio)', async () => {
       const settle = () => new Promise<void>(r => queueMicrotask(r))
       const { engine, state } = setup()
-      const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
       state.selectedTool = 'selection'
       state.selectedNoteId = note.id
       state.selectedItems = new Map([[itemKey({ kind: 'note', id: note.id }), { kind: 'note', id: note.id }]])
@@ -138,7 +138,7 @@ describe('wireKeypadGrace', () => {
     it('a selected voice-2 note: its bar gets a voice-2 full-bar rest, and the key lights', async () => {
       const settle = () => new Promise<void>(r => queueMicrotask(r))
       const { engine, state } = setup()
-      const note = engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!
+      const note = engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!
       state.selectedTool = 'selection'
       state.selectedItems = new Map([[itemKey({ kind: 'note', id: note.id }), { kind: 'note', id: note.id }]])
       bus.grace.press('barRest')
@@ -164,8 +164,8 @@ describe('wireKeypadGrace', () => {
     it('a selected note: the press starts a glissando on it, and the key lights; again, takes it off', async () => {
       const settle = () => new Promise<void>(r => queueMicrotask(r))
       const { engine, state } = setup()
-      const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
-      engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const a = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
       state.selectedTool = 'selection'
       state.selectedItems = new Map([[itemKey({ kind: 'note', id: a.id }), { kind: 'note', id: a.id }]])
       bus.grace.press('gliss')
@@ -183,7 +183,7 @@ describe('wireKeypadGrace', () => {
     it('selected notes: the press makes them cue, and the key lights; again, back to full size', async () => {
       const settle = () => new Promise<void>(r => queueMicrotask(r))
       const { engine, state } = setup()
-      const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const a = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })!
       state.selectedTool = 'selection'
       state.selectedItems = new Map([[itemKey({ kind: 'note', id: a.id }), { kind: 'note', id: a.id }]])
       bus.grace.press('cue')

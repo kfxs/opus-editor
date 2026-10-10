@@ -32,10 +32,10 @@ describe('clipboard — copy/paste of notes', () => {
 
   /** Add C4 D4 E4 F4 on beats 0..3 of measure 1; return their ids. */
   const fillM1 = () => [
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
-    engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
-    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id,
-    engine.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id,
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
+    engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id,
+    engine.addNoteAtBeat({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id,
   ]
 
   it('copies the selected span and pastes it verbatim into an empty bar', () => {
@@ -54,7 +54,7 @@ describe('clipboard — copy/paste of notes', () => {
     // re-derived the written shape with `decomposeSpan`, whose rule is the RESTS' — a value may not
     // cross a beat stronger than its own endpoints — so 1.5 beats at a downbeat came back as a
     // quarter tied to an eighth. A note has no such rule, and the shape it was written as travels.
-    const id = engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 3, duration: 'q', dots: 1, measure: 1, beat: frac(0, 1) })!.id
+    const id = engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'q', dots: 1, measure: 1, beat: frac(0, 1) })!.id
     const payload = buildClipboardFromSelection(engine.getScore(), [id])!
     expect(fracToNumber(payload.spanBeats)).toBe(1.5)
 
@@ -68,7 +68,7 @@ describe('clipboard — copy/paste of notes', () => {
   it('a note SPLIT by a barline still ties — the authored shape only survives a whole event', () => {
     // The other side of the rule: a half note pasted onto the last beat spills into the next bar,
     // and two pieces of a half note are not half notes, so the relay re-derives both.
-    const id = engine.addNoteAtBeat({ step: 'A', alter: 0, octave: 3, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    const id = engine.addNoteAtBeat({ step: 'A', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
     const payload = buildClipboardFromSelection(engine.getScore(), [id])!
     const pasted = engine.pasteEvents(payload, { measure: 2, beat: frac(3, 1), voice: 0 })
     expect(pasted, 'a quarter in bar 2 tied to a quarter in bar 3').toHaveLength(2)
@@ -78,7 +78,7 @@ describe('clipboard — copy/paste of notes', () => {
     const ids = fillM1()
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
     // Put a different note into measure 2 first.
-    engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
     expect(pitches(engine, 2)).toEqual(['G4@0'])
 
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
@@ -95,8 +95,8 @@ describe('clipboard — copy/paste of notes', () => {
   })
 
   it('round-trips a chord', () => {
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const e = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) }).id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const e = engine.addChordNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) }).id
     const payload = buildClipboardFromSelection(engine.getScore(), [c, e])!
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
 
@@ -106,7 +106,7 @@ describe('clipboard — copy/paste of notes', () => {
 
   it('splits a note across a barline with a tie when pasted near the bar end', () => {
     // Copy a single half note (2 beats).
-    const h = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
+    const h = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })!.id
     const payload = buildClipboardFromSelection(engine.getScore(), [h])!
     expect(fracToNumber(payload.spanBeats)).toBe(2)
 
@@ -123,7 +123,7 @@ describe('clipboard — copy/paste of notes', () => {
 
   it('re-voices a single-voice clip into the paste target voice', () => {
     // Copy a voice-1 (model voice 0) note, paste into voice 2 (model voice 1).
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
     expect(payload.lanes).toHaveLength(1)
     expect(payload.lanes[0].voice).toBe(0)
@@ -135,8 +135,8 @@ describe('clipboard — copy/paste of notes', () => {
   })
 
   it('copies a multi-voice passage and preserves each voice on paste', () => {
-    const v1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
-    const v2 = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
+    const v1 = engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), voice: 0 })!.id
+    const v2 = engine.addNoteAtBeat({ step: 'E', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })!.id
     const payload = buildClipboardFromSelection(engine.getScore(), [v1, v2])!
     expect(payload.lanes.map(vv => vv.voice).sort()).toEqual([0, 1])
 
@@ -172,7 +172,7 @@ describe('⭐ clipboard — SILENCE travels (his report, 2026-08-19)', () => {
   beforeEach(() => {
     engine = makeEngine()
     ids = (['C', 'D', 'E', 'F'] as const).map((step, i) =>
-      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
+      engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     // Beats 1 and 2 become rests, so the bar reads C4 · rest · rest · F4.
     engine.convertToRest(ids[1])
     engine.convertToRest(ids[2])
@@ -213,7 +213,7 @@ describe('⭐ clipboard — SILENCE travels (his report, 2026-08-19)', () => {
     // Bar 2 holds four notes; the two-beat silence lands on the first two of them.
     const filling = ['G', 'A', 'B', 'C'] as const
     filling.forEach((step, i) =>
-      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) }))
+      engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) }))
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
     // ⭐ TWO quarter rests, not one half rest: the shapes the user is looking at are what travel.
     // (Before rests were events, the relay rest-filled the window and answered with its own tiling.)
@@ -231,7 +231,7 @@ describe('⭐ clipboard — SILENCE travels (his report, 2026-08-19)', () => {
   it('a whole-bar rest copies as a bar of silence and clears the bar it lands on', () => {
     const filling = ['G', 'A', 'B', 'C'] as const
     filling.forEach((step, i) =>
-      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) }))
+      engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 2, beat: frac(i, 1) }))
     engine.addMeasure() // bar 3 — empty, so its measure rest is the clip
     const barRest = getMeasureNotes(engine.getScore().measures[2])[0]
     const payload = buildClipboardFromSelection(engine.getScore(), [barRest.id])!
@@ -250,8 +250,8 @@ describe('clipboard — rest-shift travel', () => {
 
   it('copies a shifted rest and travels it to the pasted position (same meter / canon)', () => {
     // m1 4/4: C@0(q), D@3(q) → a rest in between. Shift the rest at beat 1.
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
     engine.nudgeRestShift(restAt(1, 1).id, 2)
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
@@ -265,7 +265,7 @@ describe('clipboard — rest-shift travel', () => {
   })
 
   it('a lone shifted rest (no note events) still produces a copyable payload', () => {
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const rest = restAt(1, 1)
     engine.nudgeRestShift(rest.id, 1)
     const payload = buildClipboardFromSelection(engine.getScore(), [rest.id])
@@ -275,13 +275,13 @@ describe('clipboard — rest-shift travel', () => {
 
   it('a paste that overwrites a shifted rest with a note drops that destination shift', () => {
     // m2 4/4: C@0(q) → rest@1(q), rest@2(half). Shift the rest at beat 2.
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
     const m2 = engine.getScore().measures.find((x) => x.number === 2)!
     engine.nudgeRestShift(restAt(2, 2).id, 3)
     expect(engine.getScore().engravingOverrides).toBeDefined()
 
     // Copy a quarter note from m1 and paste onto m2 beat 2 → a NOTE now starts there.
-    const c = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const payload = buildClipboardFromSelection(engine.getScore(), [c])!
     engine.pasteEvents(payload, { measure: 2, beat: frac(2, 1), voice: 0 })
 
@@ -297,8 +297,8 @@ describe('clipboard — hidden-rest travel (client #6)', () => {
     flat(engine, m).find((n) => n.isRest && fracToNumber(n.beat) === beatNum)!
 
   it('copies a hidden rest and travels it to the pasted position', () => {
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })!.id
     engine.toggleRestHidden(restAt(1, 1).id)
 
     const payload = buildClipboardFromSelection(engine.getScore(), [c, d])!
@@ -311,7 +311,7 @@ describe('clipboard — hidden-rest travel (client #6)', () => {
   })
 
   it('a lone hidden rest (no note events) still produces a copyable payload', () => {
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const rest = restAt(1, 1)
     engine.toggleRestHidden(rest.id)
     const payload = buildClipboardFromSelection(engine.getScore(), [rest.id])
@@ -339,12 +339,12 @@ describe('clipboard — multi-staff copy/paste', () => {
   it('pasting a staff-0 clip onto staff 0 does NOT wipe staff 1 content', () => {
     // Staff 0 clip source: C4 D4 in m1.
     const ids = [
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
-      engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
     ]
     engine.addStaffBelow(0)
     // Staff 1 has a distinct C3 in m2 — the paste target measure — that must survive.
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'h', measure: 2, beat: frac(0, 1), staff: 1 })
+    engine.addNoteAtBeat({ step: 'C', octave: 3, duration: 'h', measure: 2, beat: frac(0, 1), staff: 1 })
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
 
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
@@ -355,9 +355,9 @@ describe('clipboard — multi-staff copy/paste', () => {
 
   it('copies only the source staff, not another staff sharing the beat window', () => {
     // C4 on staff 0 and C3 on staff 1, both at m1 b0. Copy the staff-1 note only.
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     engine.addStaffBelow(0)
-    const s1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const s1 = engine.addNoteAtBeat({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s1])!
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0 })
@@ -368,11 +368,11 @@ describe('clipboard — multi-staff copy/paste', () => {
 
   it('pastes onto the destination staff (staff 1), leaving staff 0 intact', () => {
     const ids = [
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
     ]
     engine.addStaffBelow(0)
     // Staff 0 of m2 has a G4 that must survive a paste targeting staff 1.
-    engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
 
     engine.pasteEvents(payload, { measure: 2, beat: frac(0, 1), voice: 0, staff: 1 }) // target staff 1
@@ -386,8 +386,8 @@ describe('clipboard — multi-staff copy/paste', () => {
     engine.addStaffBelow(0)
     engine.addStaffBelow(1)
     engine.addStaffBelow(2) // now staves 0..3
-    const s0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
-    const s1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const s0 = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const s1 = engine.addNoteAtBeat({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, s1])!
     expect(payload.spanStaves).toBe(2)
@@ -403,8 +403,8 @@ describe('clipboard — multi-staff copy/paste', () => {
   it('clamps + warns when a multi-staff clip would overflow the bottom staff', () => {
     // Two staves. Copy staves 0+1 (spanStaves 2).
     engine.addStaffBelow(0)
-    const s0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
-    const s1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const s0 = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const s1 = engine.addNoteAtBeat({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, s1])!
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -427,7 +427,7 @@ describe('clipboard — hairpins travel', () => {
 
   /** Four quarters in bar 1, returned as their note ids. */
   const fourNotes = () => [0, 1, 2, 3].map(b =>
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
 
   it('copies a hairpin under the selection and re-bases it on paste', () => {
     const ids = fourNotes()
@@ -498,7 +498,7 @@ describe('clipboard — octave lines travel', () => {
 
   /** Four quarters in bar 1, returned as their note ids. */
   const fourNotes = () => [0, 1, 2, 3].map(b =>
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
 
   it('copies an 8va under the selection and re-bases it on paste', () => {
     const ids = fourNotes()
@@ -556,7 +556,7 @@ describe('clipboard — sustain pedals travel', () => {
       .map(p => `${fracToNumber(p.beat)}+${fracToNumber(p.length)}`)
 
   const fourNotes = () => [0, 1, 2, 3].map(b =>
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
+    engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
 
   it('copies a pedal under the selection and re-bases it on paste', () => {
     const ids = fourNotes()
@@ -616,8 +616,8 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
 
   it('copies a dynamic under the selection and pastes it into the target bar', () => {
     const ids = [
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
-      engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
     ]
     engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
 
@@ -633,7 +633,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
   it('re-bases a dynamic to its clip-relative offset on paste', () => {
     // C@0, D@1, E@2, F@3 — copy the whole bar; dynamic on beat 2.
     const ids = [0, 1, 2, 3].map(b =>
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id)
     engine.dynamic.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('p'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
@@ -647,10 +647,10 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
   it('leaves a dynamic outside the copy window behind (fully-enclosed-only)', () => {
     // Select only C@0 + D@1 (window [0,2)); dynamic at beat 2 is on the boundary → excluded.
     const ids = [
-      engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
-      engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id,
+      engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id,
     ]
-    engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
     engine.dynamic.addDynamic(1, { beat: frac(2, 1), text: levelToGlyphString('f'), voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), ids)!
@@ -658,7 +658,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
   })
 
   it('overwrites a destination dynamic in the paste window (no stacking)', () => {
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })
     // Destination bar already has a 'p' at beat 0 that the paste should replace.
     engine.dynamic.addDynamic(2, { beat: frac(0, 1), text: levelToGlyphString('p'), voice: 0 })
@@ -673,7 +673,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     // the hairpin — he should not have to do all the work again"*. 🚨 Until then a wedge's three
     // overrides orphaned on every rebar AND every paste: the id is regenerated on the way in, and
     // only the dynamic's single offset had been taught to ride the seam.
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const wedge = engine.hairpin.addHairpin(1, { type: 'cresc', beat: frac(0, 1), length: frac(1, 1) })!
     engine.hairpin.nudgeHairpinEndpoint(wedge.id, 'end', 1.5, -2)   // the angle he means
     engine.hairpin.setHairpinAperture(wedge.id, 1.8)
@@ -701,7 +701,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     // kind that grows an override needs nothing here — `engravingOf` at copy, `stampOverrides` at
     // paste, and `Score.engravingOverrides[id]` is the list both speak.
     const ids = (['C', 'D'] as const).map((step, i) =>
-      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
+      engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     const slur = engine.slur.createSlur(ids)!
     engine.slur.nudgeSlurEndpoint(slur.id, 'end', 1, -2)
     const mark = engine.tempo.addTempoMark(1, { beat: frac(0, 1), text: 'Allegro' })!
@@ -720,7 +720,7 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
   })
 
   it('carries a hand-nudged offset (client #8) with the pasted dynamic', () => {
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
     const d = engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('f'), voice: 0 })!
     engine.dynamic.nudgeDynamicOffset(d.id, 2, -3) // hand-nudge the source mark
 
@@ -740,8 +740,8 @@ describe('clipboard — dynamics travel (Phase 2)', () => {
     engine.addStaffBelow(0)
     engine.addStaffBelow(1)
     engine.addStaffBelow(2) // staves 0..3
-    const s0 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
-    const s1 = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const s0 = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const s1 = engine.addNoteAtBeat({ step: 'C', octave: 3, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
     engine.dynamic.addDynamic(1, { beat: frac(0, 1), text: levelToGlyphString('mf'), voice: 0, staffId: engine.staffIdForIndex(1) })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, s1])!
@@ -765,7 +765,7 @@ describe('⭐ clipboard — trills travel (docs/plans/trill-plan.md §2.3)', () 
   }
 
   const fill = (m: number, staff = 0) => (['C', 'D', 'E', 'F'] as const).map((s, b) =>
-    engine.addNoteAtBeat({ step: s, alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), staff })!.id)
+    engine.addNoteAtBeat({ step: s, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), staff })!.id)
 
   it('copies a trill and re-anchors both ends onto the pasted notes', () => {
     const ids = fill(1)
@@ -787,9 +787,9 @@ describe('⭐ clipboard — trills travel (docs/plans/trill-plan.md §2.3)', () 
     engine.addStaffBelow(0)
     engine.addStaffBelow(1)
     engine.addStaffBelow(2) // staves 0..3
-    const s0 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
-    const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
-    const b = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), staff: 1 })!.id
+    const s0 = engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const a = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const b = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), staff: 1 })!.id
     engine.trill.addTrill({ startNoteId: a, endNoteId: b, voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, a, b])!
@@ -820,9 +820,9 @@ describe('⭐ clipboard — trills travel (docs/plans/trill-plan.md §2.3)', () 
   // wedge or half an arc is a SHAPE the music never had, but a trill whose end is outside the
   // window is a note that is genuinely trilled — so the sign travels and the line is dropped.
   it('a trill whose END is outside the window travels as the one-note trill', () => {
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
-    const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    const e = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
     engine.trill.addTrill({ startNoteId: c, endNoteId: e, voice: 0 })
 
     // Copy only C+D → window [0,2); E@2 is outside it.
@@ -833,9 +833,9 @@ describe('⭐ clipboard — trills travel (docs/plans/trill-plan.md §2.3)', () 
   })
 
   it('a trill whose SIGN is outside the window is left behind entirely', () => {
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
-    const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    const e = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
     engine.trill.addTrill({ startNoteId: c, endNoteId: e, voice: 0 })
 
     const payload = buildClipboardFromSelection(engine.getScore(), [d, e])!
@@ -857,7 +857,7 @@ describe('clipboard — slurs travel (Phase 3)', () => {
 
   /** Add C D E F quarters on beats 0..3 of a measure/staff; return their ids. */
   const fill = (m: number, staff = 0) => (['C', 'D', 'E', 'F'] as const).map((s, b) =>
-    engine.addNoteAtBeat({ step: s, alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), staff })!.id)
+    engine.addNoteAtBeat({ step: s, octave: 4, duration: 'q', measure: m, beat: frac(b, 1), staff })!.id)
 
   it('copies a slur and re-anchors it onto the pasted notes', () => {
     const ids = fill(1)
@@ -876,9 +876,9 @@ describe('clipboard — slurs travel (Phase 3)', () => {
   })
 
   it('leaves a slur with an endpoint outside the copy window behind (fully-enclosed-only)', () => {
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    const d = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
-    const e = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    const d = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })!.id
+    const e = engine.addNoteAtBeat({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })!.id
     engine.slur.createSlur([c, e]) // C@0 → E@2
 
     // Copy only C+D → window [0,2); E@2 is on the boundary → slur not enclosed.
@@ -903,9 +903,9 @@ describe('clipboard — slurs travel (Phase 3)', () => {
     engine.addStaffBelow(0)
     engine.addStaffBelow(1)
     engine.addStaffBelow(2) // staves 0..3
-    const s0 = engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
-    const a = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
-    const b = engine.addNoteAtBeat({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), staff: 1 })!.id
+    const s0 = engine.addNoteAtBeat({ step: 'G', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1), staff: 0 })!.id
+    const a = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), staff: 1 })!.id
+    const b = engine.addNoteAtBeat({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), staff: 1 })!.id
     engine.slur.createSlur([a, b]) // slur on staff 1
 
     const payload = buildClipboardFromSelection(engine.getScore(), [s0, a, b])!

@@ -9,8 +9,8 @@ import { test, expect } from './fixtures'
 test('two voices a second apart, both sharp: their accidentals do not overlap on the spine', async ({ score }) => {
   const out = await score.evaluate(async () => {
     const h = window.__h
-    h.engine.addNoteAtBeat({ step: 'A', alter: 1, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addNoteAtBeat({ step: 'G', alter: 1, octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), voice: 1 })
+    h.engine.addNoteAtBeat({ step: 'A', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'G', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: h.frac(0, 1), voice: 1 })
     await h.render()
     const boxes = (root: Element) => [...root.querySelectorAll('g.accidental')].map(g => {
       const r = g.getBoundingClientRect()

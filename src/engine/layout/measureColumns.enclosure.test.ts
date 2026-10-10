@@ -37,7 +37,7 @@ describe('measureColumns — a parenthesised head\'s room', () => {
     const bare = hostLeftReach(host, () => null, 'treble')
     setEnclosure(model.getScore(), [a.id], 'round')
     expect(hostLeftReach(host, () => null, 'treble')).toBeGreaterThan(bare)
-    addGrace(model.getScore(), a.id, 'before', { step: 'C', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })
+    addGrace(model.getScore(), a.id, 'before', { step: 'C', octave: 5 }, 'appoggiatura', { duration: '8' })
     const grace = measureColumns(model.getMeasure(1)!)[0].ink.find(b => b.kind === 'grace')!
     const brackets = measureColumns(model.getMeasure(1)!)[0].ink.find(b => b.kind === 'enclosure')!
     expect(grace.left).toBeGreaterThan(brackets.left)

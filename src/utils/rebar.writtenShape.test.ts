@@ -34,7 +34,7 @@ function shape(bar: BarPlan) {
 
 let nextId = 0
 const id = () => `id${nextId++}`
-const pitch = (ties: Partial<NotePitch> = {}): NotePitch => ({ id: id(), step: 'E', alter: 0, octave: 4, ...ties })
+const pitch = (ties: Partial<NotePitch> = {}): NotePitch => ({ id: id(), step: 'E', octave: 4, ...ties })
 const chord = (beat: Fraction, duration: Chord['duration'], notes: NotePitch[], dots = 0): Chord =>
   ({ id: id(), type: 'chord', beat, duration, dots, measure: 1, notes })
 const measure = (slots: Chord[]): Measure => ({ id: id(), number: 1, slots, timeSignature: ts(4, 4), tuplets: [] })
@@ -44,12 +44,12 @@ const relayWhole = (events: RebarEvent[]) => relayEvents(events, getMeterInfo(ts
 
 describe('the authored shape survives a re-lay', () => {
   it('a dotted quarter stays a dotted quarter — not a quarter tied to an eighth', () => {
-    const bars = relayWhole([{ offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }], written: [{ duration: 'q', dots: 1 }] }])
+    const bars = relayWhole([{ offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', octave: 4 }], written: [{ duration: 'q', dots: 1 }] }])
     expect(shape(bars[0])[0]).toEqual(['q', 1, 0, '', ''])
   })
 
   it('⛔ and without a recorded shape the same length re-tiles by the METRE — the behaviour being overridden', () => {
-    const bars = relayWhole([{ offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }] }])
+    const bars = relayWhole([{ offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', octave: 4 }] }])
     expect(shape(bars[0]).length).toBeGreaterThan(1)
   })
 })
@@ -82,7 +82,7 @@ describe('🚨 a TIE CHAIN keeps the figures it was written as — his report', 
 
   it('⚠️ a chain with ONE unspellable piece re-derives whole — a partial sequence would not sum', () => {
     const events: RebarEvent[] = [{
-      offset: F(0), duration: F(7, 4), pitches: [{ step: 'E', alter: 0, octave: 4 }],
+      offset: F(0), duration: F(7, 4), pitches: [{ step: 'E', octave: 4 }],
       // As `flattenRegion` would leave it when the tail's written value did not describe its length.
       written: undefined,
     }]
@@ -94,7 +94,7 @@ describe('what must still be re-derived', () => {
   it('a note SPLIT at a barline — its halves are new shapes, and neither is what was written', () => {
     // A dotted quarter starting a quarter before the barline of a 4/4 bar.
     const bars = relayEvents(
-      [{ offset: F(15, 4), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }], written: [{ duration: 'q', dots: 1 }] }],
+      [{ offset: F(15, 4), duration: F(3, 2), pitches: [{ step: 'E', octave: 4 }], written: [{ duration: 'q', dots: 1 }] }],
       getMeterInfo(ts(4, 4)),
       { targetBars: 2, bounded: false, respell: 'faithful' },
     )
@@ -124,19 +124,19 @@ describe('the relay reports what it had to invent', () => {
 
   it('says nothing when every event is laid exactly as it was written', () => {
     expect(improvised([
-      { offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }], written: [{ duration: 'q', dots: 1 }] },
+      { offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', octave: 4 }], written: [{ duration: 'q', dots: 1 }] },
     ])).toEqual([])
   })
 
   it("⭐ reports 'no-authored-shape' — the one worth refusing over: it fitted, and we still guessed", () => {
     expect(improvised([
-      { offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }] },
+      { offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', octave: 4 }] },
     ])).toEqual(['no-authored-shape'])
   })
 
   it("reports 'split-at-barline' — expected and unavoidable, once per fragment it minted", () => {
     const seen = improvised([
-      { offset: F(15, 4), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }], written: [{ duration: 'q', dots: 1 }] },
+      { offset: F(15, 4), duration: F(3, 2), pitches: [{ step: 'E', octave: 4 }], written: [{ duration: 'q', dots: 1 }] },
     ], 2)
     expect(seen.length).toBeGreaterThan(0)
     expect(new Set(seen)).toEqual(new Set(['split-at-barline']))
@@ -145,7 +145,7 @@ describe('the relay reports what it had to invent', () => {
   it('⛔ stays SILENT under `as-needed` — for a meter change, re-spelling is the job', () => {
     const seen: string[] = []
     relayEvents(
-      [{ offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', alter: 0, octave: 4 }] }],
+      [{ offset: F(0), duration: F(3, 2), pitches: [{ step: 'E', octave: 4 }] }],
       getMeterInfo(ts(4, 4)),
       { targetBars: 1, bounded: false, respell: 'as-needed', onImprovised: ({ reason }) => seen.push(reason) },
     )

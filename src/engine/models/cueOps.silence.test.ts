@@ -25,7 +25,7 @@ describe('cueOps — a cue SILENCE survives the model\'s own rest churn', () => 
   const restIdAt = (engine: MusicEngine, beat: number, bar = 1) =>
     engine.getScore().measures[bar - 1].slots.find(s => s.type === 'rest' && fracToNumber(s.beat) === beat)!.id
   const note = (engine: MusicEngine, beat: number, duration: 'q' | 'h' | '8' = 'q') =>
-    engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 5, duration, measure: 1, beat: frac(beat, 1) })!
+    engine.addNoteAtBeat({ step: 'C', octave: 5, duration, measure: 1, beat: frac(beat, 1) })!
 
   /** A 4/4 bar: a quarter C, then a cue HALF rest at beat 2 (the quarter rest at beat 1 is full). */
   const withCueHalfRest = () => {
@@ -107,7 +107,7 @@ describe('cueOps — a cue SILENCE survives the model\'s own rest churn', () => 
   it('a TUPLET entered into cue silence: its rests and the bar\'s stay cue; its first note is entry (full)', () => {
     const engine = makeEngine()
     engine.cue.set([engine.getScore().measures[0].slots[0].id], true)
-    engine.createTupletAtBeat(1, 1, '8', { step: 'C', alter: 0, octave: 5 }, 3, 2)
+    engine.createTupletAtBeat(1, 1, '8', { step: 'C', octave: 5 }, 3, 2)
     const slots = engine.getScore().measures[0].slots
     expect(slots.filter(s => s.type === 'rest').every(s => s.cue)).toBe(true)
     expect(slots.find(s => s.type === 'chord')!.cue).toBeUndefined()
@@ -116,7 +116,7 @@ describe('cueOps — a cue SILENCE survives the model\'s own rest churn', () => 
   it('⭐ a cue rest turned into a note IN PLACE (a pitch typed over the selected rest) is an EDIT: cue persists', () => {
     const engine = withCueHalfRest()
     const id = restIdAt(engine, 2)
-    engine.updateNote(id, { isRest: false, step: 'E', alter: 0, octave: 5 })
+    engine.updateNote(id, { isRest: false, step: 'E', octave: 5 })
     expect(engine.getNote(id)!.isRest).toBeFalsy()
     expect(engine.getNote(id)!.cue).toBe(true)
   })

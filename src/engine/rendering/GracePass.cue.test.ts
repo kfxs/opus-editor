@@ -19,7 +19,7 @@ describe('GracePass — a cue grace group', () => {
     model.addMeasure()
     const hosts = [1, 2, 3].map(bar => model.addNote({ step: 'C', octave: 5, duration: 'q', measure: bar, beat: frac(0, 1) }))
     const graces = hosts.map(h => [0, 1].map(() =>
-      addGrace(model.getScore(), h.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!))
+      addGrace(model.getScore(), h.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!))
     // Bar 1 plain, bar 2 all cue, bar 3 one cue.
     setCue(model.getScore(), [...graces[1].map(g => g.pitches[0].id), graces[2][0].pitches[0].id], true)
     const container = document.createElement('div')

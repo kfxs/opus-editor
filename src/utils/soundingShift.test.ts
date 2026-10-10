@@ -139,7 +139,7 @@ describe('soundingShiftBySlot — the per-slot prepass', () => {
   })
 
   const noteAt = (beat: number, measure = 1) =>
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure, beat: frac(beat, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure, beat: frac(beat, 1) })
 
   it('is EMPTY for a score with no octave line — the un-shifted path costs one map lookup', () => {
     noteAt(0); noteAt(1)
@@ -177,39 +177,39 @@ describe('soundingShiftBySlot — the per-slot prepass', () => {
  * Built 2026-08-20 with the pitch-not-MIDI move (docs/plans/playback-semantics-plan.md). The whole
  * question is which FIELD the shift lands in, and the answer is `octave`: an octave is 12 semitones,
  * ×2 in frequency and +1 to the octave number in every tuning system, so this is the one
- * transformation that survives a change of representation. ⛔ `alter` is never touched — an 8va
+ * transformation that survives a change of representation. ⛔ `alteration` is never touched — an 8va
  * changes a register, not an accidental.
  */
 describe('applySoundingShift', () => {
-  const C4 = { step: 'C', alter: 0, octave: 4 } as const
+  const C4 = { step: 'C', octave: 4 } as const
 
   it('an unshifted note comes back as itself', () => {
-    expect(applySoundingShift(C4, 0)).toEqual({ step: 'C', alter: 0, octave: 4 })
+    expect(applySoundingShift(C4, 0)).toEqual({ step: 'C', octave: 4 })
   })
 
   it('⭐ an octave up is +1 to the OCTAVE — not +12 to anything else', () => {
-    expect(applySoundingShift(C4, 12)).toEqual({ step: 'C', alter: 0, octave: 5 })
-    expect(applySoundingShift(C4, 24), 'two octaves').toEqual({ step: 'C', alter: 0, octave: 6 })
-    expect(applySoundingShift(C4, -12)).toEqual({ step: 'C', alter: 0, octave: 3 })
+    expect(applySoundingShift(C4, 12)).toEqual({ step: 'C', octave: 5 })
+    expect(applySoundingShift(C4, 24), 'two octaves').toEqual({ step: 'C', octave: 6 })
+    expect(applySoundingShift(C4, -12)).toEqual({ step: 'C', octave: 3 })
   })
 
-  it('⛔ leaves `alter` alone — the accidental is NOTATION and an octave line is not', () => {
-    const fSharp3 = { step: 'F', alter: 1, octave: 3 } as const
-    expect(applySoundingShift(fSharp3, 12)).toEqual({ step: 'F', alter: 1, octave: 4 })
+  it('⛔ leaves `alteration` alone — the accidental is NOTATION and an octave line is not', () => {
+    const fSharp3 = { step: 'F', alteration: ['sharp'], octave: 3 } as const
+    expect(applySoundingShift(fSharp3, 12)).toEqual({ step: 'F', alteration: ['sharp'], octave: 4 })
   })
 
   it('⭐ keeps the ENHARMONIC — which is the entire reason the schedule carries a spelling', () => {
     // G♯4 and A♭4 are one MIDI number and two pitches (meantone: G♯ is the lower).
-    const gSharp = applySoundingShift({ step: 'G', alter: 1, octave: 4 }, 12)
-    const aFlat = applySoundingShift({ step: 'A', alter: -1, octave: 4 }, 12)
+    const gSharp = applySoundingShift({ step: 'G', alteration: ['sharp'], octave: 4 }, 12)
+    const aFlat = applySoundingShift({ step: 'A', alteration: ['flat'], octave: 4 }, 12)
     expect(gSharp).not.toEqual(aFlat)
     expect(pitchToMidi(gSharp), 'and they are still enharmonic').toBe(pitchToMidi(aFlat))
   })
 
   it('does not mutate its input', () => {
-    const written = { step: 'D', alter: -1, octave: 5 } as const
+    const written = { step: 'D', alteration: ['flat'], octave: 5 } as const
     applySoundingShift(written, -24)
-    expect(written).toEqual({ step: 'D', alter: -1, octave: 5 })
+    expect(written).toEqual({ step: 'D', alteration: ['flat'], octave: 5 })
   })
 
   describe('a shift that is NOT a whole octave', () => {
@@ -221,7 +221,7 @@ describe('applySoundingShift', () => {
       // function's note and docs/how-it-works/tuning-systems-and-alteration.md.
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
       expect(applySoundingShift(C4, 7), 'unshifted, not C4+7 rounded anywhere')
-        .toEqual({ step: 'C', alter: 0, octave: 4 })
+        .toEqual({ step: 'C', octave: 4 })
       expect(spy).toHaveBeenCalledOnce()
     })
   })

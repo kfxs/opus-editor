@@ -27,9 +27,10 @@
  * regardless. Ours is the narrow, mechanical rule — one function, one decision to widen if his eye
  * wants more signs (docs/plans/trill-plan.md §9, "user chooses the step").
  */
-import type { Accidental, PitchAlter, PitchStep } from '@/types/music'
-import { alterInForce } from './accidentalState'
-import { keyAlterOf, type KeySignature } from './keySignature'
+import type { Accidental, Alteration, PitchStep } from '@/types/music'
+import { alterationInForce, type BarAlterations } from './accidentalState'
+import { keyAlterationOf, type KeySignature } from './keySignature'
+import { alterationSide, sameAlteration } from './alterationSigns'
 
 /** The seven letters, in order — the diatonic ladder the auxiliary climbs one rung of. */
 const STEPS: readonly PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
@@ -37,8 +38,8 @@ const STEPS: readonly PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 /** The note a trill alternates with, and whether its sign is drawn. */
 export interface TrillAuxiliary {
   step: PitchStep
-  /** What SOUNDS — the bar's running accidental at this position, else the key's. */
-  alter: PitchAlter
+  /** What SOUNDS — the bar's running accidental at this position, else the key's (absent = natural). */
+  alteration?: Alteration
   octave: number
   /** The sign PRINTED above the `tr`, or null when the key already says it. */
   accidental: Accidental | null
@@ -61,34 +62,35 @@ export interface TrillAuxiliary {
 export function trillAuxiliary(
   main: { step: PitchStep; octave: number },
   key: KeySignature,
-  barAlterations: ReadonlyMap<number, PitchAlter>,
+  barAlterations: BarAlterations,
 ): TrillAuxiliary {
   const index = STEPS.indexOf(main.step)
   const step = STEPS[(index + 1) % 7]
   // B → C crosses into the next octave: octave numbers change at C, not at A (scientific pitch).
   const octave = step === 'C' ? main.octave + 1 : main.octave
 
-  // ⭐ The bar's running accidental, else the key — `accidentalState.alterInForce`, which is the
+  // ⭐ The bar's running accidental, else the key — `accidentalState.alterationInForce`, which is the
   // SAME rule the drawn signs and note entry read. It was written out here first; naming it there
   // is what keeps a trill from ever sounding a pitch the page contradicts.
-  const fromKey = keyAlterOf(key, step)
-  const alter = alterInForce(barAlterations, key, step, octave)
+  const fromKey = keyAlterationOf(key, step)
+  const alteration = alterationInForce(barAlterations, key, step, octave)
 
   return {
     step,
-    alter,
+    ...(alteration ? { alteration } : {}),
     octave,
-    accidental: alter === fromKey ? null : accidentalFor(alter),
+    accidental: sameAlteration(alteration, fromKey) ? null : accidentalFor(alteration),
   }
 }
 
 /**
- * The sign for an alteration, as PRINTED above a trill. Unlike `alterToAccidental`, a zero here is
- * a **natural** rather than nothing: reaching this function at all means the auxiliary departs from
+ * The sign for an alteration, as PRINTED above a trill. Unlike `accidentalOfAlteration`, no
+ * alteration here is a **natural** rather than nothing: reaching this function at all means the auxiliary departs from
  * the key, and "departs from a key with a sharp in it, to zero" is exactly what a ♮ says.
  */
-function accidentalFor(alter: PitchAlter): Accidental {
-  if (alter > 0) return '#'
-  if (alter < 0) return 'b'
+function accidentalFor(alteration: Alteration | undefined): Accidental {
+  const side = alterationSide(alteration)
+  if (side > 0) return '#'
+  if (side < 0) return 'b'
   return 'n'
 }

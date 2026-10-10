@@ -27,10 +27,10 @@ export interface InstrumentPlayer {
   /**
    * Schedule one sounding note at absolute AudioContext time `when` (seconds).
    *
-   * ⭐⭐ **`pitch` is a SPELLING, not a MIDI number** — `step`/`alter`/`octave`, with any octave line
+   * ⭐⭐ **`pitch` is a SPELLING, not a MIDI number** — `step`/`alteration`/`octave`, with any octave line
    * already folded in (`utils/soundingShift.applySoundingShift`). It is an implementation's own job
    * to turn that into whatever it plays: our sampled one calls `pitchToMidi` and hands the integer
-   * to WebAudioFont; a future tuning-aware synth would read `alter` as a SYMBOL and ask a tuning
+   * to WebAudioFont; a future tuning-aware synth would read `alteration` as SYMBOLS and ask a tuning
    * system for its ratio, which a number arriving here could never have supported.
    *
    * ⚠️ That is the whole point of the seam: `spellingToMidi` collapses G♯4 and A♭4 onto 61, and in

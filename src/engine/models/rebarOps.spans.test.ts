@@ -32,7 +32,7 @@ describe('rebar preserves slurs (phrasing spans)', () => {
   ]
   const fillBar = () =>
     steps.map(([step, octave], i) =>
-      model.addNote({ step, alter: 0, octave, duration: '8', measure: 1, beat: frac(i, 2) }),
+      model.addNote({ step, octave, duration: '8', measure: 1, beat: frac(i, 2) }),
     )
 
   it('re-attaches a slur to the rebar\'d notes across a time-signature change', () => {
@@ -70,7 +70,7 @@ describe('rebar preserves slurs (phrasing spans)', () => {
     // Overwrite the whole bar with a single whole rest's worth of content via paste of
     // one note at beat 0; the slur's end anchor (C5 @3.5) no longer exists afterwards.
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }], spanBeats: frac(4, 1) },
       { measure: 1, beat: frac(0, 1), voice: 0 })
 
     // Whatever the outcome, no slur may reference a missing note.
@@ -101,7 +101,7 @@ describe('⭐⭐ rebar preserves TRILLS (docs/plans/trill-plan.md §2.1)', () =>
   ]
   const fillBar = () =>
     steps.map(([step, octave], i) =>
-      model.addNote({ step, alter: 0, octave, duration: '8', measure: 1, beat: frac(i, 2) }),
+      model.addNote({ step, octave, duration: '8', measure: 1, beat: frac(i, 2) }),
     )
 
   // ⚠️ THE TEST THAT MATTERS. A trill is anchored by note IDENTITY and a re-bar re-mints every id
@@ -154,7 +154,7 @@ describe('⭐⭐ rebar preserves TRILLS (docs/plans/trill-plan.md §2.1)', () =>
 
     // Overwrite the whole bar with one long G4 — nothing at 3.5 survives.
     model.pasteEvents(
-      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', alter: 0, octave: 4 }] }] }], spanBeats: frac(4, 1) },
+      { lanes: [{ staff: 0, voice: 0, events: [{ offset: frac(0, 1), duration: frac(4, 1), pitches: [{ step: 'G', octave: 4 }] }] }], spanBeats: frac(4, 1) },
       { measure: 1, beat: frac(0, 1), voice: 0 })
 
     expect(model.getTrillById(doomed.id)).toBeNull() // its own note is gone
@@ -172,10 +172,10 @@ describe('⭐⭐ rebar preserves TRILLS (docs/plans/trill-plan.md §2.1)', () =>
   })
 
   it('keeps a voice-1 trill on its own voice when voice 0 is a unison at the same beats', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const t0 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    const t1 = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const t0 = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const t1 = model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
     const trill = model.addTrill({ startNoteId: t0.id, endNoteId: t1.id, voice: 1 })!
 
     model.setTimeSignature(1, { numerator: 3, denominator: 4 })
@@ -194,12 +194,12 @@ describe('rebar voice-scopes ties and slurs (P2)', () => {
 
   it('re-attaches boundary ties to the right voice when both voices are a unison at the edge', () => {
     // m1 (external): C4 in voice 0 AND C4 in voice 1, both at the last beat.
-    const a0 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
-    const a1 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 })
+    const a0 = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1) })
+    const a1 = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 })
     // m2 (the region we re-bar): a unison C4 in both voices at beat 0.
     model.addMeasure()
-    const b0 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
-    const b1 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1), voice: 1 })
+    const b0 = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    const b1 = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1), voice: 1 })
     model.updateNote(a0.id, { tiedTo: b0.id })
     model.updateNote(b0.id, { tiedFrom: a0.id })
     model.updateNote(a1.id, { tiedTo: b1.id })
@@ -219,10 +219,10 @@ describe('rebar voice-scopes ties and slurs (P2)', () => {
 
   it('keeps a voice-2 slur on its own voice when voice 0 is a unison at the same beats', () => {
     // Voice 0 and voice 1 share pitch+beat columns (C4@0, D4@1). The slur is voice 1.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const s0 = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
-    const s1 = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const s0 = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    const s1 = model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1), voice: 1 })
     const slur = model.addSlur({ startNoteId: s0.id, endNoteId: s1.id, voice: 1 })
 
     model.setTimeSignature(1, { numerator: 3, denominator: 4 })
@@ -245,10 +245,10 @@ describe('rebar preserves a slur on a GRACE (fresh grace ids are re-found)', () 
   const graceSlurFixture = (side: 'before' | 'after') => {
     const model = new ScoreModel() // 4/4
     model.addMeasure()
-    const a = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
-    const b = model.addNote({ step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(3, 1) })
+    const a = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const b = model.addNote({ step: 'D', octave: 5, duration: 'q', measure: 1, beat: frac(3, 1) })
     const host = side === 'before' ? b : a
-    const grace = addGrace(model.getScore(), host.id, side, { step: 'G', alter: -1, octave: 5 }, 'acciaccatura', { duration: '8' })!
+    const grace = addGrace(model.getScore(), host.id, side, { step: 'G', alteration: ['flat'], octave: 5 }, 'acciaccatura', { duration: '8' })!
     const gid = grace.pitches[0].id
     const slur = side === 'before'
       ? model.addSlur({ startNoteId: gid, endNoteId: b.id, voice: 0 })

@@ -30,7 +30,7 @@ function note(keys: string[], clef: string, signed: number[], crossings?: ({ cle
   return n
 }
 const pitch = (id: string, displayStaffId?: string): NotePitch =>
-  ({ id, step: 'C', alter: 0, octave: 4, ...(displayStaffId ? { displayStaffId } : {}) })
+  ({ id, step: 'C', octave: 4, ...(displayStaffId ? { displayStaffId } : {}) })
 const chord = (id: string, notes: NotePitch[], staffId?: string, beat = 1): Chord =>
   ({ id, type: 'chord', beat: frac(beat, 1), duration: 'h', measure: 72, notes, ...(staffId ? { staffId } : {}) })
 

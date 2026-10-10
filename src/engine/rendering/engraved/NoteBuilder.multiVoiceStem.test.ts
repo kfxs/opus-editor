@@ -20,7 +20,7 @@ import { fracCreate } from '@/utils/fraction'
 function chord(id: string, step: string, octave: number, voice: number): ChordRest {
   return {
     id, type: 'chord', beat: fracCreate(0, 1), duration: '8', measure: 2, voice,
-    notes: [{ id: id + '-p', step, alter: 0, octave }],
+    notes: [{ id: id + '-p', step, octave }],
   } as unknown as ChordRest
 }
 

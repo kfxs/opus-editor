@@ -72,7 +72,7 @@ function pushPitches(out: NotePitch[], list: readonly BracketedGrace[] | undefin
 export function cloneBracketedFresh(list: readonly BracketedGrace[]): BracketedGrace[] {
   return list.map(b => ({
     pitches: b.pitches.map((p) => {
-      const np: NotePitch = { id: uuidv4(), step: p.step, alter: p.alter, octave: p.octave }
+      const np: NotePitch = { id: uuidv4(), step: p.step, alteration: p.alteration, octave: p.octave }
       if (p.forceAccidental) np.forceAccidental = true
       return np
     }),

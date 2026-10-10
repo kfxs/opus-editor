@@ -25,7 +25,7 @@ import { dbg } from '@/utils/debug'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { fracCompare, fracEq, fracAdd, fracSub, fracMul, fracCreate, fracToNumber, fracGte, fracLt } from '@/utils/fraction'
 import { compareByPosition, tupletSpan, tupletSlotDuration } from '@/utils/musicUtils'
-import { alterToString } from '@/utils/pitchSpelling'
+import { formatPitch } from '@/utils/pitchSpelling'
 import { staffIndexOfId } from './staffContent'
 import { findSlot } from './slotLookup'
 import { fillGapsWithRests } from './restFillOps'
@@ -94,13 +94,13 @@ export function moveNoteToVoice(score: Score, pitchId: string, targetVoice: numb
     return moveTupletNoteToVoice(score, measure, chord, pitch, targetVoice, movingIds)
   }
 
-  dbg(`[Model.moveNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
+  dbg(`[Model.moveNoteToVoice] ${formatPitch(pitch)} (id ${pitch.id.slice(0, 8)}) v${from}→v${targetVoice} @ m${chord.measure} b${fracToNumber(chord.beat).toFixed(3)}`)
 
   // Capture the pitch payload before mutating anything (reuse the SAME id).
   const payload = {
     id: pitch.id,
     step: pitch.step,
-    alter: pitch.alter,
+    alteration: pitch.alteration,
     octave: pitch.octave,
     forceAccidental: pitch.forceAccidental,
     tiedTo: pitch.tiedTo,
@@ -306,13 +306,13 @@ function moveTupletNoteToVoice(score: Score, measure: Measure, chord: Chord, pit
   const rawIdx = Math.round(fracToNumber(fracSub(chord.beat, startBeat)) / fracToNumber(slot))
   const idx = rawIdx >= 0 && rawIdx < numNotes ? rawIdx : 0
 
-  dbg(`[Model.moveTupletNoteToVoice] ${pitch.step}${alterToString(pitch.alter)}${pitch.octave} slot ${idx}/${numNotes} v${from}→v${targetVoice} @ m${measure.number} tuplet b${fracToNumber(startBeat).toFixed(3)}`)
+  dbg(`[Model.moveTupletNoteToVoice] ${formatPitch(pitch)} slot ${idx}/${numNotes} v${from}→v${targetVoice} @ m${measure.number} tuplet b${fracToNumber(startBeat).toFixed(3)}`)
 
   // The moved pitch, reusing its id (tie/slur/selection anchor).
   const movedPitch: NotePitch = {
     id: pitch.id,
     step: pitch.step,
-    alter: pitch.alter,
+    alteration: pitch.alteration,
     octave: pitch.octave,
     forceAccidental: pitch.forceAccidental,
     tiedTo: pitch.tiedTo,

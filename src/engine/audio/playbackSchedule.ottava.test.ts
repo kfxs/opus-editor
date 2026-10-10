@@ -43,7 +43,7 @@ const midis = (score: Score) =>
 describe('a passage under an octave line plays an octave away', () => {
   it('⭐ an 8va sounds C4 as C5 — the stored pitch never moved', () => {
     const model = new ScoreModel()
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })
 
     expect(midis(model.getScore())).toEqual([C5])
@@ -54,7 +54,7 @@ describe('a passage under an octave line plays an octave away', () => {
   it('an 8vb sounds it as C3, and a 15ma as C6', () => {
     for (const [shift, expected] of [[-1, C3], [2, C6]] as const) {
       const model = new ScoreModel()
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
       addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(4, 1), shift })
       expect(midis(model.getScore())).toEqual([expected])
     }
@@ -62,8 +62,8 @@ describe('a passage under an octave line plays an octave away', () => {
 
   it('shifts only the notes it COVERS — the bar goes back to normal after it', () => {
     const model = new ScoreModel()
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1) })
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })
 
     expect(midis(model.getScore())).toEqual([C5, C4])
@@ -71,7 +71,7 @@ describe('a passage under an octave line plays an octave away', () => {
 
   it('leaves a score with no octave line exactly as it was', () => {
     const model = new ScoreModel()
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
     expect(midis(model.getScore())).toEqual([C4])
   })
 })
@@ -86,7 +86,7 @@ describe('every re-attack pattern is shifted too — the three emit paths', () =
     // docs/plans/ottava-plan.md §6 names `auxiliaryMidiFor` as the site that fails silently. Unshifted, the
     // auxiliary would be D4 (62) against a main of C5 (72) — a ninth, and still audibly "a trill".
     const model = new ScoreModel()
-    const note = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 5, duration: 'w', measure: 1, beat: frac(0, 1) })
     model.addTrill({ startNoteId: note.id })
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1 })
 
@@ -97,7 +97,7 @@ describe('every re-attack pattern is shifted too — the three emit paths', () =
 
   it('a TREMOLO inside an 8va re-attacks the shifted pitch', () => {
     const model = new ScoreModel()
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     model.setTremolo(note.id, 3)
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })
 
@@ -109,7 +109,7 @@ describe('every re-attack pattern is shifted too — the three emit paths', () =
   it('⭐ a FANNED BEAM inside an 8va — every member, not just the slot\'s own pitch', () => {
     // The fan emits from `collectFanAttacks`, a path of its own that never touches the chord loop.
     const model = new ScoreModel()
-    const note = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     model.setFan(note.id, { direction: 'accel', count: 3, beams: 2 })
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })
 
@@ -122,8 +122,8 @@ describe('every re-attack pattern is shifted too — the three emit paths', () =
     // The pair path resolves two slots, so it takes the MAP rather than one number. Here the 8va
     // starts on the second note: the first must sound written, the second an octave up.
     const model = new ScoreModel()
-    const a = model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'G', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(2, 1) })
+    const a = model.addNote({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'G', octave: 5, duration: 'h', measure: 1, beat: frac(2, 1) })
     model.setTremolo(a.id, 3)
     model.setTremoloPair(a.id, true)
     addOttava(model.getScore(), 1, { beat: frac(2, 1), length: frac(2, 1), shift: 1 })
@@ -141,8 +141,8 @@ describe('what the octave line must NOT change', () => {
     // bracket would break the chain here and re-attack where the notation says one held note.
     const model = new ScoreModel()
     model.addMeasure()
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'C', octave: 4, duration: 'w', measure: 2, beat: frac(0, 1) })
     tie(model.getScore(), a.id, b.id)
     addOttava(model.getScore(), 1, { beat: frac(4, 1), length: frac(4, 1), shift: 1 })
 
@@ -153,19 +153,19 @@ describe('what the octave line must NOT change', () => {
 
   it('shifts the SOUND only — nothing in the model moved', () => {
     const model = new ScoreModel()
-    const note = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1 })
 
     const stored = model.getNote(note.id)!
-    expect([stored.step, stored.octave, stored.alter]).toEqual(['E', 5, 0])
+    expect([stored.step, stored.octave, stored.alteration]).toEqual(['E', 5, undefined])
     expect(midis(model.getScore())).toEqual([E5 + 12])
   })
 
   it('governs the staff it is ON — the other staff plays as written', () => {
     const model = new ScoreModel()
     const lower = model.addStaffBelow(0)
-    model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(0, 1), staff: 0 })
-    model.addNote({ step: 'D', alter: 0, octave: 5, duration: 'w', measure: 1, beat: frac(0, 1), staff: 1 })
+    model.addNote({ step: 'C', octave: 5, duration: 'w', measure: 1, beat: frac(0, 1), staff: 0 })
+    model.addNote({ step: 'D', octave: 5, duration: 'w', measure: 1, beat: frac(0, 1), staff: 1 })
     addOttava(model.getScore(), 1, { beat: frac(0, 1), length: frac(4, 1), shift: 1, staffId: lower })
 
     const sounded = new Set(collectScheduledNotes(model.getScore()).map(e => pitchToMidi(e.pitch)))

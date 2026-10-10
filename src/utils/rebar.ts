@@ -29,12 +29,13 @@
  *     mixed partial ties are left as separate events (still never lost).
  */
 
+import { alterationCode } from './alterationSigns'
 import type {
   ChordRest,
   Measure,
   NoteDuration,
   PitchStep,
-  PitchAlter,
+  Alteration,
   HeadEnclosure,
   StemDirection,
   ArticulationType,
@@ -74,7 +75,7 @@ import { voiceOf } from '@/utils/lanes'
 /** A single pitch within a logical event (tie linkage is regenerated, not carried). */
 export interface RebarPitch {
   step: PitchStep
-  alter: PitchAlter
+  alteration?: Alteration
   octave: number
   forceAccidental?: boolean
   /** `NotePitch.displayStaffId`, verbatim — the staff the head is WRITTEN on (absent = home).
@@ -385,7 +386,7 @@ export function flattenRegion(
         ...(authored ? { written: authored } : {}),
         pitches: slot.notes.map((p) => ({
           step: p.step,
-          alter: p.alter,
+          alteration: p.alteration,
           octave: p.octave,
           forceAccidental: p.forceAccidental,
           ...(p.displayStaffId !== undefined ? { displayStaffId: p.displayStaffId } : {}),
@@ -499,7 +500,7 @@ function pitchesEqual(a: RebarPitch[], b: RebarPitch[]): boolean {
   // ⭐ The head's BRACKETS are part of the match: a merged chain is re-laid with ONE set of pitches, so
   //    `(C)` tied to `C` merged would come back with brackets on every piece, or on none. Gould brackets
   //    the RESTATED note of a tie (p. 610) — the pieces differ, and stay two events.
-  const key = (p: RebarPitch) => `${p.octave}/${p.step}/${p.alter}/${p.enclosure ?? ''}`
+  const key = (p: RebarPitch) => `${p.octave}/${p.step}/${alterationCode(p.alteration)}/${p.enclosure ?? ''}`
   const as = a.map(key).sort()
   const bs = b.map(key).sort()
   return as.every((k, i) => k === bs[i])

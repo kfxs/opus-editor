@@ -15,7 +15,7 @@ function render(): Scene {
   const model = new ScoreModel()
   model.addMeasure()
   for (const bar of [1, 2]) {
-    const n = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'h', measure: bar, beat: frac(0, 1) })
+    const n = model.addNote({ step: 'E', octave: 5, duration: 'h', measure: bar, beat: frac(0, 1) })
     model.setFan(n.id, { direction: 'accel', count: 6, beams: 3 })
     if (bar === 2) setCue(model.getScore(), [n.id], true)
   }

@@ -19,7 +19,7 @@ function render(cueOf: (bar: number, beat: number) => boolean): Scene {
   const ids: string[] = []
   for (let bar = 1; bar <= 3; bar++) {
     for (const beat of [0, 1]) {
-      const n = model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: bar, beat: frac(beat, 2) })
+      const n = model.addNote({ step: 'E', octave: 4, duration: '8', measure: bar, beat: frac(beat, 2) })
       if (cueOf(bar, beat)) ids.push(n.id)
     }
   }

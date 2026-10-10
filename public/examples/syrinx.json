@@ -1,6 +1,6 @@
 {
   "format": "opus-editor-score",
-  "version": 1,
+  "version": 2,
   "savedAt": "2026-09-29T15:14:57.480Z",
   "view": {
     "justifyLastLine": true
@@ -35,7 +35,9 @@
               {
                 "id": "83f61ed7-b196-4fdd-850e-e005d3d93fb6",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -58,7 +60,6 @@
               {
                 "id": "7ccd22be-bc58-4ede-a5fb-73d768d93669",
                 "step": "A",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -80,7 +81,6 @@
               {
                 "id": "c9093c88-cc46-4506-8a84-32eb6926588e",
                 "step": "B",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -106,7 +106,9 @@
               {
                 "id": "b2cccf51-f428-4860-8a30-140e66321ee5",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -129,7 +131,6 @@
               {
                 "id": "0515a7b5-b546-46ee-9947-a0c1574003d0",
                 "step": "G",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -152,7 +153,6 @@
               {
                 "id": "7286ed31-2c09-4948-92d8-9b1be31b65eb",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -175,7 +175,9 @@
               {
                 "id": "01c44aba-16ae-45a9-ac68-b9f201f3f45a",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -197,7 +199,6 @@
               {
                 "id": "3371176e-7f1a-44eb-9138-1e4c76e58c80",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -219,7 +220,6 @@
               {
                 "id": "364d2856-6af2-41ad-b301-a2d14874144d",
                 "step": "E",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -242,7 +242,9 @@
               {
                 "id": "0c7b2f66-110d-44e3-a19e-75c6436de52f",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -265,23 +267,33 @@
               "alterations": [
                 {
                   "step": "B",
-                  "alter": -1
+                  "alteration": [
+                    "flat"
+                  ]
                 },
                 {
                   "step": "E",
-                  "alter": -1
+                  "alteration": [
+                    "flat"
+                  ]
                 },
                 {
                   "step": "A",
-                  "alter": -1
+                  "alteration": [
+                    "flat"
+                  ]
                 },
                 {
                   "step": "D",
-                  "alter": -1
+                  "alteration": [
+                    "flat"
+                  ]
                 },
                 {
                   "step": "G",
-                  "alter": -1
+                  "alteration": [
+                    "flat"
+                  ]
                 }
               ],
               "mode": "major"
@@ -332,7 +344,9 @@
               {
                 "id": "0278a7db-c4f2-400e-a10e-26c13e23a1af",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -355,7 +369,6 @@
               {
                 "id": "4cdea922-e54a-4c30-92a0-9a068ebb51a5",
                 "step": "C",
-                "alter": 0,
                 "octave": 6
               }
             ]
@@ -377,7 +390,9 @@
               {
                 "id": "6e8b9397-6c37-40f7-981a-aca0b833ef0c",
                 "step": "C",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 6
               }
             ]
@@ -399,7 +414,9 @@
               {
                 "id": "58b3997a-ecef-4fae-8389-069b31e50b91",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -464,7 +481,9 @@
               {
                 "id": "ce16af0c-3501-46ea-9a63-11cbf14e3e47",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ],
@@ -490,7 +509,6 @@
               {
                 "id": "51a4e921-c3b7-4fdf-8c06-bf2ec68bb1d3",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -513,7 +531,6 @@
               {
                 "id": "e71d9d34-d18b-4913-ab76-5e1efc3ede43",
                 "step": "B",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -536,7 +553,9 @@
               {
                 "id": "84e82d28-0fc0-421a-a5cc-fbcb3a43ff91",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ],
@@ -562,7 +581,6 @@
               {
                 "id": "b10fc075-cc02-4a53-887d-abd3dbda897a",
                 "step": "G",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -585,7 +603,6 @@
               {
                 "id": "55f2a6fc-6748-47ff-a2d8-25a19e27961b",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -609,7 +626,9 @@
               {
                 "id": "861f75e1-568f-4bbf-9da8-cf2f34b55fb1",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -631,7 +650,6 @@
               {
                 "id": "d67db860-40b2-4d77-b8dd-f1af61f576c0",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -653,7 +671,6 @@
               {
                 "id": "bd91da53-4af8-41af-ab22-db83c9bb9490",
                 "step": "E",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -676,7 +693,9 @@
               {
                 "id": "f65c9421-7053-4fa6-b50c-45ec7848cc87",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -710,7 +729,9 @@
               {
                 "id": "9f460a35-d4b5-426b-9527-6a0db5fa7611",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ],
@@ -737,7 +758,9 @@
               {
                 "id": "5c7960f9-8be3-4233-88bf-ca118250e168",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -759,7 +782,6 @@
               {
                 "id": "f63791be-5808-4bdf-958f-9763e0ed8785",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -782,7 +804,6 @@
               {
                 "id": "fa989813-9721-4a5e-b586-6457731bc944",
                 "step": "B",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true,
                 "tiedTo": "2435d032-f4c1-453d-b192-583ebfe01b9a"
@@ -811,7 +832,6 @@
               {
                 "id": "2435d032-f4c1-453d-b192-583ebfe01b9a",
                 "step": "B",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "fa989813-9721-4a5e-b586-6457731bc944"
               }
@@ -836,7 +856,9 @@
               {
                 "id": "adba8efb-785e-4c43-a75b-09e86a1342c3",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -861,7 +883,6 @@
               {
                 "id": "6e7e5f93-243f-4448-bd75-58152f70fb7c",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -884,7 +905,9 @@
               {
                 "id": "f005fe16-cff1-49d8-a88f-fa3a5e9fe1c4",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -908,7 +931,9 @@
               {
                 "id": "4a98bb7f-60b7-4917-89d8-0d0ee83a2a84",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -931,7 +956,6 @@
               {
                 "id": "ccddaee2-5723-44f3-9128-542501bfd41d",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -956,7 +980,9 @@
               {
                 "id": "0ae282b6-af5e-40df-ba76-2a859d94a0e5",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -980,7 +1006,6 @@
               {
                 "id": "7515c1f2-b98c-4a84-b4c4-509a72eccabf",
                 "step": "E",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -991,7 +1016,6 @@
                     {
                       "id": "13e09c3d-32fa-4b70-b3d7-936426e9cfcd",
                       "step": "F",
-                      "alter": 0,
                       "octave": 5
                     }
                   ],
@@ -1019,7 +1043,9 @@
               {
                 "id": "c6edaf9d-3944-4aae-890b-25f2e045ab21",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -1131,7 +1157,9 @@
               {
                 "id": "e75ae5e8-76dc-4c4e-828d-9b8250dd8f12",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -1155,7 +1183,9 @@
               {
                 "id": "d802ed53-b076-47fb-90b8-304505356e4a",
                 "step": "F",
-                "alter": 1,
+                "alteration": [
+                  "sharp"
+                ],
                 "octave": 4
               }
             ]
@@ -1177,7 +1207,6 @@
               {
                 "id": "a86a5149-4f66-424b-bcaa-943e93fc4731",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -1200,7 +1229,6 @@
               {
                 "id": "24ee547f-8a3c-4ba7-91ef-9d5fa46a4817",
                 "step": "B",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -1240,7 +1268,9 @@
               {
                 "id": "445a829d-c269-450c-a5d9-4f3d0e061552",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -1263,7 +1293,9 @@
               {
                 "id": "6315aa6d-c3d7-4d5d-b84c-495403c17592",
                 "step": "C",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -1287,7 +1319,9 @@
               {
                 "id": "e21e454c-f9b0-423e-ad43-ccffa8f64da4",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -1311,7 +1345,9 @@
               {
                 "id": "ce579ed6-cc5d-4725-b237-1d681c336ff9",
                 "step": "F",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -1334,7 +1370,9 @@
               {
                 "id": "f2ed577c-e2b5-4b5f-ac2e-7d59b24b6e1e",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -1450,7 +1488,9 @@
               {
                 "id": "92aaa1e7-35dd-4edc-9417-a4279f6a8728",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -1472,7 +1512,9 @@
               {
                 "id": "8c1f1a34-f693-41c3-9fe1-86583a5dd02a",
                 "step": "C",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 6,
                 "tiedTo": "394b4d38-79a7-4aa6-bbaa-ed7c4f90428a"
               }
@@ -1520,7 +1562,9 @@
               {
                 "id": "394b4d38-79a7-4aa6-bbaa-ed7c4f90428a",
                 "step": "C",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 6,
                 "tiedTo": "167b5b85-37f4-42b2-bed3-95af7ba2967b",
                 "tiedFrom": "8c1f1a34-f693-41c3-9fe1-86583a5dd02a"
@@ -1544,7 +1588,9 @@
               {
                 "id": "167b5b85-37f4-42b2-bed3-95af7ba2967b",
                 "step": "C",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 6,
                 "tiedFrom": "394b4d38-79a7-4aa6-bbaa-ed7c4f90428a"
               }
@@ -1593,7 +1639,9 @@
               {
                 "id": "91114b89-1132-4069-bd1b-dab51a28ef98",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 6
               }
             ]
@@ -1615,7 +1663,9 @@
               {
                 "id": "d892f744-dc0f-4a8f-903a-e5ea1a829a45",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -1701,7 +1751,9 @@
               {
                 "id": "8b758aa2-40c8-43d6-870b-74710cc1af6f",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -1724,7 +1776,6 @@
               {
                 "id": "45168837-1465-4de3-99fa-68c4b3ee8f75",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -1747,7 +1798,6 @@
               {
                 "id": "f003c3e5-56ac-488e-b34b-f6c5dcbd4c41",
                 "step": "B",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -1771,7 +1821,9 @@
               {
                 "id": "ef4b6173-7766-4c99-98d0-dd1848023319",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -1793,7 +1845,6 @@
               {
                 "id": "05369416-59d5-480b-b6a7-5cd2ec5a4005",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -1816,7 +1867,6 @@
               {
                 "id": "9979f98e-e8e7-416e-9d44-70ecaf901fe2",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -1839,7 +1889,9 @@
               {
                 "id": "2feb66b1-e106-4375-bcb7-f81a6e3e7a5b",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -1861,7 +1913,6 @@
               {
                 "id": "fcec2f5b-5fca-435e-81c4-e4522d98b1a5",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -1883,7 +1934,6 @@
               {
                 "id": "3f3d7bbc-2e38-46c0-b63d-ece67ae070c2",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -1906,7 +1956,9 @@
               {
                 "id": "ab05495e-f9b8-4916-be2d-ab72cd786866",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -1965,7 +2017,9 @@
               {
                 "id": "8d5f4794-b385-4d45-9d8c-8242834f2c26",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -1988,7 +2042,6 @@
               {
                 "id": "eaebb3db-24de-4e5a-8ede-b866bc212baa",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -2011,7 +2064,6 @@
               {
                 "id": "8cbd3fd9-04fa-4bd6-bf83-b1b75efb91cb",
                 "step": "B",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -2038,7 +2090,9 @@
               {
                 "id": "b57ef8d2-fdae-4dda-bdc7-fff181955c4b",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2060,7 +2114,6 @@
               {
                 "id": "14eb2767-0343-48c9-b464-6ae0bd0db081",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -2083,7 +2136,6 @@
               {
                 "id": "a2adb8a9-6938-4eaa-aa0f-d788793c8a6f",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -2106,7 +2158,9 @@
               {
                 "id": "db0db8e7-7f4f-4c6e-aa23-abd46e62c3c9",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2128,7 +2182,9 @@
               {
                 "id": "a962ab21-ee9f-4465-9ff5-aff4e451abc1",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2150,7 +2206,9 @@
               {
                 "id": "e9eadfce-8746-4cc2-8d2e-edb7e1842c12",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2172,7 +2230,9 @@
               {
                 "id": "92685960-b00b-41d0-ade9-5d92119f32b4",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2220,7 +2280,9 @@
               {
                 "id": "192a5191-82bd-49e6-bed6-5d0a1a153c26",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2242,7 +2304,6 @@
               {
                 "id": "144597ae-6657-4fc7-98f5-858c05495b43",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -2253,7 +2314,9 @@
                     {
                       "id": "1aebda14-08a4-4784-8317-4307755cb826",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 5
                     }
                   ],
@@ -2280,7 +2343,9 @@
               {
                 "id": "633c74e8-2731-420f-8d10-7cbe6ec2b01c",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2302,7 +2367,9 @@
               {
                 "id": "3146e29f-d2de-42b6-a7bb-0d0f59323fa4",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2324,7 +2391,9 @@
               {
                 "id": "a5fdbfaf-1c19-45a2-9270-f4de0e69ab55",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedTo": "03c83c92-6fa1-4e32-a4b8-585301ec0c54"
               }
@@ -2348,7 +2417,9 @@
               {
                 "id": "03c83c92-6fa1-4e32-a4b8-585301ec0c54",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "a5fdbfaf-1c19-45a2-9270-f4de0e69ab55"
               }
@@ -2371,7 +2442,9 @@
               {
                 "id": "63cc3009-1242-4431-ae2b-409026684613",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2393,7 +2466,9 @@
               {
                 "id": "4f99cd84-6b84-4edd-ab46-9c984f5bf0cf",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2415,7 +2490,9 @@
               {
                 "id": "ba790801-73c3-4115-b1c5-5ee12693df08",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2473,7 +2550,9 @@
               {
                 "id": "05588c76-28de-4145-8269-6d2be226386e",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2495,7 +2574,9 @@
               {
                 "id": "9647ca20-b63c-4f82-9987-c277d4a6627e",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2517,7 +2598,9 @@
               {
                 "id": "e2ae6e27-6d29-408b-b9dc-0ec558655112",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -2539,7 +2622,9 @@
               {
                 "id": "309f687f-6330-470a-b0b4-15b71d7f58db",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2562,7 +2647,9 @@
               {
                 "id": "88f04631-7bcd-4933-8d03-98f4a08516f8",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2584,7 +2671,6 @@
               {
                 "id": "5e5ce0d0-4dc2-46dc-b7ad-f5605f729c2e",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ],
@@ -2595,7 +2681,9 @@
                     {
                       "id": "a6898c12-8ee6-43a2-8b8e-60f7c8f26285",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 5
                     }
                   ],
@@ -2622,7 +2710,9 @@
               {
                 "id": "3794d486-5dbb-45c9-a302-1fa364adeb8c",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2644,7 +2734,9 @@
               {
                 "id": "d0ef01e5-8aa9-44a8-baab-08659ad2c3b2",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2667,7 +2759,9 @@
               {
                 "id": "3454487f-d41b-4e5e-8c18-8aae10dc4b6b",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedTo": "393bbebd-c6e7-403e-a5ce-0bdef80d789a"
               }
@@ -2691,7 +2785,9 @@
               {
                 "id": "393bbebd-c6e7-403e-a5ce-0bdef80d789a",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "3454487f-d41b-4e5e-8c18-8aae10dc4b6b"
               }
@@ -2715,7 +2811,9 @@
               {
                 "id": "84aec6d0-a3f2-44e6-bcb8-bb8f8a07ecfc",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2739,7 +2837,9 @@
               {
                 "id": "e484ade9-0c37-47b2-93f1-900f9f3eb9fb",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2762,7 +2862,9 @@
               {
                 "id": "a7396f67-d980-4d4f-9637-63c7676f50c2",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2831,7 +2933,6 @@
               {
                 "id": "8c266e91-6585-4543-afd0-cc2ded03e017",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "tiedTo": "27e7af7b-949c-4f9c-a292-e916fa1b7f40"
               }
@@ -2855,7 +2956,6 @@
               {
                 "id": "27e7af7b-949c-4f9c-a292-e916fa1b7f40",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "tiedFrom": "8c266e91-6585-4543-afd0-cc2ded03e017"
               }
@@ -2878,7 +2978,9 @@
               {
                 "id": "39a48d33-22cb-4c18-ab80-bf01a2c2f1d1",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2900,7 +3002,6 @@
               {
                 "id": "9a3ea1c3-5b6f-4040-a665-a3189305d199",
                 "step": "G",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -2923,7 +3024,9 @@
               {
                 "id": "2ea0653d-4426-480a-b32c-a142b39c1b39",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -2946,7 +3049,9 @@
               {
                 "id": "ade33768-c94f-4655-88d0-699d5aa3074b",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedTo": "74642737-6448-4bc5-a5cb-51d60f786e29"
               }
@@ -2970,7 +3075,9 @@
               {
                 "id": "74642737-6448-4bc5-a5cb-51d60f786e29",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedFrom": "ade33768-c94f-4655-88d0-699d5aa3074b"
               }
@@ -2993,7 +3100,6 @@
               {
                 "id": "a5dce904-1eb1-4b01-9951-de7335a47f8f",
                 "step": "D",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -3016,7 +3122,9 @@
               {
                 "id": "62cebd9b-dd5d-4243-9ffc-809ccd2b3f02",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -3038,7 +3146,6 @@
               {
                 "id": "2ef12be3-edd4-4ea3-b54f-74e0fdf5b7a7",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -3061,7 +3168,6 @@
               {
                 "id": "63bcd779-b223-483e-9040-a328181a908b",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true,
                 "tiedTo": "e5a3d2a6-0b7c-4db9-841c-b3f1667bce89"
@@ -3086,7 +3192,6 @@
               {
                 "id": "e5a3d2a6-0b7c-4db9-841c-b3f1667bce89",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "tiedFrom": "63bcd779-b223-483e-9040-a328181a908b"
               }
@@ -3109,7 +3214,9 @@
               {
                 "id": "214e4c82-dcc1-4e84-9a63-6063fb050461",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3131,7 +3238,6 @@
               {
                 "id": "9174cf03-5593-4fab-9d26-a8220a484917",
                 "step": "G",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3153,7 +3259,9 @@
               {
                 "id": "77083b6f-7abc-48b4-af64-53d6bb269a42",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3212,7 +3320,9 @@
               {
                 "id": "6054356e-86e1-4c4e-8826-d294935c261b",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3235,7 +3345,6 @@
               {
                 "id": "b173db2f-ebdc-4deb-9897-87bb22bc993e",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -3246,7 +3355,9 @@
                     {
                       "id": "0a71ce31-4ff1-4dcb-bab2-2fc932b2ca79",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 4
                     }
                   ],
@@ -3275,7 +3386,9 @@
               {
                 "id": "6649cc1d-a83a-4cfb-b8aa-02bc44f8574a",
                 "step": "F",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3298,7 +3411,9 @@
               {
                 "id": "902b8c88-3039-4345-8f5c-28e301fc6dbc",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3321,7 +3436,6 @@
               {
                 "id": "b500bf34-b862-489f-a2cd-59017f5caa9e",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3343,7 +3457,9 @@
               {
                 "id": "a8a27161-4e20-4943-a489-932d3296342f",
                 "step": "F",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -3400,7 +3516,9 @@
               {
                 "id": "e5ace29b-5b44-4a2c-b20d-1057974ccf5b",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3423,7 +3541,6 @@
               {
                 "id": "c97b5cb0-b773-4953-bddc-e4159cba491e",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -3434,7 +3551,9 @@
                     {
                       "id": "6b818d4b-99a9-453f-b9b9-d737d83b447e",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 4
                     }
                   ],
@@ -3462,7 +3581,9 @@
               {
                 "id": "5b5d1e9f-7a3e-4ace-8fc1-34e17920e146",
                 "step": "F",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3485,7 +3606,9 @@
               {
                 "id": "f4877bab-a323-4f2b-aaae-219892487255",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3508,7 +3631,6 @@
               {
                 "id": "5ec5421c-e249-4e05-a2b7-149a52f01ab3",
                 "step": "F",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -3520,7 +3642,9 @@
                     {
                       "id": "8fe07c93-c5ec-4376-b8fa-9968ce326ad8",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 4
                     }
                   ],
@@ -3548,7 +3672,9 @@
               {
                 "id": "42720a2e-c8ab-45f9-be6a-9766f5f6f664",
                 "step": "F",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3571,7 +3697,9 @@
               {
                 "id": "a7b370aa-178a-4080-8d2e-1108f5870faf",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3594,7 +3722,9 @@
               {
                 "id": "47771d39-25fb-426a-9e5b-fd4c8caf95c7",
                 "step": "F",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -3606,7 +3736,6 @@
                     {
                       "id": "af644def-98cf-4653-a5c5-73a755b13215",
                       "step": "F",
-                      "alter": 0,
                       "octave": 4
                     }
                   ],
@@ -3634,7 +3763,9 @@
               {
                 "id": "334b6e75-1e77-45bd-980c-71b5ebb54c9f",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3755,7 +3886,6 @@
               {
                 "id": "ac8519b7-8fe2-45ab-beda-d57761bd2650",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3779,7 +3909,6 @@
               {
                 "id": "0fc760a9-3199-4000-b6a8-4cc9450d3382",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -3791,7 +3920,6 @@
                     {
                       "id": "d827e443-0822-43b6-b208-9dd0dc44d40f",
                       "step": "F",
-                      "alter": 0,
                       "octave": 4
                     }
                   ],
@@ -3819,7 +3947,9 @@
               {
                 "id": "fc9e51cf-13cc-4fc3-9712-7a3f00966389",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3841,7 +3971,6 @@
               {
                 "id": "746bddfd-3ec1-4b24-8b51-e8cd346d1a39",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -3863,7 +3992,9 @@
               {
                 "id": "8afb3966-c7fd-44f9-9181-ac04ccdeac45",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3886,7 +4017,9 @@
               {
                 "id": "0391955e-b7e9-4f58-b703-5b4e0a0e5878",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -3908,7 +4041,9 @@
               {
                 "id": "42e2a73b-3134-4bd0-8fe5-6745528d99b8",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4006,7 +4141,6 @@
               {
                 "id": "36b8b25b-c00f-41e6-81bc-f1b51f8ac62d",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4029,7 +4163,6 @@
               {
                 "id": "18657384-7051-458f-9bc6-041e2fcb8f4f",
                 "step": "F",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -4041,7 +4174,9 @@
                     {
                       "id": "fce85ae6-705e-4201-94fc-ba3716cb351a",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 4
                     }
                   ],
@@ -4069,7 +4204,6 @@
               {
                 "id": "ce8f4020-3168-4f99-a777-610cc61ee6a8",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4091,7 +4225,9 @@
               {
                 "id": "aa31b96a-6bc6-4016-8a3a-50d13a523f79",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4113,7 +4249,9 @@
               {
                 "id": "fca5a483-96a6-414b-9e04-c87930d361be",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -4182,7 +4320,6 @@
               {
                 "id": "205a4531-c432-46a8-8845-19981810758b",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4206,7 +4343,6 @@
               {
                 "id": "cde42d2c-311f-48fb-b09f-acf2cb4d449d",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -4218,7 +4354,6 @@
                     {
                       "id": "343cc761-1a4a-4d7a-88e0-5097b4344f2d",
                       "step": "F",
-                      "alter": 0,
                       "octave": 4
                     }
                   ],
@@ -4246,7 +4381,9 @@
               {
                 "id": "439fa9cd-d2e8-4967-860f-224642e79119",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4268,7 +4405,6 @@
               {
                 "id": "dad2ec75-a538-4892-b185-6db8bc014f4c",
                 "step": "C",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4290,7 +4426,9 @@
               {
                 "id": "5e179490-5b9a-47eb-8d0a-62495787855d",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4312,7 +4450,9 @@
               {
                 "id": "3d4b28c3-1ae2-4c2a-ac4d-f72f1622dd87",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ],
@@ -4335,7 +4475,9 @@
               {
                 "id": "31ead6ff-094c-4546-87cf-fcbef76731eb",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4427,7 +4569,6 @@
               {
                 "id": "90a2a395-66be-4c5f-8886-456ed21101ce",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4450,7 +4591,6 @@
               {
                 "id": "ed5070b8-29a3-4cca-871c-56f4d0791c2b",
                 "step": "F",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -4462,7 +4602,9 @@
                     {
                       "id": "db9bb738-4444-4709-9d99-a2ff12494038",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 4
                     }
                   ],
@@ -4490,7 +4632,6 @@
               {
                 "id": "84d8a0ed-f478-435d-81c4-a037fcd9ca88",
                 "step": "D",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -4512,7 +4653,9 @@
               {
                 "id": "b290a7d6-df5c-481e-91e8-2b285c93d4ed",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4534,7 +4677,9 @@
               {
                 "id": "1dd76375-965d-493e-9944-c117f1d29352",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedTo": "12d8375e-2be4-4ef8-8304-1140f00d5716"
               }
@@ -4605,7 +4750,9 @@
               {
                 "id": "12d8375e-2be4-4ef8-8304-1140f00d5716",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedFrom": "1dd76375-965d-493e-9944-c117f1d29352"
               }
@@ -4629,7 +4776,9 @@
               {
                 "id": "625728c1-599d-4d87-87f3-1e338f29d209",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -4652,7 +4801,9 @@
               {
                 "id": "27d4aa64-ea98-419b-bc9c-a454b47254fe",
                 "step": "C",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -4675,7 +4826,9 @@
               {
                 "id": "f132e7f5-d237-4be8-93df-fe4412e021d4",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4698,7 +4851,9 @@
               {
                 "id": "4f744769-e60d-45aa-8ee4-d000f98a5a42",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedTo": "50febb7c-c712-4d82-92fe-a5fc462ad2fa"
               }
@@ -4722,7 +4877,9 @@
               {
                 "id": "50febb7c-c712-4d82-92fe-a5fc462ad2fa",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "4f744769-e60d-45aa-8ee4-d000f98a5a42"
               }
@@ -4746,7 +4903,9 @@
               {
                 "id": "73212eb8-e334-42b2-9271-e4d3727a871a",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4769,7 +4928,9 @@
               {
                 "id": "59e6740f-dbee-4351-80f5-1d6a8a878bf8",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4793,7 +4954,9 @@
               {
                 "id": "371b4f27-7104-469d-88a5-2c6a389284d0",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4816,7 +4979,9 @@
               {
                 "id": "c6a85069-3100-4b49-afdc-c2aa47fff61a",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -4839,7 +5004,9 @@
               {
                 "id": "f417c724-91c6-4348-8c48-34416e9f64cb",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -4914,7 +5081,9 @@
               {
                 "id": "0a67a6c8-609e-497c-b7b5-58cf4901c7e4",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ],
@@ -4940,7 +5109,9 @@
               {
                 "id": "88c29c58-2880-4a4f-a3c2-21a2e0124f0c",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -4963,7 +5134,9 @@
               {
                 "id": "3b4c7c4f-c392-4881-9a41-9501c795fd53",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -4986,7 +5159,6 @@
               {
                 "id": "7a3dc2ac-cba7-4f36-962c-5526cf95d3fc",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -5008,7 +5180,9 @@
               {
                 "id": "8e1df4e2-a893-4897-aed6-bd395020dcc1",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5030,7 +5204,9 @@
               {
                 "id": "ecb1fef1-2c8b-47ae-85fa-328f956852f1",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5052,7 +5228,9 @@
               {
                 "id": "a8138cf8-b0f4-4e3a-b558-e898267deca6",
                 "step": "C",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5074,7 +5252,9 @@
               {
                 "id": "af486ef6-0b76-4ced-855a-dec7f6160d30",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedTo": "330b4c90-7a72-44b2-b15c-bffcd7042f62"
               }
@@ -5097,7 +5277,9 @@
               {
                 "id": "330b4c90-7a72-44b2-b15c-bffcd7042f62",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "af486ef6-0b76-4ced-855a-dec7f6160d30",
                 "tiedTo": "9acefe4a-5fd8-45cb-a8dc-150b7b9149e7"
@@ -5144,7 +5326,9 @@
               {
                 "id": "9acefe4a-5fd8-45cb-a8dc-150b7b9149e7",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "330b4c90-7a72-44b2-b15c-bffcd7042f62"
               }
@@ -5168,7 +5352,6 @@
               {
                 "id": "548fb2d1-330d-4adc-a2a6-5843ff790d1b",
                 "step": "C",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -5192,7 +5375,9 @@
               {
                 "id": "40792e16-b4a3-46aa-964a-fd8e427083c3",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5215,7 +5400,9 @@
               {
                 "id": "d5037f75-33cc-4feb-a74b-3d55d03151f4",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ],
@@ -5239,7 +5426,9 @@
               {
                 "id": "a86eed20-944c-4f83-a526-bae65e05634a",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5262,7 +5451,6 @@
               {
                 "id": "fdfb7ebc-3a3a-4ee0-9518-3874f53e6765",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -5285,7 +5473,9 @@
               {
                 "id": "ecac6279-0867-4f7c-91fd-09736c5f3152",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -5308,7 +5498,6 @@
               {
                 "id": "9708ad5f-c519-4b2e-8338-cdf92ea5ea70",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -5331,7 +5520,9 @@
               {
                 "id": "b9edea58-630b-4907-a93c-4b576f93b457",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5355,7 +5546,9 @@
               {
                 "id": "35c53227-b5c3-4a48-9a44-009204210dc6",
                 "step": "F",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5378,7 +5571,9 @@
               {
                 "id": "596e779c-9ff3-4d20-9e3b-3a617f27112d",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5401,7 +5596,6 @@
               {
                 "id": "57ab5b29-ebbe-41f0-8c86-1bfa960311b7",
                 "step": "C",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -5423,7 +5617,9 @@
               {
                 "id": "11976779-5466-4199-b3bb-11c49fa56b78",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -5445,7 +5641,6 @@
               {
                 "id": "f6cd8e0f-4117-41a2-a3f7-70d804e76e80",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -5468,7 +5663,9 @@
               {
                 "id": "2b22b39b-ea02-4b1c-8da7-aa9a025ad40c",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -5490,7 +5687,9 @@
               {
                 "id": "321ad685-395a-42b9-bb65-1c2280d2d786",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -5513,7 +5712,6 @@
               {
                 "id": "394673e3-60a9-46e5-b57e-25e09ec4cf34",
                 "step": "D",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -5536,7 +5734,9 @@
               {
                 "id": "263b5d96-44ba-4350-8d16-7f9673dafb6b",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -5558,7 +5758,9 @@
               {
                 "id": "14cf432b-040d-40f2-b377-6ba95a87aff2",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -5580,7 +5782,6 @@
               {
                 "id": "91ee9152-28e8-4996-affe-0b89db1d821c",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -5674,7 +5875,9 @@
               {
                 "id": "49ca0291-50ab-4d53-a606-5002589596b8",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5697,7 +5900,9 @@
               {
                 "id": "01270aec-be35-4091-853b-093e966c506e",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ],
@@ -5721,7 +5926,9 @@
               {
                 "id": "061ac55a-16e4-4281-9911-832b0eb32344",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -5743,7 +5950,9 @@
               {
                 "id": "f62c28c6-0074-4a7e-b455-679d2b6be648",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -5798,7 +6007,9 @@
               {
                 "id": "a343f9df-3f8b-4912-a9f6-4a768f61980e",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ],
@@ -5822,7 +6033,6 @@
               {
                 "id": "4857920f-4d33-406d-a6ff-4667671ac749",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -5845,7 +6055,9 @@
               {
                 "id": "6ee018e1-656d-4d32-9ba4-73dcf386840a",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -5867,7 +6079,9 @@
               {
                 "id": "50474d2c-a8cc-4f6a-830a-c9ad63e365ab",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedTo": "03fc9012-bc25-40cb-8f1f-dce5f2f100fc"
               }
@@ -5879,7 +6093,6 @@
                     {
                       "id": "4ddccf7d-9b70-4799-bc68-b42a815b11cb",
                       "step": "F",
-                      "alter": 0,
                       "octave": 5
                     }
                   ],
@@ -5890,7 +6103,9 @@
                     {
                       "id": "e55bc46f-f7db-4c9c-a9fb-944161c7b669",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 5
                     }
                   ],
@@ -5901,7 +6116,9 @@
                     {
                       "id": "690ed6f1-0faf-43bb-a77d-32a1dd9cc76c",
                       "step": "A",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 5
                     }
                   ],
@@ -5960,7 +6177,9 @@
               {
                 "id": "03fc9012-bc25-40cb-8f1f-dce5f2f100fc",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedFrom": "50474d2c-a8cc-4f6a-830a-c9ad63e365ab"
               }
@@ -5986,7 +6205,9 @@
               {
                 "id": "84a92592-de96-4d2a-8b60-4bfdc2025b00",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedTo": "73743913-c601-4bee-9e40-2aa6a643d25c"
               }
@@ -6042,7 +6263,9 @@
               {
                 "id": "73743913-c601-4bee-9e40-2aa6a643d25c",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedFrom": "84a92592-de96-4d2a-8b60-4bfdc2025b00"
               }
@@ -6066,7 +6289,6 @@
               {
                 "id": "8db5eb0d-7ef8-4bc5-b4ed-2f1523baeb34",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6089,7 +6311,6 @@
               {
                 "id": "12a6fcb9-3296-47ab-8a6e-30b7f5823e44",
                 "step": "B",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6116,7 +6337,9 @@
               {
                 "id": "bb088343-ffa7-4841-a21f-54b3f2d31bd3",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -6138,7 +6361,6 @@
               {
                 "id": "65a51e3d-d986-4c25-bb3b-22baae309bf4",
                 "step": "G",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6161,7 +6383,6 @@
               {
                 "id": "a73a7cd3-700f-42db-b0ae-65f38975e4df",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6184,7 +6405,9 @@
               {
                 "id": "98388e66-460e-461e-a677-7cf05acb6078",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -6206,7 +6429,6 @@
               {
                 "id": "768892cb-e222-46a4-bc0f-9b65b7c4de27",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -6228,7 +6450,6 @@
               {
                 "id": "353d179c-73dd-453e-a248-0eac0c972d0b",
                 "step": "E",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6251,7 +6472,9 @@
               {
                 "id": "73994a35-acc4-470f-b416-6edb66fb5b37",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -6319,7 +6542,9 @@
               {
                 "id": "0b1f8152-0c3a-4f73-b55e-351cfbc7ca2d",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedTo": "058b8805-27e4-4c20-91c4-851689c7c7d4"
               }
@@ -6343,7 +6568,9 @@
               {
                 "id": "058b8805-27e4-4c20-91c4-851689c7c7d4",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedFrom": "0b1f8152-0c3a-4f73-b55e-351cfbc7ca2d"
               }
@@ -6366,7 +6593,9 @@
               {
                 "id": "708ecff6-5e29-425f-b19b-20c9d359526b",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 6
               }
             ]
@@ -6388,7 +6617,9 @@
               {
                 "id": "8a358543-3da7-41bc-aeb1-b9a53c198500",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 6
               }
             ],
@@ -6399,7 +6630,9 @@
                     {
                       "id": "12da73f8-82a1-425d-9a94-f5fa9e3d6478",
                       "step": "F",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 6
                     }
                   ],
@@ -6426,7 +6659,9 @@
               {
                 "id": "b81f6070-169b-46c5-b2d9-61c6a212d43e",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 6
               }
             ]
@@ -6448,7 +6683,9 @@
               {
                 "id": "af551588-f0f9-4d62-9cc1-15e862df67ec",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedTo": "e4f66201-5260-4e5e-aa08-981e7f634b63"
               }
@@ -6493,7 +6730,9 @@
               {
                 "id": "e4f66201-5260-4e5e-aa08-981e7f634b63",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5,
                 "tiedFrom": "af551588-f0f9-4d62-9cc1-15e862df67ec"
               }
@@ -6516,7 +6755,6 @@
               {
                 "id": "5da7a42b-ecbd-4139-ba47-528ed3e3d07f",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6539,7 +6777,6 @@
               {
                 "id": "cb393853-b13a-4a5d-8ef2-42da20440a07",
                 "step": "B",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6566,7 +6803,9 @@
               {
                 "id": "c13489c7-80b0-41b7-be65-4f66500bbe72",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -6589,7 +6828,6 @@
               {
                 "id": "92f364bf-6485-4eb4-bcf8-deba3e8e15bc",
                 "step": "G",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6612,7 +6850,6 @@
               {
                 "id": "603d95de-9108-4415-897f-5b7b1b79c5ce",
                 "step": "A",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6635,7 +6872,9 @@
               {
                 "id": "cc83572c-ab54-4134-a0a3-5641088d2753",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -6657,7 +6896,6 @@
               {
                 "id": "431038a0-8b2c-4ff3-ba00-49c7a9661e44",
                 "step": "F",
-                "alter": 0,
                 "octave": 5
               }
             ]
@@ -6679,7 +6917,6 @@
               {
                 "id": "3f62fc5e-2e28-4e92-9155-4ddf3516c26e",
                 "step": "E",
-                "alter": 0,
                 "octave": 5,
                 "forceAccidental": true
               }
@@ -6702,7 +6939,9 @@
               {
                 "id": "bbaa1215-1ca3-4512-a9f6-facbc88a0728",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 5
               }
             ]
@@ -6757,7 +6996,9 @@
               {
                 "id": "be903031-4047-4cc3-b1ef-fcccc206dec6",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -6780,7 +7021,6 @@
               {
                 "id": "1a9616ce-0328-4e76-a60b-c581d5532aa5",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -6804,7 +7044,6 @@
               {
                 "id": "a94e0435-d874-4003-b676-c9f9b220b019",
                 "step": "B",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -6829,7 +7068,9 @@
               {
                 "id": "54986f17-fa10-4854-9ad3-85994332c7f2",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -6852,7 +7093,6 @@
               {
                 "id": "5abd2cad-0531-4d2b-8d8b-20a8ea2a47ae",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -6876,7 +7116,6 @@
               {
                 "id": "6fbcdf2d-7c33-4acf-aaba-af7213d45e60",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -6899,7 +7138,9 @@
               {
                 "id": "3a63f2cd-e663-4a8e-9846-699ab0079c1c",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -6921,7 +7162,6 @@
               {
                 "id": "c633d511-579b-438a-9af5-6f234c4f717c",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -6943,7 +7183,6 @@
               {
                 "id": "35bf8253-3451-4a7e-b746-6775900efd0d",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -6966,7 +7205,9 @@
               {
                 "id": "a0cfc710-737f-4545-aed8-00437e3cfdb2",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -7069,7 +7310,9 @@
               {
                 "id": "af55a195-ec82-4a2c-bdb0-220ffd121eb5",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -7092,7 +7335,6 @@
               {
                 "id": "c059a33a-6590-45fb-8698-c53ea6116e08",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7116,7 +7358,6 @@
               {
                 "id": "c1ab322d-214f-4387-8754-573b684f87a1",
                 "step": "B",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7141,7 +7382,9 @@
               {
                 "id": "5c929399-0a71-4613-8f30-367404d75e98",
                 "step": "A",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -7164,7 +7407,6 @@
               {
                 "id": "567803da-3830-4acc-a093-61a4d62793ed",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7188,7 +7430,6 @@
               {
                 "id": "708d8552-9ee8-448b-8957-efc31a876fff",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7211,7 +7452,9 @@
               {
                 "id": "3e2d55e5-3792-4f8c-84c7-dabfcc490492",
                 "step": "G",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -7233,7 +7476,6 @@
               {
                 "id": "9140f0d3-f727-4bea-925f-e793f9707595",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7255,7 +7497,6 @@
               {
                 "id": "292bd09c-35d6-4fae-88e8-aff1bade2db3",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7278,7 +7519,9 @@
               {
                 "id": "795d9b5d-f591-48ac-b4b1-bf9162603078",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedTo": "dedfaa31-efe1-4c11-ae2f-4af1810203b7"
               }
@@ -7385,7 +7628,9 @@
               {
                 "id": "dedfaa31-efe1-4c11-ae2f-4af1810203b7",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "795d9b5d-f591-48ac-b4b1-bf9162603078"
               }
@@ -7409,7 +7654,9 @@
               {
                 "id": "74eef602-8e00-4686-a93e-7cc98a5f6f14",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -7432,7 +7679,6 @@
               {
                 "id": "8c165c4e-9fe1-4673-a2f2-f8e60c934392",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ],
@@ -7443,7 +7689,9 @@
                     {
                       "id": "77f2d5b7-d1de-442b-8019-5f99d5f0080c",
                       "step": "G",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 4
                     }
                   ],
@@ -7471,7 +7719,6 @@
               {
                 "id": "8fb3e8fb-5633-4ee2-b432-5a17960ac8cf",
                 "step": "E",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7494,7 +7741,9 @@
               {
                 "id": "859f7ff9-3572-4bec-9633-6114e910c318",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedTo": "3c786835-e0d2-4a92-93e2-a775724df93f"
               }
@@ -7560,7 +7809,9 @@
               {
                 "id": "3c786835-e0d2-4a92-93e2-a775724df93f",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedTo": "5141f115-f435-460d-b99d-dd1b1c953e51",
                 "tiedFrom": "859f7ff9-3572-4bec-9633-6114e910c318"
@@ -7585,7 +7836,9 @@
               {
                 "id": "5141f115-f435-460d-b99d-dd1b1c953e51",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "3c786835-e0d2-4a92-93e2-a775724df93f"
               }
@@ -7609,7 +7862,6 @@
               {
                 "id": "f8a5490c-50d4-40ab-a12d-8608bd28e476",
                 "step": "A",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7632,7 +7884,6 @@
               {
                 "id": "b48f8875-8633-4217-b316-29ed82ba9e19",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7655,7 +7906,9 @@
               {
                 "id": "162866ab-8e49-44d7-89e5-47133a796af0",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedTo": "70364e10-270b-4023-b21b-a9215943578e"
               }
@@ -7715,7 +7968,9 @@
               {
                 "id": "70364e10-270b-4023-b21b-a9215943578e",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "162866ab-8e49-44d7-89e5-47133a796af0"
               }
@@ -7741,7 +7996,6 @@
               {
                 "id": "0990d4a7-ac24-4f85-8b3a-84cc9a8fd6db",
                 "step": "B",
-                "alter": 0,
                 "octave": 4,
                 "tiedTo": "dbc7c2d5-54ca-4479-9a41-16d1d9f1b89f"
               }
@@ -7807,7 +8061,9 @@
               {
                 "id": "dbc7c2d5-54ca-4479-9a41-16d1d9f1b89f",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "0990d4a7-ac24-4f85-8b3a-84cc9a8fd6db",
                 "tiedTo": "6e587602-be65-4755-ac0b-92a7af390dc8"
@@ -7836,7 +8092,9 @@
               {
                 "id": "6e587602-be65-4755-ac0b-92a7af390dc8",
                 "step": "B",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4,
                 "tiedFrom": "dbc7c2d5-54ca-4479-9a41-16d1d9f1b89f"
               }
@@ -7860,7 +8118,6 @@
               {
                 "id": "b5cea5c1-b0d1-49d0-a2f6-d85f5759c353",
                 "step": "A",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7884,7 +8141,6 @@
               {
                 "id": "34b5bdd5-a4af-47b4-8d59-1e86139ec29c",
                 "step": "G",
-                "alter": 0,
                 "octave": 4,
                 "forceAccidental": true
               }
@@ -7909,7 +8165,6 @@
               {
                 "id": "00078d1b-a800-4738-b2b6-35c1f4202bf6",
                 "step": "F",
-                "alter": 0,
                 "octave": 4
               }
             ]
@@ -7932,7 +8187,9 @@
               {
                 "id": "b8143f5a-fcfd-4ba6-bd67-9010dde6da6e",
                 "step": "E",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ]
@@ -7998,7 +8255,9 @@
               {
                 "id": "ead92899-31be-428a-bab0-aaf8eb5380d0",
                 "step": "D",
-                "alter": -1,
+                "alteration": [
+                  "flat"
+                ],
                 "octave": 4
               }
             ],
@@ -8009,7 +8268,9 @@
                     {
                       "id": "b48c43eb-fe47-4763-b86c-01fd7827a36b",
                       "step": "E",
-                      "alter": -1,
+                      "alteration": [
+                        "flat"
+                      ],
                       "octave": 4
                     }
                   ],

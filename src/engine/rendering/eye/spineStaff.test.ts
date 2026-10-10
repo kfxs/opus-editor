@@ -13,7 +13,7 @@ import { SPINE_BLOCK_CLASS, drawSpineStaff, type SpineNote } from './spineStaff'
  * PLACEMENTS — which are exact — ⛔ never about where a glyph's ink landed.
  */
 
-const quarter = (s: number): SpineNote => ({ step: 'B', alter: 0, octave: 4, duration: 'q', s })
+const quarter = (s: number): SpineNote => ({ step: 'B', octave: 4, duration: 'q', s })
 
 const record = (draw: (ctx: SceneRecorder) => void) => {
   const recorder = new SceneRecorder()

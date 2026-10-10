@@ -373,7 +373,7 @@ describe('ottavaOps — resizeOttavaBySlot', () => {
   /** Four quarters in bar `m`. */
   const quarters = (m: number) =>
     [0, 1, 2, 3].map(b =>
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
 
   const lengthOf = (id: string) => fracToNumber(getOttavaById(score, id)!.length)
 
@@ -429,8 +429,8 @@ describe('ottavaOps — resizeOttavaBySlot', () => {
     // An eighth in voice 2 between the voice-1 quarters IS a step, because the line displaces it too.
     // Walking voice 1 alone would jump the end from beat ½ straight to beat 1 and silently re-octave
     // a note the key never passed.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
     const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 2), shift: 1 })!
     expect(resizeOttavaBySlot(score, o.id, 1)).toBe(true)
     expect(lengthOf(o.id), 'the voice-2 eighth: ½ + ½').toBe(1)
@@ -441,9 +441,9 @@ describe('ottavaOps — resizeOttavaBySlot', () => {
     // end at beat 3 — a position no onset occupies, so the bracket would stop inside a sounding
     // note and the next press would have to skip the rest of it. The longer slot is the one that
     // makes the end a boundary again.
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
-    model.addNote({ step: 'G', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    model.addNote({ step: 'G', octave: 4, duration: 'h', measure: 1, beat: frac(2, 1), voice: 1 })
     const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!
     expect(resizeOttavaBySlot(score, o.id, 1)).toBe(true)
     expect(lengthOf(o.id), 'through the HALF at beat 2, not the quarter beside it').toBe(4)
@@ -456,7 +456,7 @@ describe('ottavaOps — resizeOttavaBySlot', () => {
     // beat 1; reading its own staff it must reach bar 2.
     const lower = model.addStaffBelow(0)
     quarters(1)
-    model.addNote({ step: 'C', alter: 0, octave: 3, duration: 'w', measure: 1, beat: frac(0, 1), staff: 1 })
+    model.addNote({ step: 'C', octave: 3, duration: 'w', measure: 1, beat: frac(0, 1), staff: 1 })
     const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(1, 1), shift: 1, staffId: lower })!
     expect(resizeOttavaBySlot(score, o.id, 1)).toBe(true)
     expect(lengthOf(o.id), 'past the semibreve into bar 2, not the upper staff\'s beat 1').toBe(8)
@@ -483,7 +483,7 @@ describe('ottavaOps — moveOttavaStartBySlot', () => {
 
   const quarters = (m: number) =>
     [0, 1, 2, 3].map(b =>
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
 
   /** The span's END, as (measure, beat) — the quantity these gestures must never disturb. */
   const endOf = (id: string) => {
@@ -554,8 +554,8 @@ describe('ottavaOps — moveOttavaStartBySlot', () => {
   })
 
   it('⭐ steps through EVERY VOICE of its staff, like the end does', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(1, 2), voice: 1 })
     const o = addOttava(score, 1, { beat: frac(1, 1), length: frac(3, 1), shift: 1 })!
     expect(moveOttavaStartBySlot(score, o.id, -1)).toBe(true)
     expect(fracToNumber(getOttavaById(score, o.id)!.beat), 'the voice-2 eighth at ½').toBe(0.5)
@@ -600,7 +600,7 @@ describe('ottavaOps — the walk\'s candidates', () => {
 
   const quarters = (m: number) =>
     [0, 1, 2, 3].map(b =>
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
 
   const beatOf = (at: { measure: number; beat: typeof frac extends never ? never : ReturnType<typeof frac> } | null) =>
     at && { measure: at.measure, beat: fracToNumber(at.beat) }
@@ -676,7 +676,7 @@ describe('ottavaOps — applyOttavaDrag', () => {
     model.addMeasure()
     score = model.getScore()
     for (const b of [0, 1, 2, 3]) {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
     }
   })
 
@@ -719,7 +719,7 @@ describe('ottavaOps — applyOttavaDrag', () => {
 
   it('⭐ a START dragged across a BARLINE re-files the line, keeping the same id', () => {
     for (const b of [0, 1, 2, 3]) {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(b, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(b, 1) })
     }
     const o = addOttava(score, 1, { beat: frac(0, 1), length: frac(6, 1), shift: 1 })!
     expect(applyOttavaDrag(score, o.id, { at: 'start', measure: 2, beat: frac(1, 1) })).toBe(true)
@@ -757,7 +757,7 @@ describe('ottavaOps — setOttavaAtSlot', () => {
 
   const quarters = (m: number) =>
     [0, 1, 2, 3].map(b =>
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) }))
 
   it('⭐⭐ moves the beginning and KEEPS the length — ⛔ the far end is not held', () => {
     quarters(1)
@@ -841,7 +841,7 @@ describe('ottavaOps — the endpoint squares\' ink offsets', () => {
 
   it('⚠️ SURVIVES a re-anchor of the extent — the nudge is about the drawing, not about a note', () => {
     for (const b of [0, 1, 2, 3]) {
-      model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })
     }
     setOttavaEndpointOffset(score, id, 'end', 1.5, -1)
     resizeOttavaBySlot(score, id, -1)
@@ -969,9 +969,9 @@ describe('setOttavaAtStaffSlot — a staff is a place, and a transposition', () 
     score = model.getScore()
     // Beats 0 and 1 on the TOP staff; beat 0 only on the lower one (a half note covers 0..1 there).
     for (const b of [0, 1]) {
-      model.addNote({ step: 'C', octave: 5, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+      model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
     }
-    model.addNote({ step: 'C', octave: 3, alter: 0, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
+    model.addNote({ step: 'C', octave: 3, duration: 'h', measure: 1, beat: frac(0, 1), staff: 1 } as never)
     id = addOttava(score, 1, { beat: frac(0, 1), length: frac(2, 1), shift: 1 })!.id
   })
 

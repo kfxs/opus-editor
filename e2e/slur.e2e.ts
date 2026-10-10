@@ -638,7 +638,7 @@ async function slurDepthBelow(
   return score.evaluate(async (alter: number) => {
     const h = window.__h
     const b = h.engine.addNoteAtBeat({ step: 'B', octave: 4, duration: '8', measure: 1, beat: h.frac(0, 1) })!
-    const g = h.engine.addNoteAtBeat({ step: 'G', octave: 4, alter, duration: '8', measure: 1, beat: h.frac(1, 2) })!
+    const g = h.engine.addNoteAtBeat({ step: 'G', octave: 4, ...(alter ? { alteration: [alter > 0 ? 'sharp' : 'flat'] } : {}), duration: '8', measure: 1, beat: h.frac(1, 2) } as never)!
     h.engine.slur.createSlur([b.id, g.id])
     await h.render()
     const ys = h.curveSamples('g.slur path', 40).map(p => p.y)
@@ -718,7 +718,7 @@ async function slurShape(score: import('@playwright/test').Page, staccato: boole
     h.engine.addMeasure()
     const ids = [['C', 1], ['D', 1], ['E', 0], ['F', -1], ['G', 1]].map(([step, alter], i) => {
       const n = h.engine.addNoteAtBeat({
-        step: step as string, alter: alter as number, octave: 5, duration: '16',
+        step: step as string, ...(alter ? { alteration: [(alter as number) > 0 ? 'sharp' : 'flat'] } : {}), octave: 5, duration: '16',
         measure: 2, beat: h.frac(i, 4),
       } as never)!
       if (staccato) h.engine.toggleArticulation(n.id, 'staccato')

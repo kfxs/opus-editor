@@ -29,7 +29,7 @@ describe('measureOps', () => {
 
   it('insertMeasureAfter splices in and RENUMBERS what follows — the bars and their slots', () => {
     addMeasure(score)
-    const note = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
+    const note = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(0, 1) })
     const inserted = insertMeasureAfter(score, 1)
 
     expect(score.measures.map(m => m.number)).toEqual([1, 2, 3])

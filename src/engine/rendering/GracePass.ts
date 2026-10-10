@@ -426,7 +426,7 @@ function drawGraceArticulations(
   const centreX = a.headLeft + (a.glyphWidth * k) / 2
   const placed = placeMemberArticulations(a.stave, {
     types,
-    keys: a.note.pitches.map(p => spellingToNoteKey(p.step, p.alter, p.octave)),
+    keys: a.note.pitches.map(p => spellingToNoteKey(p.step, p.alteration, p.octave)),
     clef: a.clef,
     headX: centreX - a.glyphWidth / 2,
     stemLengthPx: a.stemPx,

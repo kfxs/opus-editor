@@ -86,7 +86,7 @@ describe('MusicEngine key signatures', () => {
    * His report, 2026-08-27, on a score in D major: *"suppose the F♯ I want to make it explicit, so I
    * added ♯ to the F that is already ♯ — what I expect is to see the accidental written"*. The rule
    * in `accidentalState` was already right (`forceAccidental` beats the suppression); what refused
-   * him was `noteDisplaysAccidental`, one layer above it, which matched on `alter` alone and so
+   * him was `noteDisplaysAccidental`, one layer above it, which matched on `alteration` alone and so
    * answered "already there" about a sign that was not on the page.
    */
   describe('an explicit sign the key already implies', () => {
@@ -96,7 +96,7 @@ describe('MusicEngine key signatures', () => {
     const fSharpIn = (fifths: number): { engine: MusicEngine; id: string } => {
       const e = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
       e.setKeyAt(1, keyFromFifths(fifths))
-      const note = e.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const note = e.addNoteAtBeat({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
       return { engine: e, id: note.id }
     }
 
@@ -110,7 +110,7 @@ describe('MusicEngine key signatures', () => {
       expect(e.noteDisplaysAccidental(id, '#'), 'the stamp is allowed through').toBe(false)
       e.setNoteAccidental(id, '#')
       expect(e.getNote(id)!.forceAccidental, 'and THAT is what makes it visible').toBe(true)
-      expect(e.getNote(id)!.alter, 'the pitch is untouched').toBe(1)
+      expect(e.getNote(id)!.alteration, 'the pitch is untouched').toEqual(['sharp'])
       expect(e.noteDisplaysAccidental(id, '#'), 'it now displays, so the next press toggles it off').toBe(true)
     })
 
@@ -122,14 +122,14 @@ describe('MusicEngine key signatures', () => {
     it('⛔ and the alteration still has to MATCH — an F♮ in D major displays no sharp', () => {
       const e = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
       e.setKeyAt(1, D_MAJOR)
-      const note = e.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
+      const note = e.addNoteAtBeat({ step: 'F', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!
       expect(e.noteDisplaysAccidental(note.id, '#')).toBe(false)
       expect(e.noteDisplaysAccidental(note.id, 'n'), 'it draws a NATURAL, contradicting the key').toBe(true)
     })
 
     it('⭐ "remove accidental" reverts to what the KEY says, not to a bare natural', () => {
       const { engine: e, id } = fSharpIn(2)
-      expect(e.getPrevailingAlter(id)).toBe(1)
+      expect(e.getPrevailingAlteration(id)).toEqual(['sharp'])
     })
   })
 })

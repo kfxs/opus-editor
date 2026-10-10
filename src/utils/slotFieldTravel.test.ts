@@ -40,11 +40,11 @@ const loadedChord = (): Chord => ({
   tremolo: 3,
   beam: 'begin',
   secondaryBreak: true,
-  graceBefore: { notes: [{ pitches: [{ id: 'g1', step: 'D', alter: 0, octave: 4 }], duration: '8' }], slash: true },
-  graceAfter: { notes: [{ pitches: [{ id: 'g2', step: 'F', alter: 1, octave: 4 }], duration: '16' }], stemDirection: 'down' },
-  bracketedBefore: [{ pitches: [{ id: 'b1', step: 'B', alter: -1, octave: 3 }], duration: 'q' }],
-  bracketedAfter: [{ pitches: [{ id: 'b2', step: 'G', alter: 0, octave: 4, forceAccidental: true }], duration: 'q' }],
-  notes: [{ id: 'n1', step: 'E', alter: 0, octave: 4, forceAccidental: true }],
+  graceBefore: { notes: [{ pitches: [{ id: 'g1', step: 'D', octave: 4 }], duration: '8' }], slash: true },
+  graceAfter: { notes: [{ pitches: [{ id: 'g2', step: 'F', alteration: ['sharp'], octave: 4 }], duration: '16' }], stemDirection: 'down' },
+  bracketedBefore: [{ pitches: [{ id: 'b1', step: 'B', alteration: ['flat'], octave: 3 }], duration: 'q' }],
+  bracketedAfter: [{ pitches: [{ id: 'b2', step: 'G', octave: 4, forceAccidental: true }], duration: 'q' }],
+  notes: [{ id: 'n1', step: 'E', octave: 4, forceAccidental: true }],
 })
 
 const measureOf = (slots: (Chord | Rest)[]): Measure =>
@@ -83,7 +83,7 @@ describe('what the table calls CARRIED really is', () => {
   })
 
   it('notes — as pitches, spelling and forced accidental intact', () => {
-    expect(piece.pitches).toEqual([{ step: 'E', alter: 0, octave: 4, forceAccidental: true }])
+    expect(piece.pitches).toEqual([{ step: 'E', octave: 4, forceAccidental: true }])
   })
 
   it('stemDirection', () => { expect(piece.stemDirection).toBe('up') })
@@ -116,17 +116,17 @@ describe('what the table calls CARRIED really is', () => {
   // payload pasted twice cannot mint two heads with one id — the id is what must NOT survive.
   const noIds = (g: unknown) => JSON.parse(JSON.stringify(g, (k, v) => (k === 'id' ? undefined : v)))
   it('graceBefore — the group, its flags and its written values', () => {
-    expect(noIds(piece.graceBefore)).toEqual({ notes: [{ pitches: [{ step: 'D', alter: 0, octave: 4 }], duration: '8' }], slash: true })
+    expect(noIds(piece.graceBefore)).toEqual({ notes: [{ pitches: [{ step: 'D', octave: 4 }], duration: '8' }], slash: true })
     expect(piece.graceBefore!.notes[0].pitches[0].id).not.toBe('g1')
   })
   it('graceAfter — its stem flag travels with it', () => {
-    expect(noIds(piece.graceAfter)).toEqual({ notes: [{ pitches: [{ step: 'F', alter: 1, octave: 4 }], duration: '16' }], stemDirection: 'down' })
+    expect(noIds(piece.graceAfter)).toEqual({ notes: [{ pitches: [{ step: 'F', alteration: ['sharp'], octave: 4 }], duration: '16' }], stemDirection: 'down' })
     expect(piece.graceAfter!.notes[0].pitches[0].id).not.toBe('g2')
   })
 
   it('bracketedBefore / bracketedAfter — the heads, the forced sign, FRESH ids (bracketed-grace-plan §1)', () => {
-    expect(noIds(piece.bracketedBefore)).toEqual([{ pitches: [{ step: 'B', alter: -1, octave: 3 }], duration: 'q' }])
-    expect(noIds(piece.bracketedAfter)).toEqual([{ pitches: [{ step: 'G', alter: 0, octave: 4, forceAccidental: true }], duration: 'q' }])
+    expect(noIds(piece.bracketedBefore)).toEqual([{ pitches: [{ step: 'B', alteration: ['flat'], octave: 3 }], duration: 'q' }])
+    expect(noIds(piece.bracketedAfter)).toEqual([{ pitches: [{ step: 'G', octave: 4, forceAccidental: true }], duration: 'q' }])
     expect(piece.bracketedBefore![0].pitches[0].id).not.toBe('b1')
   })
 

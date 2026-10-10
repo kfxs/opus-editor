@@ -16,6 +16,7 @@
  * no length of its own to continue into (docs/plans/fanned-beam-pitches-plan.md §3). A single-note ask is
  * refused; in a selection the member is DROPPED, since the other notes were selected too.
  */
+import { sameAlteration } from '@/utils/alterationSigns'
 import type { Note, NoteParams, Score, TieOffsetOverride } from '@/types/music'
 import { tieOffsetOverrideOf } from './engravingOverrides'
 import { clearEngravingOverride, setEngravingOverride } from './overrideOps'
@@ -47,7 +48,7 @@ export function tieTargetOf(sorted: readonly Note[], source: Note): Note | null 
   if (!next) return null
   const samePitch = stream.find(n =>
     compareByPosition(n, next) === 0 && !n.isRest
-    && n.step === source.step && (n.alter ?? 0) === (source.alter ?? 0) && n.octave === source.octave)
+    && n.step === source.step && sameAlteration(n.alteration, source.alteration) && n.octave === source.octave)
   return samePitch ?? next
 }
 

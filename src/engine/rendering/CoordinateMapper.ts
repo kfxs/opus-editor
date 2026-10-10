@@ -256,7 +256,7 @@ export class CoordinateMapper {
   }
 
   /**
-   * Convert pixel Y coordinate to a PitchSpelling (always natural: alter=0).
+   * Convert pixel Y coordinate to a PitchSpelling (always natural: no alteration).
    * Uses the inverse of spellingDiatonicPos with treble-clef reference (F5 at top line).
    */
   pixelYToPitch(y: number, measureNumber: number): PitchSpelling {
@@ -269,7 +269,7 @@ export class CoordinateMapper {
     // region): a NaN staffLine would yield an undefined step. Default to B4
     // (treble middle line) so callers always receive a valid spelling.
     if (!Number.isFinite(staffLine)) {
-      return { step: 'B', alter: 0, octave: 4 }
+      return { step: 'B', octave: 4 }
     }
     // Round to nearest half-staff-line (one diatonic step)
     const roundedLine = Math.round(staffLine * 2) / 2
@@ -284,7 +284,7 @@ export class CoordinateMapper {
     const stepIdx = ((Math.round(clampedDiatonic) % 7) + 7) % 7
     const STEPS: PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 
-    return { step: STEPS[stepIdx], alter: 0, octave }
+    return { step: STEPS[stepIdx], octave }
   }
 
   /**

@@ -47,8 +47,10 @@ function engravingOf(score: Score, id: string): { engraving?: EngravingOverride[
 export interface ClipboardPayload extends Clip {
   format: 'opus-editor/clipboard'
   /** ⚠️ Bumped to 5 on 2026-08-30: a `RebarEvent`'s authored shape became a SEQUENCE (a tie chain
-   *  is one event and several figures — `utils/rebar`), so the events section changed shape. */
-  version: 5
+   *  is one event and several figures — `utils/rebar`), so the events section changed shape.
+   *  ⚠️ Bumped to 6 on 2026-10-10: a pitch's `alter` number became an `alteration` LIST of signs
+   *  (docs/plans/alteration-signs-plan.md M2). */
+  version: 6
   /** Where it was copied from (reference / debugging only). */
   origin: { measure: number; beat: Fraction }
   /** Number of staves the selection covered (for clamp math / UX). 1 for a single-staff clip. */
@@ -535,7 +537,7 @@ function slursInWindow(
         abs: fracAdd(mStart, n.beat),
         staff: staffOf(n),
         voice: voiceOf(n),
-        pitch: { step: n.step, alter: n.alter ?? 0, octave: n.octave },
+        pitch: { step: n.step, alteration: n.alteration, octave: n.octave },
       })
     }
   }
@@ -593,7 +595,7 @@ function trillsInWindow(
         abs: fracAdd(mStart, n.beat),
         staff: staffOf(n),
         voice: voiceOf(n),
-        pitch: { step: n.step, alter: n.alter ?? 0, octave: n.octave },
+        pitch: { step: n.step, alteration: n.alteration, octave: n.octave },
       })
     }
   }
@@ -730,7 +732,7 @@ export function buildClipboardFromSelection(
   }
 
   return {
-    format: 'opus-editor/clipboard', version: 5, origin, spanBeats, spanStaves, lanes, dynamics, slurs, hairpins, trills,
+    format: 'opus-editor/clipboard', version: 6, origin, spanBeats, spanStaves, lanes, dynamics, slurs, hairpins, trills,
     // Omitted entirely when empty, matching `restShifts` (clean payload / old-clip parity).
     ...(spaces.length ? { spaces } : {}),
     ...(ottavas.length ? { ottavas } : {}),

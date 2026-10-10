@@ -13,8 +13,8 @@ vi.mock('./audio/PlaybackEngine', async () => (await import('@/testing/engineStu
 describe('NoteEntryCoordinator.updateNote — a bracketed pitch', () => {
   it('⭐ a duration key changes its HEAD, not the bar — one undo entry', () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
-    const made = engine.bracketed.add(note.id, 'before', { step: 'D', alter: 0, octave: 5 })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
+    const made = engine.bracketed.add(note.id, 'before', { step: 'D', octave: 5 })!
     const bar = JSON.stringify(engine.getScore().measures[0].slots.map(s => [s.type, s.beat, s.duration]))
     engine.updateNote(made.pitches[0].id, { duration: 'h' })
     expect(made.duration).toBe('h')
@@ -26,10 +26,10 @@ describe('NoteEntryCoordinator.updateNote — a bracketed pitch', () => {
 
   it('⭐ a pitch (the arrows) re-spells it in place — the id stays', () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
-    const made = engine.bracketed.add(note.id, 'before', { step: 'D', alter: 0, octave: 5 })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
+    const made = engine.bracketed.add(note.id, 'before', { step: 'D', octave: 5 })!
     const id = made.pitches[0].id
-    engine.updateNote(id, { step: 'F', alter: 1, octave: 5 })
-    expect(engine.getNote(id)).toMatchObject({ id, step: 'F', alter: 1, octave: 5 })
+    engine.updateNote(id, { step: 'F', alteration: ['sharp'], octave: 5 })
+    expect(engine.getNote(id)).toMatchObject({ id, step: 'F', alteration: ['sharp'], octave: 5 })
   })
 })

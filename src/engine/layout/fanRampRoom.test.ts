@@ -81,7 +81,7 @@ describe('⭐ a CUE fan asks for its closed-up room (cue-size-plan C8)', () => {
   it('its ramp by the armed spacing row and its last head at the cue size — less than the same fan full', () => {
     const rodsOf = (cue: boolean) => {
       const model = new ScoreModel()
-      const n = model.addNote({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const n = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
       model.setFan(n.id, { direction: 'accel', count: 8, beams: 3 })
       if (cue) setCue(model.getScore(), [n.id], true)
       // A grid too narrow for the ramp, so the fan's demand shows as rods.
@@ -97,7 +97,7 @@ describe('🚨 two fans in one bar ask for the SAME room (his report, 2026-09-24
   it('⭐ a gap ENDING on a fan’s beat is not in its span — each half gets the same rod', () => {
     const model = new ScoreModel()
     for (const beat of [0, 2]) {
-      const n = model.addNote({ step: 'F', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(beat, 1) })
+      const n = model.addNote({ step: 'F', octave: 4, duration: 'h', measure: 1, beat: frac(beat, 1) })
       model.setFan(n.id, { direction: 'rit', count: 6, beams: 3 })
     }
     const rods = fanSpanRods(model.getMeasure(1)!, [frac(0, 1), frac(2, 1), frac(4, 1)])

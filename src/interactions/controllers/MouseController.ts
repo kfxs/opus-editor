@@ -55,7 +55,7 @@ import { beatToFrac } from '../../utils/musicUtils'
 import { passageOf, passageNoteIds, spansStaves } from '../state/measurePassage'
 import { stampStaffAtClick } from '../stamps/staffClickStamps'
 import { measureCapacityQuarters } from '../../utils/measureCapacity'
-import { accidentalToAlter, formatPitch } from '../../utils/pitchSpelling'
+import { formatPitch, withArmedAlteration } from '../../utils/pitchSpelling'
 
 
 /** Registry element types that are staff background / structure rather than clickable
@@ -1661,8 +1661,8 @@ export class MouseController {
           const tupletStaff = registry.staffIndexAtY(measureNum, y)
           const naturalSpelling = registry.pixelYToPitch(y, measureNum, x, tupletStaff)
           const spelling: PitchSpelling = naturalSpelling
-            ? { ...naturalSpelling, alter: accidentalToAlter(this.state.selectedAccidental) }
-            : { step: 'B', alter: 0, octave: 4 }
+            ? withArmedAlteration(naturalSpelling, this.state.selectedAccidental)
+            : { step: 'B', octave: 4 }
 
           // M is decided HERE, not when the key was pressed: `Ctrl+5` says "a 5", and what a 5 is in
           // the time of comes from the meter of the bar being clicked (see armedTupletM).

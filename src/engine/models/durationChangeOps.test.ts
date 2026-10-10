@@ -22,7 +22,7 @@ describe('changeNote', () => {
   })
 
   const add = (step: 'C' | 'E' | 'G' | 'A', beat: number, duration: 'q' | 'h' | '8' | '128' = 'q', over: Partial<Note> = {}) =>
-    model.addNote({ step, alter: 0, octave: 4, duration, measure: 1, beat: frac(beat, 1), ...over })
+    model.addNote({ step, octave: 4, duration, measure: 1, beat: frac(beat, 1), ...over })
   /** A voice's stream in bar 1 as `nq@0 rh@2 …` — n/r, duration (+dots), beat. */
   const stream = (voice = 0, measure = 1) =>
     model.getNotesInMeasure(measure)
@@ -159,7 +159,7 @@ describe('changeNote', () => {
     beforeEach(() => {
       // An eighth-note triplet over beat 0: three `8` members sounding 1/3 each.
       const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)!
-      first = model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id })
+      first = model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(0, 1), tupletId: tuplet.id })
     })
 
     it('a longer member covers the slots it now spans, and commits as "Update tuplet note"', () => {
@@ -220,7 +220,7 @@ describe('changeNote', () => {
       const tuplet = model.createTuplet(1, frac(0, 1), '8', 3, 2)!
       // three eighths sounding a third each: the last starts at 2/3, with 1/3 of the group left
       for (const k of [0, 1, 2]) {
-        model.addNote({ step: 'C', alter: 0, octave: 4, duration: '8', measure: 1, beat: frac(k, 3), tupletId: tuplet.id })
+        model.addNote({ step: 'C', octave: 4, duration: '8', measure: 1, beat: frac(k, 3), tupletId: tuplet.id })
       }
       const last = model.getNotesInMeasure(1).find(n => n.tupletId === tuplet.id && fracToNumber(n.beat) > 0.6)!
       const { note, commit } = changeNote(model, last.id, { dots: 1 })

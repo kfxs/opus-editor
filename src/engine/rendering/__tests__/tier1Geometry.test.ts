@@ -44,7 +44,7 @@ function bars(opts: { key?: boolean; smallStaff?: boolean } = {}) {
     model.addNote({ step: 'C', octave: 5, duration: 'q', measure: b, beat: frac(0, 1) })
   }
   if (opts.key) {
-    model.setKeyAt(1, { alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major' })
+    model.setKeyAt(1, { alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'C', alteration: ['sharp'] }], mode: 'major' })
   }
   if (opts.smallStaff) {
     // ⭐ A second staff drawn at 0.7 — the case `applyLeadIn` divides its lead-in by, and therefore

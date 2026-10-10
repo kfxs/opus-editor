@@ -35,7 +35,7 @@ export function glissandiInWindow(
       if (!fracGte(abs, spanStart) || !fracLt(abs, spanEnd) || staff < topStaff || staff > maxStaff) continue
       at.set(n.id, {
         staff: staff - topStaff, voice: voiceOf(n), offset: fracSub(abs, spanStart),
-        pitch: { step: n.step, alter: n.alter ?? 0, octave: n.octave },
+        pitch: { step: n.step, alteration: n.alteration, octave: n.octave },
       })
     }
   }

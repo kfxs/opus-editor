@@ -14,7 +14,7 @@ describe('graceToNoteOps', () => {
     const score = model.getScore()
     const slotAt1 = () => model.getMeasure(1)!.slots.find(s => fracToNumber(s.beat) === 1)!
     const grace = (step: 'D' | 'F' | 'G' | 'A') =>
-      addGrace(score, e.id, 'before', { step, alter: 0, octave: 5 }, 'appoggiatura', { duration: '16' })!.pitches[0].id
+      addGrace(score, e.id, 'before', { step, octave: 5 }, 'appoggiatura', { duration: '16' })!.pitches[0].id
     return { model, score, e, slotAt1, grace }
   }
 

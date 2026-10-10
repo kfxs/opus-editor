@@ -7,7 +7,7 @@ import type { Chord, GraceNote } from '@/types/music'
 /**
  * Subject: `./bracketedGraces` — the pure reads and the copy (docs/plans/bracketed-grace-plan.md §1).
  */
-const pitch = (id: string, step: 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B', octave = 4) => ({ id, step, alter: 0 as const, octave })
+const pitch = (id: string, step: 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B', octave = 4) => ({ id, step, octave })
 
 const grace = (id: string, bracketId?: string): GraceNote => ({
   pitches: [pitch(id, 'D')], duration: '8',
@@ -43,7 +43,7 @@ describe('bracketedGraces', () => {
   it('cloneBracketedFresh: the same heads, FRESH ids, the forced sign kept', () => {
     const src = [{ pitches: [{ ...pitch('p', 'C'), forceAccidental: true }], duration: 'q' as const }]
     const copy = cloneBracketedFresh(src)
-    expect(copy[0].pitches[0]).toMatchObject({ step: 'C', alter: 0, octave: 4, forceAccidental: true })
+    expect(copy[0].pitches[0]).toMatchObject({ step: 'C', octave: 4, forceAccidental: true })
     expect(copy[0].pitches[0].id).not.toBe('p')
     expect(copy[0]).not.toBe(src[0])
   })

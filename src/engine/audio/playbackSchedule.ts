@@ -45,7 +45,7 @@ import { measureAccidentalNotes } from '@/utils/musicUtils'
 /** A single sounding note to schedule, in tempo-independent beat units. */
 export interface ScheduledNote {
   /**
-   * ⭐⭐ **THE SOUNDING PITCH, AS A SPELLING** — the written `step`/`alter`/`octave` with any octave
+   * ⭐⭐ **THE SOUNDING PITCH, AS A SPELLING** — the written `step`/`alteration`/`octave` with any octave
    * line folded into the octave ({@link applySoundingShift}). ⛔ **Not a MIDI number, and that is
    * the point of this field.**
    *
@@ -480,7 +480,7 @@ export function collectScheduledNotes(
         if (isContinuation(np)) continue
 
         const durationBeats = soundingBeatsOf(np)
-        const pitch = applySoundingShift({ step: np.step, alter: np.alter, octave: np.octave }, shift)
+        const pitch = applySoundingShift({ step: np.step, alteration: np.alteration, octave: np.octave }, shift)
 
         // A tremolo turns ONE sounding note into N re-attacks. It fills the note's whole SOUNDING
         // length — including any tie-extension above, because the head carries the chain's length and
@@ -576,7 +576,7 @@ function emitGraces(events: ScheduledNote[], group: GraceGroup, timing: GraceTim
     const velocity = Math.min(1, baseVelocity * artic.velocityScale)
     for (const p of grace.pitches) {
       events.push({
-        pitch: applySoundingShift({ step: p.step, alter: p.alter, octave: p.octave }, shift),
+        pitch: applySoundingShift({ step: p.step, alteration: p.alteration, octave: p.octave }, shift),
         startBeats: at.startBeats,
         durationBeats: at.durationBeats * artic.durationFactor,
         velocity,
@@ -727,7 +727,7 @@ function collectFanAttacks(
     const velocity = Math.min(1, baseVelocity * artic.velocityScale)
     for (const p of pitches[k] ?? sounding) {
       events.push({
-        pitch: applySoundingShift({ step: p.step, alter: p.alter, octave: p.octave }, shift),
+        pitch: applySoundingShift({ step: p.step, alteration: p.alteration, octave: p.octave }, shift),
         startBeats: startBeats + from * spanBeats,
         // Each member lasts until the next one starts — they are a run of notes, back to back — and
         // takes its OWN articulation's length factor, so one staccato member is short and the rest
@@ -788,7 +788,7 @@ function collectPairAttacks(
         DYNAMIC_VELOCITY[chordLevels.get(chord.id) ?? DEFAULT_DYNAMIC] * artic.velocityScale,
       ),
       pitches: chord.notes.map(np => applySoundingShift(
-        { step: np.step, alter: np.alter, octave: np.octave }, shifts.get(chord.id) ?? 0)),
+        { step: np.step, alteration: np.alteration, octave: np.octave }, shifts.get(chord.id) ?? 0)),
     }
   })
 
@@ -982,7 +982,7 @@ function auxiliaryPitchFor(
   const key = keyAt(score, measure.number, chord.staffId)
   const inBar = prevailingAlterations(measureAccidentalNotes(measure), chord.beat)
   const aux = trillAuxiliary({ step: np.step, octave: np.octave }, key, inBar)
-  return applySoundingShift({ step: aux.step, alter: aux.alter, octave: aux.octave }, shift)
+  return applySoundingShift({ step: aux.step, alteration: aux.alteration, octave: aux.octave }, shift)
 }
 
 /**
@@ -1017,5 +1017,5 @@ function physicalPeriodBeats(seconds: number, startBeats: number, tempoMap: Temp
  * is exactly the case the tie-chase is meant to refuse today.
  */
 function sameMidi(a: NotePitch, b: NotePitch): boolean {
-  return spellingToMidi(a.step, a.alter, a.octave) === spellingToMidi(b.step, b.alter, b.octave)
+  return spellingToMidi(a.step, a.alteration, a.octave) === spellingToMidi(b.step, b.alteration, b.octave)
 }

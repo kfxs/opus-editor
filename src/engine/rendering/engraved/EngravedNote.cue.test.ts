@@ -21,7 +21,7 @@ import { fracCreate as frac } from '@/utils/fraction'
 function render(): Scene {
   const model = new ScoreModel()
   model.addMeasure()
-  const note = (measure: number) => model.addNote({ step: 'C', alter: 1, octave: 4, duration: '8', dots: 1, measure, beat: frac(0, 1) })
+  const note = (measure: number) => model.addNote({ step: 'C', alteration: ['sharp'], octave: 4, duration: '8', dots: 1, measure, beat: frac(0, 1) })
   note(1)
   setCue(model.getScore(), [note(2).id], true)
   const container = document.createElement('div')
@@ -104,7 +104,7 @@ describe('EngravedNote — a CUE REST (P3)', () => {
     model.addMeasure()
     model.addMeasure()
     for (const bar of [1, 2]) {
-      model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'q', measure: bar, beat: frac(0, 1) })
+      model.addNote({ step: 'C', octave: 5, duration: 'q', measure: bar, beat: frac(0, 1) })
       model.updateNote(model.getMeasure(bar)!.slots.find(s => s.type === 'rest')!.id, { duration: 'q', dots: 1 })
     }
     const restAt = (bar: number) => model.getMeasure(bar)!.slots.find(s => s.type === 'rest')!.id

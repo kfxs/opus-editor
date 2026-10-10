@@ -7,8 +7,8 @@ import type { Chord, GraceGroup } from '@/types/music'
 
 const group = (): GraceGroup => ({
   notes: [
-    { pitches: [{ id: 'g1', step: 'D', alter: 0, octave: 5, forceAccidental: true }], duration: '8', dots: 1, articulations: ['staccato'] },
-    { pitches: [{ id: 'g2', step: 'E', alter: -1, octave: 5 }, { id: 'g3', step: 'G', alter: 0, octave: 5 }], duration: '16' },
+    { pitches: [{ id: 'g1', step: 'D', octave: 5, forceAccidental: true }], duration: '8', dots: 1, articulations: ['staccato'] },
+    { pitches: [{ id: 'g2', step: 'E', alteration: ['flat'], octave: 5 }, { id: 'g3', step: 'G', octave: 5 }], duration: '16' },
   ],
   slash: true,
   stemDirection: 'down',
@@ -16,7 +16,7 @@ const group = (): GraceGroup => ({
 
 const chord = (extra: Partial<Chord> = {}): Chord => ({
   id: 'c', type: 'chord', beat: fracCreate(0, 1), duration: 'q', measure: 1,
-  notes: [{ id: 'n', step: 'C', alter: 0, octave: 4 }], ...extra,
+  notes: [{ id: 'n', step: 'C', octave: 4 }], ...extra,
 })
 
 describe('cloneGraceFresh', () => {
@@ -40,7 +40,7 @@ describe('cloneGraceFresh', () => {
   })
 
   it('keeps every default ABSENT — no key the source did not have', () => {
-    const copy = cloneGraceFresh({ notes: [{ pitches: [{ id: 'x', step: 'D', alter: 0, octave: 5 }], duration: '8' }] })
+    const copy = cloneGraceFresh({ notes: [{ pitches: [{ id: 'x', step: 'D', octave: 5 }], duration: '8' }] })
     expect(Object.keys(copy)).toEqual(['notes'])
     expect(Object.keys(copy.notes[0]).sort()).toEqual(['duration', 'pitches'])
   })
@@ -48,7 +48,7 @@ describe('cloneGraceFresh', () => {
 
 describe('gracePitchesOf', () => {
   it('every grace pitch, the group BEFORE first, left to right', () => {
-    const c = chord({ graceBefore: group(), graceAfter: { notes: [{ pitches: [{ id: 'a1', step: 'B', alter: 0, octave: 4 }], duration: '16' }] } })
+    const c = chord({ graceBefore: group(), graceAfter: { notes: [{ pitches: [{ id: 'a1', step: 'B', octave: 4 }], duration: '16' }] } })
     expect(gracePitchesOf(c).map(p => p.id)).toEqual(['g1', 'g2', 'g3', 'a1'])
   })
 

@@ -81,7 +81,7 @@ describe('glyphMarkCommands', () => {
 
   it('through the facade (`engine.glyphMark`): undo takes it back, redo returns it', () => {
     const engine = makeEngine()
-    const n = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) })!
+    const n = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: fracCreate(0, 1) })!
     expect(engine.glyphMark.add(n.id, 'fermataAbove')).not.toBeNull()
     const marks = () => engine.getScore().measures[0].glyphMarks
     expect(marks()).toHaveLength(1)

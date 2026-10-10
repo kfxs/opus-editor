@@ -1,3 +1,4 @@
+import { withSigns } from '@/testing/signs'
 import { dotInkWidth } from './dotSize'
 import { flagPushedFirstDot, resetDotFlagRule, setDotFlagRule } from './dotFlag'
 import { describe, it, expect, afterEach } from 'vitest'
@@ -10,8 +11,8 @@ import { glyphBox, noteheadInk } from '@/engine/fonts/fontMetrics'
 import { MODIFIER_RIGHT_GAP_PX } from '@/engine/engrave/inheritedDefaults'
 import { STAFF_SPACE_PX } from '@/engine/models/staffSize'
 
-const p = (id: string, step: NotePitch['step'], octave = 5, alter: NotePitch['alter'] = 0): NotePitch =>
-  ({ id, step, alter, octave })
+const p = (id: string, step: NotePitch['step'], octave = 5, alter = 0): NotePitch =>
+  ({ id, step, ...withSigns(alter), octave })
 const group = (...notes: NotePitch[][]): GraceGroup => ({ notes: notes.map(pitches => ({ pitches, duration: '8' as const })) })
 const none = () => null
 

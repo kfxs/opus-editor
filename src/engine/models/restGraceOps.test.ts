@@ -11,7 +11,7 @@ import { findSlot } from './slotLookup'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import type { ChordRest, Rest } from '@/types/music'
 
-const D5 = { step: 'D' as const, alter: 0 as const, octave: 5 }
+const D5 = { step: 'D' as const, octave: 5 }
 const EIGHTH = { duration: '8' as const }
 
 describe('restGraceOps — a grace waits on a rest for its note', () => {
@@ -49,7 +49,7 @@ describe('restGraceOps — a grace waits on a rest for its note', () => {
 
   it('⭐⭐ …and a pitch TYPED over the rest takes it (the keyboard\'s edit-in-place)', () => {
     const rest = graceOnBeat(1)
-    model.updateNote(rest.id, { isRest: false, step: 'E', alter: 0, octave: 5 })
+    model.updateNote(rest.id, { isRest: false, step: 'E', octave: 5 })
     expect(shape()).toEqual(['rest@0:q', 'chord@1:q+grace', 'rest@2:h'])
   })
 

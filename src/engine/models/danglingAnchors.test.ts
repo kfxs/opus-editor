@@ -10,8 +10,8 @@ import { fracCreate as frac } from '@/utils/fraction'
 describe('repairDanglingAnchors', () => {
   it('prunes a slur, a trill and a glissando whose anchors are gone, and severs a tie', () => {
     const model = new ScoreModel()
-    const a = model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = model.addNote({ step: 'D', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const score = model.getScore()
     score.slurs = [{ id: 's', startNoteId: a.id, endNoteId: 'gone' }]
     score.trills = [{ id: 't', startNoteId: 'gone' }]

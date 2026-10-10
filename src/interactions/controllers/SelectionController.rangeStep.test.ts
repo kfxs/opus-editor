@@ -27,7 +27,7 @@ describe('SelectionController.extendSelectionStep — a range, text-editor style
     vi.spyOn(selection as unknown as { scrollSelectedNoteIntoView(): void }, 'scrollSelectedNoteIntoView')
       .mockImplementation(() => {})
     const at = (step: 'C' | 'D' | 'E' | 'F', b: number) =>
-      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id
+      engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id
     c = at('C', 0); d = at('D', 1); e = at('E', 2); f = at('F', 3)
   })
 

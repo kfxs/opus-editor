@@ -1,3 +1,4 @@
+import { withSigns } from '@/testing/signs'
 import { describe, it, expect, afterEach } from 'vitest'
 import {
   BRACKETED_ROWS, BRACKET_FORMS, beforeSideLayout, bracketedAfterLayout, bracketedGeneration, bracketedLayout,
@@ -13,7 +14,7 @@ import type { BracketedGrace, Chord, NotePitch } from '@/types/music'
  * Subject: `./bracketedRoom` — where a bracketed grace's head, sign and brackets stand, and the room
  * the before side takes (docs/plans/bracketed-grace-plan.md P1). Pure arithmetic on the metric tables.
  */
-const pitch = (id: string, step: NotePitch['step'], octave: number, alter: NotePitch['alter'] = 0): NotePitch => ({ id, step, alter, octave })
+const pitch = (id: string, step: NotePitch['step'], octave: number, alter = 0): NotePitch => ({ id, step, ...withSigns(alter), octave })
 const one = (p: NotePitch): BracketedGrace => ({ pitches: [p], duration: 'q' })
 const none = () => null
 

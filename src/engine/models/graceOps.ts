@@ -121,7 +121,7 @@ export function addGracePitch(
 }
 
 function newGracePitch(spelling: GraceSpelling): NotePitch {
-  const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alter: spelling.alter, octave: spelling.octave }
+  const pitch: NotePitch = { id: uuidv4(), step: spelling.step, alteration: spelling.alteration, octave: spelling.octave }
   // An explicitly armed sign the running rule would hide (a ♮ in C major) — note entry's courtesy.
   if (spelling.forceAccidental) pitch.forceAccidental = true
   return pitch

@@ -4,7 +4,7 @@ import type { NoteParams, Measure } from '@/types/music'
 import { fracCreate as frac } from '@/utils/fraction'
 
 // Helpers for common note pitches used throughout
-const C4: Pick<NoteParams, 'step' | 'alter' | 'octave'> = { step: 'C', alter: 0, octave: 4 }
+const C4: Pick<NoteParams, 'step' | 'alteration' | 'octave'> = { step: 'C', octave: 4 }
 
 describe('CollisionDetector', () => {
   let detector: CollisionDetector

@@ -19,8 +19,8 @@ describe('GlissandoEditController', () => {
 
   beforeEach(() => {
     engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
-    const c = engine.addNoteAtBeat({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
-    engine.addNoteAtBeat({ step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = engine.addNoteAtBeat({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })!.id
+    engine.addNoteAtBeat({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     engine.glissando.add([c])
     glissandoId = engine.glissando.on(c)!.id
     renders = 0

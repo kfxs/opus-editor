@@ -13,7 +13,7 @@ test('⭐ a switch re-engraves in the chosen face, and switching back restores B
   const result = await score.evaluate(async () => {
     const h = window.__h
     h.engine.addNoteAtBeat({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addNoteAtBeat({ step: 'E', alter: 1, octave: 4, duration: '8', measure: 1, beat: h.frac(1, 1) })
+    h.engine.addNoteAtBeat({ step: 'E', alteration: ['sharp'], octave: 4, duration: '8', measure: 1, beat: h.frac(1, 1) })
     await h.render()
 
     const snapshot = () => ({

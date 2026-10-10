@@ -25,7 +25,7 @@ const SPACE = 10
 test('⭐ G major draws ONE sharp, and it is on the top line — F♯5', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h
-    h.engine.setKeyAt(1, { alterations: [{ step: 'F', alter: 1 }], mode: 'major' })
+    h.engine.setKeyAt(1, { alterations: [{ step: 'F', alteration: ['sharp'] }], mode: 'major' })
     await h.render()
     const staves = h.staves()
     return { signs: h.glyphs('g.keysig text'), top: staves[0].top }
@@ -42,7 +42,7 @@ test('⭐⭐ two sharps stand 1.25 spaces apart — Ross\'s number, stated and e
   const signs = await score.evaluate(async () => {
     const h = window.__h
     h.engine.setKeyAt(1, {
-      alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
+      alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'C', alteration: ['sharp'] }], mode: 'major',
     })
     await h.render()
     return h.glyphs('g.keysig text')
@@ -59,12 +59,12 @@ test('⭐ a FLAT signature is NARROWER than the same count of sharps, from the g
   const both = await score.evaluate(async () => {
     const h = window.__h
     h.engine.setKeyAt(1, {
-      alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
+      alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'C', alteration: ['sharp'] }], mode: 'major',
     })
     await h.render()
     const sharps = h.glyphs('g.keysig text').map(g => g.x)
     h.engine.setKeyAt(1, {
-      alterations: [{ step: 'B', alter: -1 }, { step: 'E', alter: -1 }], mode: 'major',
+      alterations: [{ step: 'B', alteration: ['flat'] }, { step: 'E', alteration: ['flat'] }], mode: 'major',
     })
     await h.render()
     const flats = h.glyphs('g.keysig text')
@@ -109,7 +109,7 @@ test('⭐⭐ the METER moved over for the signature — the room reserved is the
       .filter(g => g.code >= 'e080' && g.code <= 'e089').map(g => g.x))
     const meterBefore = meterX()
     h.engine.setKeyAt(1, {
-      alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
+      alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'C', alteration: ['sharp'] }], mode: 'major',
     })
     await h.render()
     const signs = h.glyphs('g.keysig text')
@@ -157,7 +157,7 @@ test('⭐⭐ BOTH GAPS around the signature are the ENGINES\' numbers, measured 
   const gaps = await score.evaluate(async () => {
     const h = window.__h
     h.engine.setKeyAt(1, {
-      alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
+      alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'C', alteration: ['sharp'] }], mode: 'major',
     })
     await h.render()
     const signs = h.glyphs('g.keysig text')
@@ -189,7 +189,7 @@ test('⭐ a mid-score key change draws its signature at THAT bar, and nowhere be
   const drawn = await score.evaluate(async () => {
     const h = window.__h
     for (let i = 0; i < 3; i++) h.engine.addMeasure()
-    h.engine.setKeyAt(3, { alterations: [{ step: 'B', alter: -1 }], mode: 'major' })
+    h.engine.setKeyAt(3, { alterations: [{ step: 'B', alteration: ['flat'] }], mode: 'major' })
     await h.render()
     const bars = h.staves()
     return { signs: h.glyphs('g.keysig text'), bar3X: bars.length > 0 ? bars[0].x1 : 0 }
@@ -207,7 +207,7 @@ test('⭐⭐ EVERY bar centres its whole-bar rest in its own FREE SPACE — one 
     const h = window.__h
     for (let i = 0; i < 5; i++) h.engine.addMeasure()
     h.engine.setKeyAt(1, {
-      alterations: [{ step: 'F', alter: 1 }, { step: 'C', alter: 1 }], mode: 'major',
+      alterations: [{ step: 'F', alteration: ['sharp'] }, { step: 'C', alteration: ['sharp'] }], mode: 'major',
     })
     await h.render()
     const staves = h.staves()
@@ -245,7 +245,7 @@ test('⭐⭐ a bar whose header ends in a SIGNATURE centres its rest in the room
     for (let m = 2; m <= 10; m++) h.engine.addMeasure()
     // A MID-LINE change, so the signature is the last thing in the bar's header (no meter after it).
     h.engine.setKeyAt(3, {
-      alterations: [{ step: 'B', alter: -1 }, { step: 'E', alter: -1 }, { step: 'A', alter: -1 }],
+      alterations: [{ step: 'B', alteration: ['flat'] }, { step: 'E', alteration: ['flat'] }, { step: 'A', alteration: ['flat'] }],
       mode: 'major',
     })
     await h.render()
@@ -290,7 +290,7 @@ test('🚨🚨 the three HEADER HIT BOXES are each on their own glyph — clef, 
     const h = window.__h
     h.engine.addMeasure()
     h.engine.setKeyAt(1, {
-      alterations: [{ step: 'F' as const, alter: 1 as const }, { step: 'C' as const, alter: 1 as const }],
+      alterations: [{ step: 'F' as const, alteration: ['sharp'] }, { step: 'C' as const, alteration: ['sharp'] }],
       mode: 'major' as const,
     })
     await h.render()
@@ -336,11 +336,11 @@ test('🚨🚨 the three HEADER HIT BOXES are each on their own glyph — clef, 
 test('⭐⭐ an F♯ in G major draws NO sign, and an F♮ draws a natural — the whole of P4, on the page', async ({ score }) => {
   const drawn = await score.evaluate(async () => {
     const h = window.__h
-    const G_MAJOR = { alterations: [{ step: 'F' as const, alter: 1 as const }], mode: 'major' as const }
+    const G_MAJOR = { alterations: [{ step: 'F' as const, alteration: ['sharp'] }], mode: 'major' as const }
     // Two bars, each holding one F4: the first sharpened, the second natural.
     h.engine.addMeasure()
-    h.engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
-    h.engine.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'w', measure: 2, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'w', measure: 1, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'F', octave: 4, duration: 'w', measure: 2, beat: h.frac(0, 1) })
 
     await h.render()
     const signs = () => h.glyphs('g.notehead text')
@@ -365,12 +365,12 @@ test('🚨 setting the key at bar 1 REPAINTS a far bar — the governing-key row
   const drawn = await score.evaluate(async () => {
     const h = window.__h
     for (let i = 0; i < 12; i++) h.engine.addMeasure()
-    h.engine.addNoteAtBeat({ step: 'F', alter: 0, octave: 4, duration: 'w', measure: 12, beat: h.frac(0, 1) })
+    h.engine.addNoteAtBeat({ step: 'F', octave: 4, duration: 'w', measure: 12, beat: h.frac(0, 1) })
     await h.render()
     const naturals = () => h.glyphs('g.notehead text').filter(g => g.code === 'e261').length
     const before = naturals()
 
-    h.engine.setKeyAt(1, { alterations: [{ step: 'F' as const, alter: 1 as const }], mode: 'major' as const })
+    h.engine.setKeyAt(1, { alterations: [{ step: 'F' as const, alteration: ['sharp'] }], mode: 'major' as const })
     await h.render()
     return { before, after: naturals() }
   })
@@ -385,9 +385,9 @@ test('⭐⭐ a COURTESY survives the key agreeing with it — Gould p. 81, and h
   //  already says it; the unforced one beside it is not.
   const signs = await score.evaluate(async () => {
     const h = window.__h
-    h.engine.setKeyAt(1, { alterations: [{ step: 'F' as const, alter: 1 as const }], mode: 'major' as const })
-    h.engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1), forceAccidental: true })
-    h.engine.addNoteAtBeat({ step: 'F', alter: 1, octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })
+    h.engine.setKeyAt(1, { alterations: [{ step: 'F' as const, alteration: ['sharp'] }], mode: 'major' as const })
+    h.engine.addNoteAtBeat({ step: 'F', alteration: ['sharp'], octave: 4, duration: 'h', measure: 1, beat: h.frac(0, 1), forceAccidental: true })
+    h.engine.addNoteAtBeat({ step: 'F', alteration: ['sharp'], octave: 5, duration: 'h', measure: 1, beat: h.frac(2, 1) })
     await h.render()
     return h.glyphs('g.notehead text').filter(g => g.code === 'e262').length
   })
@@ -406,9 +406,9 @@ test('⭐⭐ a change to C MAJOR draws cancelling naturals, where the old signs 
     for (let m = 2; m <= 8; m++) h.engine.addMeasure()
     const E_FLAT = {
       alterations: [
-        { step: 'B' as const, alter: -1 as const },
-        { step: 'E' as const, alter: -1 as const },
-        { step: 'A' as const, alter: -1 as const },
+        { step: 'B' as const, alteration: ['flat'] },
+        { step: 'E' as const, alteration: ['flat'] },
+        { step: 'A' as const, alteration: ['flat'] },
       ],
       mode: 'major' as const,
     }
@@ -450,7 +450,7 @@ test('⭐⭐ a key change ON a system break is engraved at the END of the previo
     const line1 = h.staves().filter(s => Math.round(s.top) === top0)
     const last = line1[line1.length - 1]
     h.engine.setKeyAt(last.measure + 1, {
-      alterations: [{ step: 'F' as const, alter: 1 as const }, { step: 'C' as const, alter: 1 as const }],
+      alterations: [{ step: 'F' as const, alteration: ['sharp'] }, { step: 'C' as const, alteration: ['sharp'] }],
       mode: 'major' as const,
     })
     await h.render()
@@ -511,9 +511,9 @@ test('⭐ …and when the break lands on a change to C major, the NATURALS are w
     for (let m = 2; m <= 30; m++) h.engine.addMeasure()
     h.engine.setKeyAt(3, {
       alterations: [
-        { step: 'B' as const, alter: -1 as const },
-        { step: 'E' as const, alter: -1 as const },
-        { step: 'A' as const, alter: -1 as const },
+        { step: 'B' as const, alteration: ['flat'] },
+        { step: 'E' as const, alteration: ['flat'] },
+        { step: 'A' as const, alteration: ['flat'] },
       ],
       mode: 'major' as const,
     })

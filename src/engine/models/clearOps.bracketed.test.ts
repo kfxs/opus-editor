@@ -13,8 +13,8 @@ vi.mock('../audio/PlaybackEngine', async () => (await import('@/testing/engineSt
 describe('clearNoteRange — a bracketed grace in the selection', () => {
   it('⭐ Delete with ONLY the bracketed grace selected removes it and keeps its note', () => {
     const engine = makeEngine()
-    const note = engine.addNoteAtBeat({ step: 'E', alter: 0, octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
-    const made = engine.bracketed.add(note.id, 'before', { step: 'D', alter: 0, octave: 5 })!
+    const note = engine.addNoteAtBeat({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })!
+    const made = engine.bracketed.add(note.id, 'before', { step: 'D', octave: 5 })!
     expect(engine.deleteNotes([made.pitches[0].id])).toBe(1)
     const chord = engine.getScore().measures[0].slots.find((s): s is Chord => s.type === 'chord')!
     expect(chord.notes[0].id).toBe(note.id)

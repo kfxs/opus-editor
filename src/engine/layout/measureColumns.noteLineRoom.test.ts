@@ -12,8 +12,8 @@ import type { LineRoom } from './noteLineRoom'
 
 function bar() {
   const model = new ScoreModel()
-  model.addNote({ step: 'C', alter: 0, octave: 4, duration: '16', measure: 1, beat: frac(0, 1) })
-  model.addNote({ step: 'G', alter: 1, octave: 4, duration: '16', measure: 1, beat: frac(1, 4) })
+  model.addNote({ step: 'C', octave: 4, duration: '16', measure: 1, beat: frac(0, 1) })
+  model.addNote({ step: 'G', alteration: ['sharp'], octave: 4, duration: '16', measure: 1, beat: frac(1, 4) })
   return model.getMeasure(1)!
 }
 const room = (to: LineRoom['to']): LineRoom =>

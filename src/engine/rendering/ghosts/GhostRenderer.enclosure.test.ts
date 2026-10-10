@@ -27,7 +27,7 @@ function ghostTexts(ghost: GhostNote): string[] {
 }
 
 describe('the note ghost and the armed entry brackets', () => {
-  const base: GhostNote = { step: 'D', alter: 0, octave: 5, duration: 'q', measure: 1, beat: 1 }
+  const base: GhostNote = { step: 'D', octave: 5, duration: 'q', measure: 1, beat: 1 }
 
   it('⭐ brackets armed: the pair is drawn inside the ghost\'s own group', () => {
     const texts = ghostTexts({ ...base, enclosure: 'round' })

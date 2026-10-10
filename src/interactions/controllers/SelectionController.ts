@@ -11,13 +11,14 @@ import { rangeStep } from '../walks/rangeStep'
 import { isMarkKind, marksInBox, type MarkKind } from '../clipboard/enclosedMarks'
 import { fracCreate, fracEq, fracCompare, fracToNumber } from '../../utils/fraction'
 import { getMeasureNotes, measureAccidentalNotes } from '../../utils/musicUtils'
-import { spellingDiatonicPos } from '../../utils/pitchSpelling'
+import { formatPitch, spellingDiatonicPos } from '../../utils/pitchSpelling'
 import { comparePitch, MIDDLE_C_POSITION, staffPosition } from '../../utils/pitchOrder'
 import { restShiftOverrideOf, restPositionKey } from '../../engine/models/engravingOverrides'
 import { keyStaffId, staffSlots } from '../../engine/models/staffContent'
 import { keyAt } from '../../utils/keySignature'
 import { entryAlteration } from '../../engine/models/entryAlteration'
-import { alterInForceAt } from '../../utils/accidentalState'
+import { alterationInForceAt } from '../../utils/accidentalState'
+import { accidentalOfAlteration, sameAlteration } from '../../utils/alterationSigns'
 import { itemKey, selectedNoteIds, selectedArticulationNoteIds, type SelectionItem } from '../state/selection'
 import { staffOf, voiceOf } from '@/utils/lanes'
 import { restDrawnDuration, restLineInStaff, restNeutralLine } from '@/engine/layout/restVoicePlacement'
@@ -38,25 +39,23 @@ export class SelectionController {
   /**
    * Compute which accidental sign would actually be displayed for a note, given the
    * running accidental state of its measure up to that beat — and, where the bar is silent at that
-   * position, ⭐ **the KEY SIGNATURE** (`accidentalState.alterInForce`, the same rule the drawing
+   * position, ⭐ **the KEY SIGNATURE** (`accidentalState.alterationInForce`, the same rule the drawing
    * reads). Returns null if no sign is shown, 'n' for a cautionary natural.
    */
   private computeDisplayedAccidental(note: Note, measure: Measure, score: Score): Accidental | 'n' | null {
     if (note.isRest || note.tiedFrom) return null
-    if (note.forceAccidental && note.alter) return note.alter > 0 ? '#' : 'b'
+    if (note.forceAccidental && note.alteration) return accidentalOfAlteration(note.alteration)!
 
     // The fanned members count here as well — the sign this reports must be the one the renderer
     // engraves, and that walk sees them (docs/plans/fanned-beam-pitches-plan.md §2).
-    const governing = alterInForceAt(
+    const governing = alterationInForceAt(
       measureAccidentalNotes(measure), note.beat,
       keyAt(score, note.measure, keyStaffId(score, note.staff)), note.step!, note.octave!,
     )
-    const noteAlter = note.alter ?? 0
-
-    if (noteAlter !== 0) {
-      return governing === noteAlter ? null : (noteAlter > 0 ? '#' : 'b')
+    if (note.alteration) {
+      return sameAlteration(governing, note.alteration) ? null : accidentalOfAlteration(note.alteration)!
     } else {
-      if (governing !== 0) return 'n'
+      if (governing) return 'n'
       if (note.forceAccidental) return 'n'
       return null
     }
@@ -445,7 +444,7 @@ export class SelectionController {
     const dest = lane.stops[newIndex]
     const destNote = allFlat.find(n => n.id === dest.id) ?? engine.getNote(dest.id)
     const destDesc = destNote
-      ? (destNote.isRest ? `rest m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}` : `${destNote.step}${destNote.alter !== 0 ? (destNote.alter! > 0 ? '#' : 'b') : ''}${destNote.octave} m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}`)
+      ? (destNote.isRest ? `rest m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}` : `${formatPitch(destNote)} m${dest.measureNumber} beat:${dest.beat.num / dest.beat.den}`)
       : `id:${dest.id}`
     dbg(`[Nav] ${direction > 0 ? '→' : '←'} → ${destDesc} (tool:${this.state.selectedTool})`)
     this.selectNote(dest.id)
@@ -609,7 +608,7 @@ export class SelectionController {
     // silently does nothing (his report). Same rule as `Shift`+letter, which stacks onto the member.
     const chordNotes = (engine.fanMemberPitches(this.state.selectedNoteId) ?? getMeasureNotes(measure, score)
       .filter(n => !n.isRest && fracEq(n.beat, note.beat) && voiceOf(n) === noteVoice && staffOf(n) === noteStaff))
-      .sort((a, b) => comparePitch({ step: a.step!, alter: a.alter, octave: a.octave! }, { step: b.step!, alter: b.alter, octave: b.octave! }))
+      .sort((a, b) => comparePitch({ step: a.step!, alteration: a.alteration, octave: a.octave! }, { step: b.step!, alteration: b.alteration, octave: b.octave! }))
 
     if (chordNotes.length <= 1) return
 
@@ -741,15 +740,15 @@ export class SelectionController {
         if (!note || note.isRest) continue
         const newSpelling = this.movePitchDiatonically(note.step!, note.octave!, direction)
         // ⭐ The new LETTER takes the alteration in force at ITS position — the bar's running
-        //   accidental, else the key ({@link entryAlteration}). ⛔ Not the old note's `alter`, which
+        //   accidental, else the key ({@link entryAlteration}). ⛔ Not the old note's `alteration`, which
         //   is what this did: a step up from F♯ in G major came out G♯ instead of G♮, because the
         //   sharp belonged to the F it left behind.
-        const alter = entryAlteration(
+        const alteration = entryAlteration(
           score, { measure: note.measure, beat: note.beat, staff: note.staff },
           newSpelling.step, newSpelling.octave,
         )
         engine.updateNote(id, {
-          step: newSpelling.step, alter, octave: newSpelling.octave,
+          step: newSpelling.step, alteration, octave: newSpelling.octave,
         })
       }
     })

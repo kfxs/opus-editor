@@ -10,6 +10,8 @@
 import type { BracketedGrace, Note, Chord, GraceNote, NotePitch, Rest, Score } from '@/types/music'
 import { projectAttackMarks } from './slotLookup'
 import { staffIndexOfId } from './staffContent'
+import { setAlteration } from '@/utils/alterationSigns'
+
 
 /**
  * Assemble a flat Note from one pitch of a Chord.
@@ -22,7 +24,7 @@ export function toFlatNote(chord: Chord, pitch: NotePitch, staffIndex = 0): Note
   return {
     id: pitch.id,
     step: pitch.step,
-    alter: pitch.alter,
+    alteration: pitch.alteration,
     octave: pitch.octave,
     duration: chord.duration,
     measure: chord.measure,
@@ -103,7 +105,7 @@ export function flatRestOf(score: Score, rest: Rest): Note {
 export function projectBracketedNote(note: Note, pitch: NotePitch, bracketed: BracketedGrace): Note {
   note.id = pitch.id
   note.step = pitch.step
-  note.alter = pitch.alter
+  setAlteration(note, pitch.alteration)
   note.octave = pitch.octave
   if (pitch.forceAccidental) note.forceAccidental = true
   else delete note.forceAccidental
@@ -122,7 +124,7 @@ export function projectGraceNote(note: Note, pitch: NotePitch, grace: GraceNote)
   // The PITCH is the grace's own — over a REST host's flat note there is none to inherit.
   note.id = pitch.id
   note.step = pitch.step
-  note.alter = pitch.alter
+  setAlteration(note, pitch.alteration)
   note.octave = pitch.octave
   if (pitch.forceAccidental) note.forceAccidental = true
   else delete note.forceAccidental

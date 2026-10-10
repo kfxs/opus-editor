@@ -14,6 +14,7 @@
  *
  * If the widths come out equal, `clef` does not belong in that key.
  */
+import type { Alteration } from '@/types/music'
 import { describe, it, expect } from 'vitest'
 import { C_MAJOR } from '@/utils/keySignature'
 import { ScoreModel } from '../models/ScoreModel'
@@ -41,15 +42,15 @@ function buildScore(): ScoreModel {
   model.addMeasure()
 
   // m1 — a chord with clustered accidentals (the case where stacking could bite).
-  model.addNote({ step: 'C', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-  model.addNote({ step: 'D', alter: -1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-  model.addNote({ step: 'E', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+  model.addNote({ step: 'C', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+  model.addNote({ step: 'D', alteration: ['flat'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+  model.addNote({ step: 'E', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
   model.addNote({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
-  model.addNote({ step: 'G', alter: -1, octave: 3, duration: 'h', measure: 1, beat: frac(2, 1) })
+  model.addNote({ step: 'G', alteration: ['flat'], octave: 3, duration: 'h', measure: 1, beat: frac(2, 1) })
 
   // m2 — extremes: high and low, so ledger lines appear in some clefs and not others.
   model.addNote({ step: 'C', octave: 6, duration: '8', measure: 2, beat: frac(0, 1) })
-  model.addNote({ step: 'A', alter: 1, octave: 2, duration: '8', measure: 2, beat: frac(1, 2) })
+  model.addNote({ step: 'A', alteration: ['sharp'], octave: 2, duration: '8', measure: 2, beat: frac(1, 2) })
   model.addNote({ step: 'B', octave: 4, duration: 'q', dots: 1, measure: 2, beat: frac(1, 1) })
   model.addNote({ step: 'G', octave: 4, duration: '16', measure: 2, beat: frac(7, 4) })
   model.addNote({ step: 'D', octave: 5, duration: 'h', measure: 2, beat: frac(2, 1) })
@@ -71,7 +72,7 @@ function widthsUnder(clef: Clef): Map<number, number> {
 }
 
 /** Width of one bar holding exactly these notes, under `clef`. The control's instrument. */
-function widthOf(notes: Array<{ step: 'C' | 'D' | 'E'; alter?: -1 | 1; octave: number; duration: 'q' | 'h' }>, clef: Clef): number {
+function widthOf(notes: Array<{ step: 'C' | 'D' | 'E'; alteration?: Alteration; octave: number; duration: 'q' | 'h' }>, clef: Clef): number {
   const model = new ScoreModel()
   // End-to-end by DURATION, not one per beat. `frac(i, 1)` put two HALF notes at beats 0 and 1 —
   // overlapping — which left the bar malformed and manufactured a spurious rest, so the lane had 3
@@ -80,7 +81,7 @@ function widthOf(notes: Array<{ step: 'C' | 'D' | 'E'; alter?: -1 | 1; octave: n
   // difference these tests exist to see. A properly-formed bar has no rest fill and no phantom.
   let beat = frac(0, 1)
   notes.forEach((n) => {
-    model.addNote({ step: n.step, alter: n.alter, octave: n.octave, duration: n.duration, measure: 1, beat })
+    model.addNote({ step: n.step, alteration: n.alteration, octave: n.octave, duration: n.duration, measure: 1, beat })
     beat = fracAdd(beat, durationToFraction(n.duration))
   })
   const score = model.getScore()
@@ -154,7 +155,7 @@ describe('control — the harness can actually see a width change', () => {
     //   and `MeasureLayout.headerGap.test.ts` is where the rule is pinned properly.
     const plain = widthOf([{ step: 'C', octave: 4, duration: 'h' }, { step: 'D', octave: 4, duration: 'h' }], 'treble')
     const sharp = widthOf(
-      [{ step: 'C', alter: 1, octave: 4, duration: 'h' }, { step: 'D', alter: -1, octave: 4, duration: 'h' }],
+      [{ step: 'C', alteration: ['sharp'], octave: 4, duration: 'h' }, { step: 'D', alteration: ['flat'], octave: 4, duration: 'h' }],
       'treble',
     )
     // ⭐ The accidental's ink is paid out of the gap, ⛔ no longer on top of it — see the table above.
@@ -295,7 +296,7 @@ describe('ids in the width key', () => {
     const plain = new ScoreModel()
     plain.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const sharp = new ScoreModel()
-    sharp.addNote({ step: 'C', alter: 1, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    sharp.addNote({ step: 'C', alteration: ['sharp'], octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     expect(laneFingerprint(plain.getScore().measures[0])).not.toBe(
       laneFingerprint(sharp.getScore().measures[0]),
     )

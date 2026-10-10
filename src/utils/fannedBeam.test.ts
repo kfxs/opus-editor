@@ -247,7 +247,7 @@ describe('the range, read by the three consumers', () => {
  */
 describe('normalizeFan — the one owner of members.length === count - 1', () => {
   const pitch = (step: string, id: string): NotePitch =>
-    ({ id, step: step as NotePitch['step'], alter: 0, octave: 4 })
+    ({ id, step: step as NotePitch['step'], octave: 4 })
   const own = [pitch('C', 'own-1')]
 
   it('never touches the mark — or the members array — it was handed', () => {
@@ -342,10 +342,10 @@ describe('cloneFanFresh — the copy that mints its own ids', () => {
   it('same pitches, no shared id, and the arrays are its own', () => {
     const src: FanMark = {
       direction: 'accel', count: 3, beams: 3,
-      members: [{ pitches: [{ id: 'a', step: 'C', alter: 0, octave: 4 }] }, { pitches: [{ id: 'b', step: 'E', alter: 1, octave: 4 }] }],
+      members: [{ pitches: [{ id: 'a', step: 'C', octave: 4 }] }, { pitches: [{ id: 'b', step: 'E', alteration: ['sharp'], octave: 4 }] }],
     }
     const copy = cloneFanFresh(src)
-    expect(copy.members!.map(m => `${m.pitches[0].step}${m.pitches[0].alter}${m.pitches[0].octave}`)).toEqual(['C04', 'E14'])
+    expect(copy.members!.map(m => `${m.pitches[0].step}${m.pitches[0].alteration ?? ''}${m.pitches[0].octave}`)).toEqual(['C4', 'Esharp4'])
     expect(copy.members!.flatMap(m => m.pitches).map(p => p.id)).not.toContain('a')
     expect(copy.members![0]).not.toBe(src.members![0])
   })

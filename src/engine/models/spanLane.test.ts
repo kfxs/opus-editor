@@ -22,8 +22,8 @@ describe('spanLane.staffOnsets', () => {
   })
 
   it('lists the staff\'s onsets in reading order, by absolute beat across the barline', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'D', alter: 0, octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'D', octave: 4, duration: 'h', measure: 2, beat: frac(0, 1) })
     const lane = at(staffOnsets(score, undefined))
     expect(lane[0]).toBe('1:0@0+2')
     expect(lane).toContain('2:0@4+2')
@@ -31,8 +31,8 @@ describe('spanLane.staffOnsets', () => {
   })
 
   it('counts two voices attacking together ONCE, and keeps the LONGEST slot there', () => {
-    model.addNote({ step: 'C', alter: 0, octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) })
-    model.addNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
+    model.addNote({ step: 'C', octave: 5, duration: 'h', measure: 1, beat: frac(0, 1) })
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1), voice: 1 })
     const first = staffOnsets(score, undefined).filter(o => o.measure === 1 && fracToNumber(o.beat) === 0)
     expect(first).toHaveLength(1)
     expect(fracToNumber(first[0].length)).toBe(2)
@@ -44,7 +44,7 @@ describe('spanLane.locateSpan', () => {
   beforeEach(() => {
     const model = new ScoreModel()
     model.addMeasure()
-    model.addNote({ step: 'C', alter: 0, octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })
+    model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 2, beat: frac(1, 1) })
     score = model.getScore()
   })
 

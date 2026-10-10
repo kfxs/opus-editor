@@ -149,7 +149,7 @@ describe('createStaveNotesFromSlots — a two-note tremolo pair', () => {
   let seq = 0
   const chord = (beat: number, duration: 'h' | 'q' | '8', extra: object = {}): ChordRest => ({
     id: `c${seq++}`, type: 'chord', beat: frac(beat, 2), duration, measure: 1,
-    notes: [{ id: `p${seq++}`, step: 'C', alter: 0, octave: 4 }],
+    notes: [{ id: `p${seq++}`, step: 'C', octave: 4 }],
     ...extra,
   })
 
@@ -176,11 +176,11 @@ describe('createStaveNotesFromSlots — a two-note tremolo pair', () => {
     // A high C6 and a low C3: apart, each would stem the other way.
     const high: ChordRest = {
       id: 'hi', type: 'chord', beat: frac(0, 1), duration: 'q', measure: 1,
-      notes: [{ id: 'hp', step: 'C', alter: 0, octave: 6 }], tremoloPair: true,
+      notes: [{ id: 'hp', step: 'C', octave: 6 }], tremoloPair: true,
     }
     const low: ChordRest = {
       id: 'lo', type: 'chord', beat: frac(1, 1), duration: 'q', measure: 1,
-      notes: [{ id: 'lp', step: 'C', alter: 0, octave: 3 }],
+      notes: [{ id: 'lp', step: 'C', octave: 3 }],
     }
     const [a, b] = createStaveNotesFromSlots([high, low])
     expect(a.getStemDirection()).toBe(b.getStemDirection())
@@ -204,11 +204,11 @@ describe('createStaveNotesFromSlots — a FANNED group takes ONE stem direction'
   /** A blanca at beat 0, fanned, whose members are given a pitch of their own. */
   const fanned = (memberStep: PitchStep, memberOctave: number, count = 4): Chord => ({
     id: 'f1', type: 'chord', beat: frac(0, 1), duration: 'h', measure: 1,
-    notes: [{ id: 'p1', step: 'C', alter: 0, octave: 4 }],
+    notes: [{ id: 'p1', step: 'C', octave: 4 }],
     fan: {
       direction: 'accel', count, beams: 3,
       members: Array.from({ length: count - 1 }, (_, k) => (
-        { pitches: [{ id: `m${k}`, step: memberStep, alter: 0 as const, octave: memberOctave }] }
+        { pitches: [{ id: `m${k}`, step: memberStep, octave: memberOctave }] }
       )),
     },
   })

@@ -6,7 +6,7 @@
  * One chapter of the score's types — import it through the barrel, `@/types/music`.
  */
 import type { NoteDuration, Fraction } from './duration'
-import type { PitchStep, PitchAlter } from './pitch'
+import type { PitchStep, Alteration } from './pitch'
 
 /**
  * Articulation types
@@ -366,7 +366,7 @@ export type BeamMode = 'auto' | 'single' | 'begin' | 'continue' | 'end'
 /**
  * Represents a single musical note (or rest).
  *
- * Pitch is stored as step + alter + octave (PitchSpelling), NOT as a raw MIDI integer.
+ * Pitch is stored as step + alteration + octave (PitchSpelling), NOT as a raw MIDI integer.
  * These fields are undefined for rests (isRest === true).
  * Which of two is higher: `utils/pitchOrder` (as WRITTEN). MIDI is playback's alone.
  */
@@ -375,8 +375,8 @@ export interface Note {
   id: string
   /** Diatonic step name — undefined for rests */
   step?: PitchStep
-  /** Chromatic alteration: -2=bb  -1=b  0=natural  1=#  2=## — undefined for rests */
-  alter?: PitchAlter
+  /** The signs altering the letter — absent when unaltered, and for rests ({@link Alteration}) */
+  alteration?: Alteration
   /** Scientific octave (C4 = middle C) — undefined for rests */
   octave?: number
   /** Note duration */
@@ -481,18 +481,18 @@ export interface Note {
 /**
  * Internal pitch-only object stored inside a Chord.
  *
- * Pitch is stored as step + alter + octave (MusicXML / music21 convention),
- * NOT as a raw MIDI integer. This makes enharmonic spelling explicit:
- *   C#4 = { step:'C', alter:1,  octave:4 }
- *   Db4 = { step:'D', alter:-1, octave:4 }
+ * Pitch is stored as step + alteration + octave, NOT as a raw MIDI integer. This makes the
+ * spelling explicit:
+ *   C#4 = { step:'C', alteration:['sharp'], octave:4 }
+ *   Db4 = { step:'D', alteration:['flat'],  octave:4 }
  * Which of two is higher: `utils/pitchOrder` (as WRITTEN). MIDI is playback's alone.
  */
 export interface NotePitch {
   id: string
   /** Diatonic step name */
   step: PitchStep
-  /** Chromatic alteration: -2=bb  -1=b  0=natural  1=#  2=## */
-  alter: PitchAlter
+  /** The signs altering the letter — absent when unaltered ({@link Alteration}) */
+  alteration?: Alteration
   /** Scientific octave — C4 is middle C */
   octave: number
   /** Show accidental sign even when measure context would suppress it */
@@ -563,7 +563,7 @@ export type HeadEnclosure = 'round'
 export interface PitchInsert {
   id: string
   step: PitchStep
-  alter: PitchAlter
+  alteration?: Alteration
   octave: number
   forceAccidental?: boolean
   tiedTo?: string
@@ -831,15 +831,15 @@ export type ChordRest = Chord | Rest
 /**
  * Parameters for creating or updating a note.
  *
- * Pitch is specified as step + alter + octave (PitchSpelling).
+ * Pitch is specified as step + alteration + octave (PitchSpelling).
  * All three pitch fields should be provided together for non-rests;
  * they are omitted (or undefined) for rests.
  */
 export interface NoteParams {
   /** Diatonic step name — omit for rests */
   step?: PitchStep
-  /** Chromatic alteration — omit for rests, defaults to 0 (natural) when step is provided */
-  alter?: PitchAlter
+  /** The signs altering the letter — omit for rests and for an unaltered pitch */
+  alteration?: Alteration
   /** Scientific octave — omit for rests */
   octave?: number
   duration: NoteDuration

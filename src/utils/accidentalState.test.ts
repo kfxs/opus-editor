@@ -1,6 +1,7 @@
+import { withSigns } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
-import { prevailingAlterations, alterInForce, alterInForceAt, displayedAccidentals, type AccidentalNote } from './accidentalState'
-import type { Chord, FanMark, NotePitch, PitchAlter, PitchStep } from '@/types/music'
+import { prevailingAlterations, alterationInForce, alterationInForceAt, displayedAccidentals, type AccidentalNote } from './accidentalState'
+import type { Alteration, Chord, FanMark, NotePitch, PitchStep } from '@/types/music'
 import { fracCreate as frac } from './fraction'
 import { spellingDiatonicPos } from './pitchSpelling'
 import { C_MAJOR, keyFromFifths } from './keySignature'
@@ -13,36 +14,36 @@ describe('accidentalState.prevailingAlterations', () => {
   const G4 = spellingDiatonicPos('G', 4)
 
   const at = (beat: number, extra: Partial<AccidentalNote>): AccidentalNote =>
-    ({ step: 'F', octave: 4, alter: 0, beat: frac(beat, 1), ...extra })
+    ({ step: 'F', octave: 4, beat: frac(beat, 1), ...extra })
 
   it('keeps the LAST preceding alteration at a diatonic position (beat-ordered)', () => {
-    const notes = [at(0, { alter: 1 }), at(1, { alter: -1 })]
-    expect(alterInForceAt(notes, frac(2, 1), C_MAJOR, 'F', 4)).toBe(-1)
+    const notes = [at(0, { alteration: ['sharp'] }), at(1, { alteration: ['flat'] })]
+    expect(alterationInForceAt(notes, frac(2, 1), C_MAJOR, 'F', 4)).toEqual(['flat'])
   })
 
   it('keys by diatonic position — a different position does not leak', () => {
-    const notes = [at(0, { step: 'F', alter: 1 })]
-    expect(alterInForceAt(notes, frac(2, 1), C_MAJOR, 'G', 4)).toBe(0) // G untouched by F#
+    const notes = [at(0, { step: 'F', alteration: ['sharp'] })]
+    expect(alterationInForceAt(notes, frac(2, 1), C_MAJOR, 'G', 4)).toBeUndefined() // G untouched by F#
   })
 
   it('excludes tied continuations (a tied note re-states nothing)', () => {
-    const notes = [at(0, { alter: 1, tiedFrom: 'x' })]
-    expect(alterInForceAt(notes, frac(2, 1), C_MAJOR, 'F', 4)).toBe(0)
+    const notes = [at(0, { alteration: ['sharp'], tiedFrom: 'x' })]
+    expect(alterationInForceAt(notes, frac(2, 1), C_MAJOR, 'F', 4)).toBeUndefined()
   })
 
   it('excludes rests', () => {
-    const notes: AccidentalNote[] = [{ isRest: true, beat: frac(0, 1) }, at(1, { alter: 1 })]
-    expect(alterInForceAt(notes, frac(2, 1), C_MAJOR, 'F', 4)).toBe(1) // only the F# counts
+    const notes: AccidentalNote[] = [{ isRest: true, beat: frac(0, 1) }, at(1, { alteration: ['sharp'] })]
+    expect(alterationInForceAt(notes, frac(2, 1), C_MAJOR, 'F', 4)).toEqual(['sharp']) // only the F# counts
   })
 
   it('is strictly before the target beat — a same-beat note does not count', () => {
-    const notes = [at(1, { alter: 1 })]
-    expect(alterInForceAt(notes, frac(1, 1), C_MAJOR, 'F', 4)).toBe(0)
+    const notes = [at(1, { alteration: ['sharp'] })]
+    expect(alterationInForceAt(notes, frac(1, 1), C_MAJOR, 'F', 4)).toBeUndefined()
   })
 
-  it('a position never seen is absent from the map (undefined, not 0)', () => {
-    const map = prevailingAlterations([at(0, { alter: 1 })], frac(2, 1))
-    expect(map.get(F4)).toBe(1)
+  it('a position never seen is absent from the map (`has` is false — a natural would be present)', () => {
+    const map = prevailingAlterations([at(0, { alteration: ['sharp'] })], frac(2, 1))
+    expect(map.get(F4)).toEqual(['sharp'])
     expect(map.has(G4)).toBe(false)
   })
 })
@@ -52,8 +53,8 @@ describe('accidentalState.prevailingAlterations', () => {
  * group's members obey the same rule as the notes around them (docs/plans/fanned-beam-pitches-plan.md §2).
  */
 describe('displayedAccidentals', () => {
-  const pitch = (id: string, step: PitchStep, alter: PitchAlter, extra: Partial<NotePitch> = {}): NotePitch =>
-    ({ id, step, alter, octave: 4, ...extra })
+  const pitch = (id: string, step: PitchStep, alter: number, extra: Partial<NotePitch> = {}): NotePitch =>
+    ({ id, step, ...withSigns(alter), octave: 4, ...extra })
 
   const chord = (id: string, notes: NotePitch[], beat: number, fan?: FanMark): Chord => ({
     id, type: 'chord', beat: frac(beat, 1), duration: 'q', measure: 1, notes, ...(fan ? { fan } : {}),
@@ -200,29 +201,29 @@ describe('displayedAccidentals', () => {
 })
 
 /**
- * ⭐⭐ {@link alterInForce} — the ONE fallback the drawing, note entry, "remove accidental" and the
+ * ⭐⭐ {@link alterationInForce} — the ONE fallback the drawing, note entry, "remove accidental" and the
  * trill's auxiliary all read. Its whole content is *the bar first, the key underneath it*.
  */
-describe('alterInForce', () => {
+describe('alterationInForce', () => {
   const G_MAJOR = keyFromFifths(1)
 
   it('answers the KEY where the bar has said nothing at that position', () => {
-    expect(alterInForce(new Map(), G_MAJOR, 'F', 4)).toBe(1)
-    expect(alterInForce(new Map(), G_MAJOR, 'G', 4)).toBe(0)
+    expect(alterationInForce(new Map(), G_MAJOR, 'F', 4)).toEqual(['sharp'])
+    expect(alterationInForce(new Map(), G_MAJOR, 'G', 4)).toBeUndefined()
   })
 
   it('answers the BAR where it has', () => {
-    const bar = new Map([[spellingDiatonicPos('F', 4), -1 as PitchAlter]])
-    expect(alterInForce(bar, G_MAJOR, 'F', 4)).toBe(-1)
+    const bar = new Map<number, Alteration | undefined>([[spellingDiatonicPos('F', 4), ['flat']]])
+    expect(alterationInForce(bar, G_MAJOR, 'F', 4)).toEqual(['flat'])
   })
 
-  it('🚨 an explicit natural (0) in the bar is an ANSWER, not an absence', () => {
-    const bar = new Map([[spellingDiatonicPos('F', 4), 0 as PitchAlter]])
-    expect(alterInForce(bar, G_MAJOR, 'F', 4)).toBe(0) // `??`, never `||`
+  it('🚨 an explicit natural (present, undefined) in the bar is an ANSWER, not an absence', () => {
+    const bar = new Map<number, Alteration | undefined>([[spellingDiatonicPos('F', 4), undefined]])
+    expect(alterationInForce(bar, G_MAJOR, 'F', 4)).toBeUndefined() // `has`, never `??`
   })
 
   it('the bar is OCTAVE-specific while the key is not — F♮4 leaves F5 at the key’s sharp', () => {
-    const bar = new Map([[spellingDiatonicPos('F', 4), 0 as PitchAlter]])
-    expect(alterInForce(bar, G_MAJOR, 'F', 5)).toBe(1)
+    const bar = new Map<number, Alteration | undefined>([[spellingDiatonicPos('F', 4), undefined]])
+    expect(alterationInForce(bar, G_MAJOR, 'F', 5)).toEqual(['sharp'])
   })
 })

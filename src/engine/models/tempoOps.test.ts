@@ -27,7 +27,7 @@ describe('moveTempoBySlot — the mark walks the onsets', () => {
     model.addMeasure()
     for (const m of [1, 2]) {
       for (const b of [0, 1, 2, 3]) {
-        model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: m, beat: frac(b, 1) } as never)
+        model.addNote({ step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) } as never)
       }
     }
     score = model.getScore()
@@ -77,13 +77,13 @@ describe('moveTempoBySlot — the mark walks the onsets', () => {
   it('⭐⭐ walks EVERY staff and voice — a tempo has no lane, it governs the clock', () => {
     // ⛔ Not the dynamic's rule (its own voice on its own staff). A left-hand chord under a
     // right-hand rest is a moment the clock can change at, so it is a stop.
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: '8', measure: 1, beat: frac(5, 2), voice: 1 } as never)
     expect(moveTempoBySlot(score, id, 1)).toBe(true)
     expect(at(id), 'the voice-1 onset at 2.5 IS a stop').toBe('1@2.5')
   })
 
   it('⭐ a column sounded by several voices is ONE stop, not one per notehead', () => {
-    model.addNote({ step: 'E', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 } as never)
+    model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(3, 1), voice: 1 } as never)
     moveTempoBySlot(score, id, 1)
     expect(at(id)).toBe('1@3')
     // …and the next press leaves the bar rather than landing on beat 3 a second time.
@@ -139,7 +139,7 @@ describe('nextTempoSlot — the stop one step away', () => {
   it('⭐ names it without moving anything, and answers null at the ends', () => {
     const model = new ScoreModel()
     for (const b of [0, 1, 2, 3]) {
-      model.addNote({ step: 'C', octave: 4, alter: 0, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
+      model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) } as never)
     }
     const score = model.getScore()
     const id = model.addTempoMark(1, { beat: frac(2, 1), text: 'Allegro' })!.id

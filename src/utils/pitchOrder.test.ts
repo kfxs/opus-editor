@@ -1,10 +1,11 @@
+import { withSigns } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
 import type { PitchStep } from '@/types/music'
 import {
   comparePitch, lowToHigh, MIDDLE_C_POSITION, octaveAbove, octaveNearest, pitchDirection, samePitch, staffPosition,
 } from './pitchOrder'
 
-const p = (step: PitchStep, alter: number, octave: number) => ({ step, alter, octave })
+const p = (step: PitchStep, alter: number, octave: number) => ({ step, ...withSigns(alter), octave })
 
 describe('staffPosition', () => {
   it('counts lines and spaces from C0; the signs play no part', () => {
@@ -44,7 +45,7 @@ describe('comparePitch — the staff first, then the rank', () => {
 describe('samePitch — letter, signs and octave (M1)', () => {
   it('the same written pitch', () => {
     expect(samePitch(p('C', 1, 4), p('C', 1, 4))).toBe(true)
-    expect(samePitch(p('C', 0, 4), { step: 'C', octave: 4 })).toBe(true) // absent alter = natural
+    expect(samePitch(p('C', 0, 4), { step: 'C', octave: 4 })).toBe(true) // absent alteration = natural
   })
 
   it('⭐ C♯ and D♭ are TWO pitches — only a tuning says they sound alike', () => {

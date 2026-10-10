@@ -62,7 +62,7 @@ function graceHeadXs(group: SceneGroup): number[] {
 
 describe('GracePass — one grace before a note', () => {
   it('⭐ draws ONE grace group, scaled by the grace size (D5), with one note in it', () => {
-    const { model } = build({ grace: { step: 'D', alter: 0, octave: 5 } })
+    const { model } = build({ grace: { step: 'D', octave: 5 } })
     const { scene } = render(model)
     const groups = sceneGroups(scene, GRACE_GROUP)
     expect(groups).toHaveLength(1)
@@ -72,7 +72,7 @@ describe('GracePass — one grace before a note', () => {
   })
 
   it('⭐⭐ the grace stands LEFT of its principal and RIGHT of the note before it', () => {
-    const { model } = build({ grace: { step: 'D', alter: 0, octave: 5 } })
+    const { model } = build({ grace: { step: 'D', octave: 5 } })
     const { scene } = render(model)
     const [before, host] = mainHeadXs(scene)
     const [grace] = graceHeadXs(sceneGroups(scene, GRACE_GROUP)[0])
@@ -86,8 +86,8 @@ describe('GracePass — one grace before a note', () => {
   })
 
   it('⭐ its OFFSET moves the grace alone — by that many staff spaces; its principal and the bar stay put', () => {
-    const plain = build({ grace: { step: 'D', alter: 0, octave: 5 } })
-    const moved = build({ grace: { step: 'D', alter: 0, octave: 5 } })
+    const plain = build({ grace: { step: 'D', octave: 5 } })
+    const moved = build({ grace: { step: 'D', octave: 5 } })
     moved.model.nudgeNoteOffset(moved.grace!.pitches[0].id, -1)
     const a = render(plain.model).scene
     const b = render(moved.model).scene
@@ -101,26 +101,26 @@ describe('GracePass — one grace before a note', () => {
     // ⚠️ 16ths: a quarter's own space already holds one grace (the floor never binds there — the
     //    grace is UNFIXED ink of the gap, plan §4), so only a dense bar shows the room being bought.
     const plain = mainHeadXs(render(build({ sixteenths: true }).model).scene)
-    const graced = mainHeadXs(render(build({ grace: { step: 'D', alter: 0, octave: 5 }, sixteenths: true }).model).scene)
+    const graced = mainHeadXs(render(build({ grace: { step: 'D', octave: 5 }, sixteenths: true }).model).scene)
     expect(graced[1] - graced[0]).toBeGreaterThan(plain[1] - plain[0])
   })
 
   it('…and in a quarter’s gap it fits without moving anything', () => {
     const plain = mainHeadXs(render(build().model).scene)
-    const graced = mainHeadXs(render(build({ grace: { step: 'D', alter: 0, octave: 5 } }).model).scene)
+    const graced = mainHeadXs(render(build({ grace: { step: 'D', octave: 5 } }).model).scene)
     expect(graced[1] - graced[0]).toBeCloseTo(plain[1] - plain[0], 6)
   })
 
   it('⭐ at the bar START, the grace stands inside the bar — its principal moves right', () => {
     const plain = mainHeadXs(render(build().model).scene)
-    const { scene } = render(build({ grace: { step: 'D', alter: 0, octave: 5 }, hostBeat: 0 }).model)
+    const { scene } = render(build({ grace: { step: 'D', octave: 5 }, hostBeat: 0 }).model)
     const graced = mainHeadXs(scene)
     expect(graced[0]).toBeGreaterThan(plain[0])
   })
 
   it('⭐ an acciaccatura draws a SLASH — the FONT\'s glyph, E564, as the beamed group\'s is; an appoggiatura does not', () => {
     const slashes = (form: GraceForm) => {
-      const { scene } = render(build({ grace: { step: 'D', alter: 0, octave: 5 }, form }).model)
+      const { scene } = render(build({ grace: { step: 'D', octave: 5 }, form }).model)
       return scenePrimitives(sceneGroups(scene, GRACE_GROUP)[0])
         .filter(p => p.kind === 'text' && p.text === String.fromCodePoint(0xe564)).length
     }
@@ -129,14 +129,14 @@ describe('GracePass — one grace before a note', () => {
   })
 
   it('⛔ draws NO slur of its own — a slur is the user\'s (his call, 2026-09-22)', () => {
-    const { scene } = render(build({ grace: { step: 'D', alter: 0, octave: 5 }, form: 'appoggiatura' }).model)
+    const { scene } = render(build({ grace: { step: 'D', octave: 5 }, form: 'appoggiatura' }).model)
     const group = sceneGroups(scene, GRACE_GROUP)[0]
     const note = sceneGroups(group, GRACE_NOTE_GROUP)[0]
     expect(scenePrimitives(group).length, 'everything drawn is the note\'s own ink').toBe(scenePrimitives(note).length)
   })
 
   it('⭐ registers the grace head as a NOTE under its pitch id — and WITHOUT a beat', () => {
-    const { model, grace } = build({ grace: { step: 'D', alter: 0, octave: 5 } })
+    const { model, grace } = build({ grace: { step: 'D', octave: 5 } })
     const { renderer } = render(model)
     const id = grace!.pitches[0].id
     const entry = renderer.getElementRegistry().getByType('note').find(e => e.id === id)
@@ -146,9 +146,9 @@ describe('GracePass — one grace before a note', () => {
   })
 
   it('a grace on a ledger line draws its own ledger, inside the grace group', () => {
-    const { scene } = render(build({ grace: { step: 'A', alter: 0, octave: 5 } }).model)
+    const { scene } = render(build({ grace: { step: 'A', octave: 5 } }).model)
     const withLedger = scenePrimitives(sceneGroups(scene, GRACE_GROUP)[0]).filter(p => p.kind === 'path').length
-    const { scene: plainScene } = render(build({ grace: { step: 'D', alter: 0, octave: 5 } }).model)
+    const { scene: plainScene } = render(build({ grace: { step: 'D', octave: 5 } }).model)
     const without = scenePrimitives(sceneGroups(plainScene, GRACE_GROUP)[0]).filter(p => p.kind === 'path').length
     expect(withLedger).toBe(without + 1)
   })
@@ -158,7 +158,7 @@ describe('GracePass — a grace before a REST (D7 reversed)', () => {
   it('⭐ draws the grace, left of the rest, and registers it', () => {
     const model = new ScoreModel()
     const rest = beatRestAt(model.getScore(), model.getMeasure(1)!.slots[0].id, frac(1, 1))!
-    const grace = addGrace(model.getScore(), rest.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!
+    const grace = addGrace(model.getScore(), rest.id, 'before', { step: 'D', octave: 5 }, 'appoggiatura', { duration: '8' })!
     const { renderer, scene } = render(model)
     expect(sceneGroups(scene, GRACE_GROUP)).toHaveLength(1)
     expect(renderer.getElementRegistry().getByType('note').some(e => e.id === grace.pitches[0].id)).toBe(true)
@@ -180,8 +180,8 @@ describe('GracePass — a grace on low ledger lines grows its stem (Gould p. 126
     return Math.max(...lengths)
   }
   it('G3 draws a longer stem than D5 — by what the rule says', () => {
-    const d5 = stemPx({ step: 'D', alter: 0, octave: 5 })
-    const g3 = stemPx({ step: 'G', alter: 0, octave: 3 })
+    const d5 = stemPx({ step: 'D', octave: 5 })
+    const g3 = stemPx({ step: 'G', octave: 3 })
     expect(d5 / STAFF_SPACE_PX).toBeCloseTo(2.5, 1)
     expect(g3 / STAFF_SPACE_PX).toBeCloseTo(3.3, 1)
   })
@@ -189,7 +189,7 @@ describe('GracePass — a grace on low ledger lines grows its stem (Gould p. 126
 
 describe('GracePass — the slash by what the note HAS (his rule, 2026-09-22)', () => {
   const strokes = (form: GraceForm, written: NoteDuration) => {
-    const { scene } = render(build({ grace: { step: 'D', alter: 0, octave: 5 }, form, written }).model)
+    const { scene } = render(build({ grace: { step: 'D', octave: 5 }, form, written }).model)
     return scenePrimitives(sceneGroups(scene, GRACE_GROUP)[0]).filter(p => p.kind === 'path').length
   }
   it('a QUARTER and a HALF acciaccatura are slashed — at their own position', () => {
@@ -203,7 +203,7 @@ describe('GracePass — the slash by what the note HAS (his rule, 2026-09-22)', 
 
 describe('GracePass — a DOTTED grace', () => {
   const dotTexts = (dots: number, step: PitchSpelling['step']) => {
-    const { scene } = render(build({ grace: { step, alter: 0, octave: 5 }, dots }).model)
+    const { scene } = render(build({ grace: { step, octave: 5 }, dots }).model)
     const note = sceneGroups(sceneGroups(scene, GRACE_GROUP)[0], GRACE_NOTE_GROUP)[0]
     return scenePrimitives(note).flatMap(p => (p.kind === 'text' && p.text === String.fromCodePoint(0xe1e7) ? [p] : []))
   }
@@ -214,7 +214,7 @@ describe('GracePass — a DOTTED grace', () => {
   })
   it('a head on a LINE lifts its dot into the space above; one in a space keeps it level', () => {
     const headAndDot = (step: PitchSpelling['step']) => {
-      const { scene } = render(build({ grace: { step, alter: 0, octave: 5 }, dots: 1 }).model)
+      const { scene } = render(build({ grace: { step, octave: 5 }, dots: 1 }).model)
       const note = sceneGroups(sceneGroups(scene, GRACE_GROUP)[0], GRACE_NOTE_GROUP)[0]
       const texts = scenePrimitives(note).flatMap(p => (p.kind === 'text' ? [p] : []))
       const dot = texts.find(t => t.text === String.fromCodePoint(0xe1e7))!
@@ -230,11 +230,11 @@ describe('GracePass — a DOTTED grace', () => {
 
 describe('GracePass — a grace\'s ARTICULATIONS (Gould p. 125: "scaled down proportionally")', () => {
   it('⭐ draws the mark inside the grace, and registers it on the grace\'s pitch so it can be clicked', () => {
-    const { model, grace } = build({ grace: { step: 'D', alter: 0, octave: 5 }, form: 'appoggiatura' })
+    const { model, grace } = build({ grace: { step: 'D', octave: 5 }, form: 'appoggiatura' })
     grace!.articulations = ['staccato']
     const { renderer, scene } = render(model)
     const note = sceneGroups(sceneGroups(scene, GRACE_GROUP)[0], GRACE_NOTE_GROUP)[0]
-    const plain = render(build({ grace: { step: 'D', alter: 0, octave: 5 }, form: 'appoggiatura' }).model).scene
+    const plain = render(build({ grace: { step: 'D', octave: 5 }, form: 'appoggiatura' }).model).scene
     const plainNote = sceneGroups(sceneGroups(plain, GRACE_GROUP)[0], GRACE_NOTE_GROUP)[0]
     const texts = (g: SceneGroup) => scenePrimitives(g).filter(p => p.kind === 'text').length
     expect(texts(note), 'one more glyph: the staccato').toBe(texts(plainNote) + 1)
@@ -249,7 +249,7 @@ describe('GracePass — a BEAMED group (P2b)', () => {
     const { model, host } = build()
     const steps: PitchSpelling['step'][] = ['D', 'C', 'B', 'A']
     durations.forEach((duration, i) =>
-      addGrace(model.getScore(), host.id, 'before', { step: steps[i], alter: 0, octave: 5 }, 'appoggiatura', { duration }))
+      addGrace(model.getScore(), host.id, 'before', { step: steps[i], octave: 5 }, 'appoggiatura', { duration }))
     return sceneGroups(render(model).scene, GRACE_GROUP)[0]
   }
   /** The glyphs drawn inside each grace's own group — a head, plus a flag when it has one. */
@@ -262,7 +262,7 @@ describe('GracePass — a BEAMED group (P2b)', () => {
     expect(beams).toHaveLength(1)
     for (const note of sceneGroups(g, GRACE_NOTE_GROUP)) expect(sceneGroups(note, GRACE_BEAM_GROUP)).toHaveLength(0)
     expect(scenePrimitives(beams[0]).filter(p => p.kind === 'path')).toHaveLength(1) // one line
-    const lone = sceneGroups(render(build({ grace: { step: 'D', alter: 0, octave: 5 }, form: 'appoggiatura' }).model).scene, GRACE_GROUP)[0]
+    const lone = sceneGroups(render(build({ grace: { step: 'D', octave: 5 }, form: 'appoggiatura' }).model).scene, GRACE_GROUP)[0]
     const flagged = glyphsPerGrace(lone)[0]
     expect(glyphsPerGrace(g)).toEqual([flagged - 1, flagged - 1, flagged - 1]) // the flag is gone
   })
@@ -276,7 +276,7 @@ describe('GracePass — a BEAMED group (P2b)', () => {
     const beamStrokes = (form: GraceForm) => {
       const { model, host } = build()
       for (const step of ['D', 'C', 'B'] as const)
-        addGrace(model.getScore(), host.id, 'before', { step, alter: 0, octave: 5 }, form, { duration: '8' })
+        addGrace(model.getScore(), host.id, 'before', { step, octave: 5 }, form, { duration: '8' })
       const g = sceneGroups(render(model).scene, GRACE_GROUP)[0]
       const strokes = (n: SceneGroup) => scenePrimitives(n).filter(p => p.kind === 'path' && p.painted === 'stroke').length
       const slashes = (n: SceneGroup) => scenePrimitives(n).filter(p => p.kind === 'text' && p.text === String.fromCodePoint(0xe564)).length
@@ -306,7 +306,7 @@ describe('GracePass — STEMS DOWN (P6, `X`)', () => {
     const { model, host } = build()
     const steps: PitchSpelling['step'][] = ['D', 'C', 'B']
     durations.forEach((duration, i) =>
-      addGrace(model.getScore(), host.id, 'before', { step: steps[i], alter: 0, octave: 5 }, form, { duration }))
+      addGrace(model.getScore(), host.id, 'before', { step: steps[i], octave: 5 }, form, { duration }))
     const slot = model.getMeasure(1)!.slots.find(s => s.type === 'chord' && s.graceBefore)!
     if (down && slot.type === 'chord') slot.graceBefore!.stemDirection = 'down'
     return sceneGroups(render(model).scene, GRACE_GROUP)[0]
@@ -340,7 +340,7 @@ describe('GracePass — the AUTHORED beam (his report, 2026-09-23: "similar to n
     model.addMeasure()
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const graces = (['G', 'A', 'B', 'C'] as const).map(step =>
-      addGrace(model.getScore(), host.id, 'before', { step, alter: 0, octave: step === 'C' ? 5 : 4 }, 'appoggiatura', { duration: '8' })!)
+      addGrace(model.getScore(), host.id, 'before', { step, octave: step === 'C' ? 5 : 4 }, 'appoggiatura', { duration: '8' })!)
     const beams = () => sceneGroups(sceneGroups(render(model).scene, GRACE_GROUP)[0], GRACE_BEAM_GROUP).length
     expect(beams()).toBe(1)
     graces[2].beam = 'begin'
@@ -352,7 +352,7 @@ describe('GracePass — the AUTHORED beam (his report, 2026-09-23: "similar to n
 
 describe('GracePass — a PARENTHESISED grace (parenthesised-note-plan P3)', () => {
   it('⭐ its round pair is stamped INSIDE its own member group (so the highlight reaches it), at the grace\'s size', () => {
-    const { model, grace } = build({ grace: { step: 'D', alter: 0, octave: 5 } })
+    const { model, grace } = build({ grace: { step: 'D', octave: 5 } })
     setEnclosure(model.getScore(), [grace!.pitches[0].id], 'round')
     const { scene } = render(model)
     const outer = sceneGroups(scene, GRACE_GROUP)[0]

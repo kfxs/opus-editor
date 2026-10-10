@@ -1,3 +1,4 @@
+import type { Alteration } from '@/types/music'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PaletteController } from './PaletteController'
 import { createEditorState, armedTool, selectedOf, type EditorState, type MarkingTool } from '../state/EditorState'
@@ -173,16 +174,16 @@ describe('PaletteController — the Clef window applies to a SELECTED bar', () =
    *  walks (`utils/beatMap` reads the score, so the fake has to be a real-shaped one). */
   const frac = (num: number, den = 4) => ({ num, den })
   const notes = [
-    { id: 'n1', measure: 2, beat: frac(0), staff: 0, voice: 0, duration: 'q', step: 'C', alter: 0, octave: 4 },
-    { id: 'n2', measure: 2, beat: frac(2), staff: 0, voice: 0, duration: 'q', step: 'D', alter: 0, octave: 4 },
-    { id: 'n3', measure: 3, beat: frac(0), staff: 0, voice: 0, duration: 'q', step: 'E', alter: 0, octave: 4 },
+    { id: 'n1', measure: 2, beat: frac(0), staff: 0, voice: 0, duration: 'q', step: 'C', octave: 4 },
+    { id: 'n2', measure: 2, beat: frac(2), staff: 0, voice: 0, duration: 'q', step: 'D', octave: 4 },
+    { id: 'n3', measure: 3, beat: frac(0), staff: 0, voice: 0, duration: 'q', step: 'E', octave: 4 },
   ]
   const score = {
     measures: [1, 2, 3, 4].map(number => ({
       number,
       slots: notes.filter(n => n.measure === number).map(n => ({
         type: 'chord', id: n.id, measure: n.measure, beat: n.beat, duration: n.duration, voice: n.voice,
-        notes: [{ id: n.id, step: n.step, alter: n.alter, octave: n.octave }],
+        notes: [{ id: n.id, step: n.step, octave: n.octave }],
       })),
     })),
   }
@@ -693,7 +694,7 @@ describe('PaletteController — accidental stamp tool', () => {
   let renderScore: ReturnType<typeof vi.fn>
   let selectNote: ReturnType<typeof vi.fn>
   let setNoteAccidental: ReturnType<typeof vi.fn>
-  let notes: Record<string, { id: string; isRest?: boolean; alter: number }>
+  let notes: Record<string, { id: string; isRest?: boolean; alteration?: Alteration }>
   let displays: Set<string> // ids that "already display" the queried accidental (stubbed)
   let palette: PaletteController
 
@@ -708,7 +709,7 @@ describe('PaletteController — accidental stamp tool', () => {
       getNote: (id: string) => notes[id] ?? null,
       noteDisplaysAccidental: (id: string) => displays.has(id),
       setNoteAccidental,
-      getPrevailingAlter: () => 0,
+      getPrevailingAlteration: () => undefined,
       updateNote: vi.fn(),
       updateUndoNoteId: vi.fn(),
       runBatch: (_label: string, fn: () => void) => fn(),
@@ -736,7 +737,7 @@ describe('PaletteController — accidental stamp tool', () => {
     // that reads as "nothing selected", so a press must arm the stamp, not apply to the cursor note.
     state.selectedTool = 'selection'
     state.selectedNoteId = 'cursor'
-    notes['cursor'] = { id: 'cursor', alter: 0 }
+    notes['cursor'] = { id: 'cursor' }
     palette.setAccidental('#')
     expect(armedTool(state, 'accidental')?.sign).toBe('#')
     expect(state.selectedTool).toBe('entry')
@@ -747,7 +748,7 @@ describe('PaletteController — accidental stamp tool', () => {
     state.selectedTool = 'selection'
     state.selectedNoteId = 'n1'
     state.selectedItems.set('note:n1', { kind: 'note', id: 'n1' })
-    notes['n1'] = { id: 'n1', alter: 0 }
+    notes['n1'] = { id: 'n1' }
     palette.setAccidental('#')
     expect(setNoteAccidental).toHaveBeenCalledWith('n1', '#')
     expect(armedTool(state, 'accidental')).toBeNull()
@@ -1842,9 +1843,9 @@ describe('PaletteController — editing a selected accidental glyph', () => {
     setNoteAccidental = vi.fn()
     updateNote = vi.fn()
     const fakeEngine = {
-      getNote: (id: string) => ({ id, alter: 1 }),
+      getNote: (id: string) => ({ id, alteration: ['sharp'] }),
       setNoteAccidental,
-      getPrevailingAlter: () => 0,
+      getPrevailingAlteration: () => undefined,
       updateNote,
       runBatch: (_label: string, fn: () => void) => fn(),
     } as unknown as import('../../engine/MusicEngine').MusicEngine
@@ -1863,7 +1864,7 @@ describe('PaletteController — editing a selected accidental glyph', () => {
 
   it('pressing the SAME accidental removes it (reverts to prevailing) and clears the selection', () => {
     palette.setAccidental('#')
-    expect(updateNote).toHaveBeenCalledWith('n1', { alter: 0, forceAccidental: undefined })
+    expect(updateNote).toHaveBeenCalledWith('n1', { forceAccidental: undefined })
     expect(selectedOf(state, 'accidental')).toBeNull()
     // Switch-off leaves NOTHING selected (unlike the Del key, which keeps the note) — otherwise the
     // keypad would show a stray duration for an invisible selection.
@@ -1873,7 +1874,7 @@ describe('PaletteController — editing a selected accidental glyph', () => {
 
   it('a null "remove" also deletes the selected accidental', () => {
     palette.setAccidental(null)
-    expect(updateNote).toHaveBeenCalledWith('n1', { alter: 0, forceAccidental: undefined })
+    expect(updateNote).toHaveBeenCalledWith('n1', { forceAccidental: undefined })
     expect(selectedOf(state, 'accidental')).toBeNull()
   })
 

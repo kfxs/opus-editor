@@ -11,8 +11,8 @@ describe('graceStops', () => {
     const c = model.addNote({ step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const e = model.addNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const score = model.getScore()
-    const g = addGrace(score, e.id, 'before', { step: 'D', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
-    g.pitches.push({ id: 'g-upper', step: 'F', alter: 0, octave: 4 })
+    const g = addGrace(score, e.id, 'before', { step: 'D', octave: 4 }, 'appoggiatura', { duration: '8' })!
+    g.pitches.push({ id: 'g-upper', step: 'F', octave: 4 })
     const lane = withGraceStops(score, buildBeatMap(score, 0, 0).beats)
     return { score, c, e, g, lane }
   }

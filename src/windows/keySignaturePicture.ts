@@ -131,7 +131,7 @@ export function keySignaturePicture(key: KeySignature, clef: Clef = 'treble'): s
   let x = CLEF_INSET + glyphBox(clefGlyph(clef)).right * SPACE + CLEF_TO_KEY_INK * SPACE
   const rows = keySignatureLines(key, clef)
   key.alterations.forEach((alteration, i) => {
-    const name = signGlyph(alteration.alter)
+    const name = signGlyph(alteration.alteration)
     const char = name ? SIGN_CHARS[name] : undefined
     if (!name || !char) return
     marks.push(glyph(char, x, yOfLine(rows[i])))

@@ -72,27 +72,27 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
   })
 
   it('single note slurs to the NEXT slot (note or rest)', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const b = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     expect(engine.slur.createSlur([a.id])).toMatchObject({ startNoteId: a.id, endNoteId: b.id, voice: 0 })
     expect(engine.getSlurs()).toHaveLength(1)
   })
 
   it('range slurs first→last in SCORE order, regardless of id order passed', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
-    const c = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const c = addNote(engine, { step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
 
     // Pass ids out of order: last, first, middle.
     expect(engine.slur.createSlur([c.id, a.id])).toMatchObject({ startNoteId: a.id, endNoteId: c.id })
   })
 
   it('a single chord member slurs to the next EVENT, not a sibling head at the same beat', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     // Stack a second pitch on the same beat → a chord (sibling head of `a`).
-    const sibling = engine.addChordNote({ step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    const next = addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const sibling = engine.addChordNote({ step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    const next = addNote(engine, { step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     const slur = engine.slur.createSlur([a.id])!
     expect(slur.startNoteId).toBe(a.id)
@@ -101,8 +101,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
   })
 
   it('is create-only and idempotent — pressing s again does NOT add a duplicate or remove', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     const first = engine.slur.createSlur([a.id])!
     expect(engine.getSlurs()).toHaveLength(1)
@@ -115,7 +115,7 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
     // Fill both measures, then target the very last note — nothing follows it.
     for (let m = 1; m <= 2; m++) {
       for (let b = 0; b < 4; b++) {
-        addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: m, beat: frac(b, 1) })
+        addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: m, beat: frac(b, 1) })
       }
     }
     const all = engine.getScore().measures.flatMap(m => m.slots.filter(s => s.type === 'chord'))
@@ -127,8 +127,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
   })
 
   it('create then removeSlur are each one undo step', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
 
     const slur = engine.slur.createSlur([a.id])!
     expect(engine.getSlurs()).toHaveLength(1)
@@ -147,8 +147,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
     // the Slur. The engine/model pass the cps through verbatim — the px↔staff-space
     // conversion happens at the render/drag boundary, not here.
     const shapeOf = (id: string) => curveShapeOverrideOf(engine.getScore(), id)?.cps
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.slur.createSlur([a.id])!
     expect(shapeOf(slur.id)).toBeUndefined() // default = auto shape
 
@@ -172,8 +172,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
 
   it('nudgeSlurEndpoint accumulates the offset and saves exactly one undo step per press', () => {
     const offOf = (id: string) => endpointOffsetOverrideOf(engine.getScore(), id)?.start
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.slur.createSlur([a.id])!
     expect(offOf(slur.id)).toBeUndefined() // no nudge yet
 
@@ -193,8 +193,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
 
   it('nudgeSlurSegmentEndpoint accumulates the open-join offset and saves one undo step per press', () => {
     const beginOf = (id: string) => segmentEndpointOffsetOverrideOf(engine.getScore(), id)?.begin
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.slur.createSlur([a.id])!
     expect(beginOf(slur.id)).toBeUndefined()
 
@@ -213,8 +213,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
 
   it('previewSlurShape (no undo) + commitSlurShape (one undo) = a single reshape step', () => {
     const shapeOf = (id: string) => curveShapeOverrideOf(engine.getScore(), id)?.cps
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.slur.createSlur([a.id])!
     expect(shapeOf(slur.id)).toBeUndefined()
 
@@ -236,8 +236,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
   it('previewSlurShape routes a segment address to the per-segment override, not curveShape', () => {
     const curveOf = (id: string) => curveShapeOverrideOf(engine.getScore(), id)
     const segOf = (id: string) => segmentCurveShapeOverrideOf(engine.getScore(), id)
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.slur.createSlur([a.id])!
     const cps: [{ x: number; y: number }, { x: number; y: number }] = [{ x: 0.3, y: 1.2 }, { x: -0.1, y: 1.4 }]
 
@@ -257,8 +257,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
     const shapeOf = (id: string) => curveShapeOverrideOf(engine.getScore(), id)?.cps
 
     it('drops the override when the slur is deleted (and prunes the compartment)', () => {
-      const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
       const slur = engine.slur.createSlur([a.id])!
       engine.slur.setSlurShape(slur.id, cps)
       expect(shapeOf(slur.id)).toEqual(cps)
@@ -269,8 +269,8 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
     })
 
     it('drops the override when an endpoint note is deleted (re-anchored onto the replacement rest)', () => {
-      const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      const b = addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      const b = addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
       const slur = engine.slur.createSlur([a.id, b.id])! // spans a → b
       engine.slur.setSlurShape(slur.id, cps)
       expect(shapeOf(slur.id)).toEqual(cps)
@@ -281,19 +281,19 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
     })
 
     it('stays sticky across a non-breaking edit (anchors survive)', () => {
-      const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-      addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+      const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+      addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
       const slur = engine.slur.createSlur([a.id])!
       engine.slur.setSlurShape(slur.id, cps)
 
       // Add a note elsewhere — neither slur endpoint is touched, so the shape persists.
-      addNote(engine, { step: 'G', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
+      addNote(engine, { step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(2, 1) })
       expect(shapeOf(slur.id)).toEqual(cps)
     })
   })
   it('flipSlur toggles auto ↔ flipped as one undo step', () => {
-    const a = addNote(engine, { step: 'C', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
-    addNote(engine, { step: 'E', alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
+    const a = addNote(engine, { step: 'C', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
+    addNote(engine, { step: 'E', octave: 4, duration: 'q', measure: 1, beat: frac(1, 1) })
     const slur = engine.slur.createSlur([a.id])!
     expect(slur.placement).toBeUndefined() // auto
 
@@ -313,7 +313,7 @@ describe('slurCommands.createSlur — endpoint resolution, through the facade', 
     expect(engine.slur.flipSlur('nope')).toBe(false) // unknown id
   })
   it('tuplet.flip toggles auto ↔ flipped as one undo step', () => {
-    const tuplet = engine.createTupletAtBeat(1, 0, '8', { step: 'E', alter: 0, octave: 4 }, 3, 2, 0)!.tuplet
+    const tuplet = engine.createTupletAtBeat(1, 0, '8', { step: 'E', octave: 4 }, 3, 2, 0)!.tuplet
     const find = () => engine.getScore().measures[0].tuplets!.find(t => t.id === tuplet.id)!
     expect(find().placement).toBeUndefined() // auto
 

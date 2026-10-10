@@ -39,7 +39,8 @@ import { noteDurationToken, writtenLength } from '@/utils/durations'
 import { getMeterInfo } from '@/utils/meter'
 import { fillRests, type RestSlot } from '@/utils/restFill'
 import { measureEndingClef, effectiveClefAt, middleLineDiatonicPos, resolveStaffClefs } from '@/utils/clefUtils'
-import { spellingToNoteKey, spellingDiatonicPos, alterToString } from '@/utils/pitchSpelling'
+import { spellingToNoteKey, spellingDiatonicPos } from '@/utils/pitchSpelling'
+import { alterationCode } from '@/utils/alterationSigns'
 import { staffOf } from '@/utils/lanes'
 import { resolveStaffSize } from '@/engine/models/staffSize'
 import { staffMeasureView, staffIdAtIndex } from '@/engine/models/staffContent'
@@ -210,7 +211,7 @@ export function drawNoteGhost(
       tempStave.addMeter(widthInfo.cautionaryEndTimeSig, 'closing')
     }
 
-    const noteKey = spellingToNoteKey(ghostNote.step, ghostNote.alter, ghostNote.octave)
+    const noteKey = spellingToNoteKey(ghostNote.step, ghostNote.alteration, ghostNote.octave)
     const durationToken = convertDuration(ghostNote.duration as NoteDuration, ghostNote.dots || 0)
 
     // Stem direction — same diatonic approach as createStaveNotesFromSlots.
@@ -247,11 +248,11 @@ export function drawNoteGhost(
       attachEngravedDots(staveNote)
     }
 
-    if (ghostNote.alter !== 0) {
-      const sign = alterToString(ghostNote.alter)
+    if (ghostNote.alteration) {
+      const sign = alterationCode(ghostNote.alteration)
       attachModifier(staveNote, new EngravedAccidental(sign), 0)
     } else if (ghostNote.forceAccidental) {
-      // Armed natural: alter 0 has no sign of its own, so draw the ♮ explicitly.
+      // Armed natural: no alteration has no sign of its own, so draw the ♮ explicitly.
       attachModifier(staveNote, new EngravedAccidental('n'), 0)
     }
 
@@ -327,10 +328,10 @@ export function drawNoteGhost(
     //    so they are swept into `.ghost-note-group` and tinted with the rest of the ghost.
     if (ghostNote.enclosure) {
       const layout = enclosureLayout({
-        notes: [{ id: 'ghost', step: ghostNote.step, alter: ghostNote.alter, octave: ghostNote.octave, enclosure: ghostNote.enclosure }],
+        notes: [{ id: 'ghost', step: ghostNote.step, alteration: ghostNote.alteration, octave: ghostNote.octave, enclosure: ghostNote.enclosure }],
         duration: ghostNote.duration, dots: ghostNote.dots, stemDown: stemDirection === -1,
         upFlag: stemDirection === 1 && staveNote.hasFlag(),
-      }, () => (ghostNote.alter !== 0 ? alterToString(ghostNote.alter) : ghostNote.forceAccidental ? 'n' : null), clef)
+      }, () => (ghostNote.alteration ? alterationCode(ghostNote.alteration) : ghostNote.forceAccidental ? 'n' : null), clef)
       if (layout) {
         const frame = staveFrame(tempStave)
         const hostX = staveNote.getNoteHeadBeginX()

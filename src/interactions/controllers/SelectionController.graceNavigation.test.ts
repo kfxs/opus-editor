@@ -28,10 +28,10 @@ describe('SelectionController.navigateSelection — graces are stops', () => {
     vi.spyOn(selection as unknown as { scrollSelectedNoteIntoView(): void }, 'scrollSelectedNoteIntoView')
       .mockImplementation(() => {})
     const at = (step: 'C' | 'D' | 'E' | 'F', b: number) =>
-      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id
+      engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(b, 1) })!.id
     at('C', 0); d = at('D', 1); e = at('E', 2); f = at('F', 3)
-    g1 = engine.grace.addGrace(e, 'before', { step: 'G', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
-    g2 = engine.grace.addGrace(e, 'before', { step: 'A', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
+    g1 = engine.grace.addGrace(e, 'before', { step: 'G', octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
+    g2 = engine.grace.addGrace(e, 'before', { step: 'A', octave: 4 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
   })
 
   const walk = (from: string, direction: number, steps: number): (string | null)[] => {

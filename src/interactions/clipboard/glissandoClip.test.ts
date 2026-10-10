@@ -18,7 +18,7 @@ describe('glissandi travel with their notes', () => {
     const engine = new MusicEngine({ container: {} as unknown as HTMLElement, width: 800, height: 400 })
     engine.addMeasure()
     const ids = (['C', 'G', 'E', 'A'] as const).map((step, i) =>
-      engine.addNoteAtBeat({ step, alter: 0, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
+      engine.addNoteAtBeat({ step, octave: 4, duration: 'q', measure: 1, beat: frac(i, 1) })!.id)
     return { engine, ids }
   }
 

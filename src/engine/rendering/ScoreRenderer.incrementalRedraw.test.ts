@@ -448,7 +448,7 @@ describe('P5.4b — a bar that only moved is translated', () => {
     renderer.renderScore(model.getScore())
 
     const drew = renderer.drawGhostNote(model.getScore(), {
-      step: 'D', alter: 0, octave: 5, duration: 'q', measure: 2, beat: 2,
+      step: 'D', octave: 5, duration: 'q', measure: 2, beat: 2,
     })
 
     expect(drew, 'the ghost declined to draw').toBe(true)
@@ -458,7 +458,7 @@ describe('P5.4b — a bar that only moved is translated', () => {
     model.addDynamic(1, { text: levelToGlyphString('f'), beat: frac(0, 1), voice: 0 })
     renderer.renderScore(model.getScore())
     expect(renderer.drawGhostNote(model.getScore(), {
-      step: 'D', alter: 0, octave: 5, duration: 'q', measure: 2, beat: 2,
+      step: 'D', octave: 5, duration: 'q', measure: 2, beat: 2,
     })).toBe(true)
   })
 
@@ -709,7 +709,7 @@ describe('a reused measure keeps its graces', () => {
     const note = model.addNote({ step: 'G', octave: 4, duration: 'q', measure: 1, beat: frac(0, 1) })
     const rest = model.getMeasure(1)!.slots.find(s => s.type === 'rest')!
     const score = model.getScore()
-    const spell = (step: 'A' | 'G') => ({ step, alter: 0 as const, octave: 4 })
+    const spell = (step: 'A' | 'G') => ({ step, octave: 4 })
     const ids = [
       addGrace(score, note.id, 'before', spell('A'), 'appoggiatura', { duration: '8' })!,
       addGrace(score, rest.id, 'before', spell('A'), 'appoggiatura', { duration: '8' })!,

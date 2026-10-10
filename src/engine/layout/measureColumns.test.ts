@@ -1,3 +1,5 @@
+import type { Alteration } from '@/types/music'
+import { withSigns } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
 import { ScoreModel } from '@/engine/models/ScoreModel'
 import { fracCreate as frac } from '@/utils/fraction'
@@ -242,7 +244,7 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
   it('a sharp reaches left of its notehead, and the gap in front of it is note↔accidental', () => {
     const model = evenBar(4, 'q')
     const note = model.getNotesInMeasure(1)[1]
-    model.updateNote(note.id, { alter: 1, forceAccidental: true })
+    model.updateNote(note.id, { alteration: ['sharp'], forceAccidental: true })
 
     const columns = columnsOf(model)
     expect(columns[1].extent.left, 'a sharp is 1.4 spaces of ink').toBeCloseTo(1.4, 6)
@@ -250,14 +252,14 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
     expect(columns[0].extent.left, 'the note that has no sign reaches nowhere left').toBe(0)
   })
 
-  it('⚠️ …but only where a sign is actually DRAWN — the running-accidental rule, not `alter`', () => {
+  it('⚠️ …but only where a sign is actually DRAWN — the running-accidental rule, not `alteration`', () => {
     // Four C♯s in one bar draw ONE sharp; the other three inherit it. Reserving room for four
     // accidentals that never appear is the mistake this guards.
     const model = new ScoreModel()
     for (const beat of [0, 1, 2, 3]) {
       // ⚠️ No `forceAccidental` — that flag means "draw it anyway", so it would defeat the rule
       //    this test is about. A plain F♯ shows its sign the first time and inherits it after.
-      model.addNote({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: frac(beat, 1), alter: 1 } as NoteParams)
+      model.addNote({ step: 'F', octave: 5, duration: 'q', measure: 1, beat: frac(beat, 1), alteration: ['sharp'] } as NoteParams)
     }
     const columns = columnsOf(model)
     expect(columns[0].extent.left, 'the first one shows its sign').toBeCloseTo(1.4, 6)
@@ -270,7 +272,7 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
     const stack = (pitches: [step: 'D' | 'F' | 'C', octave: number][]) => {
       const model = new ScoreModel()
       for (const [step, octave] of pitches) {
-        model.addNote({ step, octave, duration: 'q', measure: 1, beat: frac(0, 1), alter: 1, forceAccidental: true } as NoteParams)
+        model.addNote({ step, octave, duration: 'q', measure: 1, beat: frac(0, 1), alteration: ['sharp'], forceAccidental: true } as NoteParams)
       }
       return columnsOf(model)[0].extent.left
     }
@@ -313,7 +315,7 @@ describe('the INK half (P3) — what an event draws buys its own minimum', () =>
     const plain = evenBar(4, 'q')
     const sharpened = evenBar(4, 'q')
     for (const note of sharpened.getNotesInMeasure(1)) {
-      sharpened.updateNote(note.id, { alter: 1, forceAccidental: true })
+      sharpened.updateNote(note.id, { alteration: ['sharp'], forceAccidental: true })
     }
     expect(asks(sharpened)).toBeCloseTo(asks(plain), 6)
     expect(asks(plain)).toBeCloseTo(14.4, 6)
@@ -410,7 +412,7 @@ describe('LEDGER LINES (P3.1) — ink that depends on where a note SITS', () => 
     /** One bar holding a single F4 of `alter`, measured under `key`. */
     const fBar = (alter: 0 | 1, key: KeySignature) => {
       const model = new ScoreModel()
-      model.addNote({ step: 'F', alter, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) } as NoteParams)
+      model.addNote({ step: 'F', ...withSigns(alter), octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) } as NoteParams)
       return measureColumns(bar(model), () => 'treble', () => 1, () => key)[0].extent.left
     }
 
@@ -429,7 +431,7 @@ describe('LEDGER LINES (P3.1) — ink that depends on where a note SITS', () => 
     it('a letter the key is silent about is priced exactly as before', () => {
       const gBar = (key: KeySignature) => {
         const model = new ScoreModel()
-        model.addNote({ step: 'G', alter: 1, octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) } as NoteParams)
+        model.addNote({ step: 'G', alteration: ['sharp'], octave: 4, duration: 'w', measure: 1, beat: frac(0, 1) } as NoteParams)
         return measureColumns(bar(model), () => 'treble', () => 1, () => key)[0].extent.left
       }
       expect(gBar(G_MAJOR)).toBeCloseTo(gBar(C_MAJOR), 6)
@@ -438,7 +440,7 @@ describe('LEDGER LINES (P3.1) — ink that depends on where a note SITS', () => 
 })
 
 describe('measureColumns — a GRACE before is LEFT ink of its host column (grace-notes-plan §4)', () => {
-  const graced = (spelling: { step: 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'; alter: -1 | 0 | 1; octave: number }) => {
+  const graced = (spelling: { step: 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'; alteration?: Alteration; octave: number }) => {
     const model = new ScoreModel()
     model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
@@ -447,7 +449,7 @@ describe('measureColumns — a GRACE before is LEFT ink of its host column (grac
   }
 
   it('⭐ adds ONE grace box to the host column, reaching as far as `graceLayout` says — and no column', () => {
-    const measure = graced({ step: 'D', alter: 0, octave: 5 })
+    const measure = graced({ step: 'D', octave: 5 })
     const columns = measureColumns(measure)
     const plain = new ScoreModel()
     plain.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
@@ -464,8 +466,8 @@ describe('measureColumns — a GRACE before is LEFT ink of its host column (grac
   })
 
   it('a grace with an ACCIDENTAL reaches further left, by its sign at the grace size', () => {
-    const plain = measureColumns(graced({ step: 'D', alter: 0, octave: 5 }))[1].extent.left
-    const sharp = measureColumns(graced({ step: 'D', alter: 1, octave: 5 }))[1].extent.left
+    const plain = measureColumns(graced({ step: 'D', octave: 5 }))[1].extent.left
+    const sharp = measureColumns(graced({ step: 'D', alteration: ['sharp'], octave: 5 }))[1].extent.left
     expect(sharp).toBeGreaterThan(plain)
   })
 })

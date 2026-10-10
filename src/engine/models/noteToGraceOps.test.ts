@@ -36,12 +36,12 @@ describe('convertNoteToGrace', () => {
     expect(rest.type).toBe('rest')
     const group = rest.graceBefore!
     expect(group.slash).toBe(true)
-    expect(group.notes).toEqual([{ pitches: [{ id: d.id, step: 'D', alter: 0, octave: 5 }], duration: '8', dots: 1, articulations: ['staccato'] }])
+    expect(group.notes).toEqual([{ pitches: [{ id: d.id, step: 'D', octave: 5 }], duration: '8', dots: 1, articulations: ['staccato'] }])
   })
 
   it('⭐ a note that ALREADY has graces: they stay, and it joins the END of the group (his rule)', () => {
     const { score, d, bar } = setup()
-    const g = addGrace(score, d.id, 'before', { step: 'E', alter: 0, octave: 5 }, 'appoggiatura', { duration: '16' })!
+    const g = addGrace(score, d.id, 'before', { step: 'E', octave: 5 }, 'appoggiatura', { duration: '16' })!
     const { restId } = convertNoteToGrace(score, d.id, 'appoggiatura')!
     const rest = bar().find(s => s.id === restId)!
     expect(rest.graceBefore!.notes.map(n => n.pitches[0].id)).toEqual([g.pitches[0].id, d.id])
@@ -62,7 +62,7 @@ describe('convertNoteToGrace', () => {
     const { score, d, bar } = setup()
     const rest = bar().find(s => s.type === 'rest')!
     expect(convertNoteToGrace(score, rest.id, 'appoggiatura')).toBeNull()
-    const g = addGrace(score, d.id, 'before', { step: 'E', alter: 0, octave: 5 }, 'appoggiatura', { duration: '16' })!
+    const g = addGrace(score, d.id, 'before', { step: 'E', octave: 5 }, 'appoggiatura', { duration: '16' })!
     expect(convertNoteToGrace(score, g.pitches[0].id, 'appoggiatura')).toBeNull()
   })
 })

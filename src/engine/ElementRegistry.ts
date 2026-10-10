@@ -1419,7 +1419,7 @@ export class ElementRegistry {
   }
 
   /**
-   * Convert pixel Y coordinate to a natural PitchSpelling (alter=0) using staff geometry.
+   * Convert pixel Y coordinate to a natural PitchSpelling (no alteration) using staff geometry.
    * @param y - Pixel Y coordinate
    * @param measure - Measure number to get staff geometry from
    * @param x - Optional pixel X, used to pick the clef region for mid-measure changes
@@ -1443,7 +1443,7 @@ export class ElementRegistry {
     if (!Number.isFinite(position)) return null
     // A0 … C8, the piano's range
     const clamped = Math.max(A0_POSITION, Math.min(C8_POSITION, position))
-    return { step: DIATONIC_STEPS[clamped % 7], alter: 0, octave: Math.floor(clamped / 7) }
+    return { step: DIATONIC_STEPS[clamped % 7], octave: Math.floor(clamped / 7) }
   }
 
   /**

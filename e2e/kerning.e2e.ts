@@ -205,7 +205,7 @@ test('⭐⭐ a LEFT-HAND accidental buys no room in the RIGHT hand — the piano
     //    visible once both staves shared one column list; before that the right hand never saw the left
     //    hand's ledgers at all.)
     for (const [i, step] of (['C', 'D', 'F', 'G'] as const).entries()) {
-      h.engine.addNoteAtBeat({ step, octave: 4, alter: 1, duration: 'q', measure: 1, beat: h.frac(i, 1), staff: 1, forceAccidental: true })
+      h.engine.addNoteAtBeat({ step, octave: 4, alteration: ['sharp'], duration: 'q', measure: 1, beat: h.frac(i, 1), staff: 1, forceAccidental: true })
     }
     await h.render()
     const bars = h.columnGaps()
@@ -248,7 +248,7 @@ test('⛔ …but inside a BEAM the previous stem is in the way, and the accident
     for (let i = 0; i < 16; i++) {
       const low = i % 2 === 1
       h.engine.addNoteAtBeat({
-        step: low ? 'D' : 'B', octave: low ? 4 : 5, alter: low ? 1 : 0,
+        step: low ? 'D' : 'B', octave: low ? 4 : 5, ...(low ? { alteration: ['sharp'] } : {}),
         duration: '16', measure: 1, beat: h.frac(i, 4), forceAccidental: low,
       })
     }

@@ -237,7 +237,7 @@ describe('a note taking a rest\'s position takes the rest\'s HIDDEN flag with it
   it('🚨 the edit-in-place rest→note conversion drops it — his report', () => {
     const { model, restId, key } = hiddenRestAtBeat0()
 
-    model.updateNote(restId, { step: 'A', alter: 0, octave: 3, isRest: false })
+    model.updateNote(restId, { step: 'A', octave: 3, isRest: false })
 
     expect(restHiddenOf(model.getScore(), key)).toBe(false)
     // ...and the shift stays, unread, exactly as §4 says (`ScoreModel.test.ts`\'s resurrection case).

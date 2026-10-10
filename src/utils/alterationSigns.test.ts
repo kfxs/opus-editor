@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { ALTERATION_SIGNS, alterationRank, alterationSign, signsOfAlter } from './alterationSigns'
+import {
+  ALTERATION_SIGNS, accidentalOfAlteration, alterationCode, alterationField, armedAlteration, alterationOfCode,
+  alterationRank, alterationSide, alterationSign, sameAlteration, setAlteration,
+} from './alterationSigns'
 
 describe('the sign table', () => {
   it('ranks the four stored signs in the decided order (decision B)', () => {
@@ -31,13 +34,73 @@ describe('alterationRank', () => {
   })
 })
 
-describe('signsOfAlter — the M0 bridge from the stored number', () => {
-  it('maps every stored alter to the signs it means', () => {
-    expect(signsOfAlter(-2)).toEqual(['doubleFlat'])
-    expect(signsOfAlter(-1)).toEqual(['flat'])
-    expect(signsOfAlter(0)).toEqual([])
-    expect(signsOfAlter(undefined)).toEqual([])
-    expect(signsOfAlter(1)).toEqual(['sharp'])
-    expect(signsOfAlter(2)).toEqual(['doubleSharp'])
+describe('sameAlteration', () => {
+  it('absent and absent are the same; the same signs are the same', () => {
+    expect(sameAlteration(undefined, undefined)).toBe(true)
+    expect(sameAlteration(['sharp'], ['sharp'])).toBe(true)
+  })
+
+  it('anything else differs — and a sharp is not a double sharp', () => {
+    expect(sameAlteration(undefined, ['sharp'])).toBe(false)
+    expect(sameAlteration(['sharp'], ['doubleSharp'])).toBe(false)
+    expect(sameAlteration(['sharp'], ['flat'])).toBe(false)
+  })
+})
+
+describe('alterationSide — sharp-like or flat-like, read off the rank', () => {
+  it('is the sign of the rank', () => {
+    expect(alterationSide(['doubleSharp'])).toBe(1)
+    expect(alterationSide(['flat'])).toBe(-1)
+    expect(alterationSide(undefined)).toBe(0)
+  })
+})
+
+describe('⛔ never an empty list stored', () => {
+  it('alterationField spreads nothing for an unaltered pitch', () => {
+    expect(alterationField(undefined)).toEqual({})
+    expect(alterationField([])).toEqual({})
+    expect(alterationField(['flat'])).toEqual({ alteration: ['flat'] })
+  })
+
+  it('setAlteration DELETES the field for an unaltered one', () => {
+    const pitch: { alteration?: readonly ('sharp' | 'flat')[] } = { alteration: ['sharp'] }
+    setAlteration(pitch, undefined)
+    expect('alteration' in pitch).toBe(false)
+    setAlteration(pitch, ['flat'])
+    expect(pitch.alteration).toEqual(['flat'])
+  })
+})
+
+describe('the Keypad\'s three keys', () => {
+  it('♯ / ♭ arm a sign; ♮ and nothing arm none (the natural is DRAWN, never stored)', () => {
+    expect(armedAlteration('#')).toEqual(['sharp'])
+    expect(armedAlteration('b')).toEqual(['flat'])
+    expect(armedAlteration('n')).toBeUndefined()
+    expect(armedAlteration(null)).toBeUndefined()
+  })
+
+  it('a key lights for its side — a double falls back to the single key', () => {
+    expect(accidentalOfAlteration(['sharp'])).toBe('#')
+    expect(accidentalOfAlteration(['doubleSharp'])).toBe('#')
+    expect(accidentalOfAlteration(['flat'])).toBe('b')
+    expect(accidentalOfAlteration(['doubleFlat'])).toBe('b')
+    expect(accidentalOfAlteration(undefined)).toBeUndefined()
+  })
+})
+
+describe('the drawing\'s inherited strings (M3 retires them)', () => {
+  it('alterationCode: the string the drawing names a sign by', () => {
+    expect(alterationCode(['doubleSharp'])).toBe('##')
+    expect(alterationCode(['sharp'])).toBe('#')
+    expect(alterationCode(undefined)).toBe('')
+    expect(alterationCode(['flat'])).toBe('b')
+    expect(alterationCode(['doubleFlat'])).toBe('bb')
+  })
+
+  it('alterationOfCode is the way back; `n` and `` are unaltered', () => {
+    expect(alterationOfCode('##')).toEqual(['doubleSharp'])
+    expect(alterationOfCode('b')).toEqual(['flat'])
+    expect(alterationOfCode('n')).toBeUndefined()
+    expect(alterationOfCode('')).toBeUndefined()
   })
 })

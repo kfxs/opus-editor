@@ -44,8 +44,8 @@ describe('flipSelection — the `x` key', () => {
   })
 
   it('⭐ GRACES flip their GROUP\'s stems (P6) — once per group, and their main note is untouched', () => {
-    const g1 = engine.grace.addGrace(noteIds[1], 'before', { step: 'D', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
-    const g2 = engine.grace.addGrace(noteIds[1], 'before', { step: 'E', alter: 0, octave: 4 }, 'appoggiatura', { duration: '8' })!
+    const g1 = engine.grace.addGrace(noteIds[1], 'before', { step: 'D', octave: 4 }, 'appoggiatura', { duration: '8' })!
+    const g2 = engine.grace.addGrace(noteIds[1], 'before', { step: 'E', octave: 4 }, 'appoggiatura', { duration: '8' })!
     const ids = [g1.pitches[0].id, g2.pitches[0].id]
     state.selectedItems = new Map(ids.map(id => [`note:${id}`, { kind: 'note' as const, id }]))
     state.selectedNoteId = ids[0]

@@ -234,7 +234,7 @@ describe('a fan sounds its members’ own pitches', () => {
 
   it('a member CHORD sounds all of its pitches at that member’s onset', () => {
     const { model, slot } = risingFan(3)
-    slot.fan!.members![0].pitches.push({ id: 'x', step: 'B', alter: 0, octave: 4 })
+    slot.fan!.members![0].pitches.push({ id: 'x', step: 'B', octave: 4 })
     const events = collectScheduledNotes(model.getScore()).sort((a, b) => a.startBeats - b.startBeats)
     expect(events).toHaveLength(4)
     expect(events[1].startBeats).toBeCloseTo(events[2].startBeats, 9) // the member's two pitches

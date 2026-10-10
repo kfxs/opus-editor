@@ -29,8 +29,8 @@ function makeRenderer() {
   return renderer
 }
 
-const Bb4: PitchSpelling = { step: 'B', alter: -1, octave: 4 }
-const D5: PitchSpelling = { step: 'D', alter: 0, octave: 5 }
+const Bb4: PitchSpelling = { step: 'B', alteration: ['flat'], octave: 4 }
+const D5: PitchSpelling = { step: 'D', octave: 5 }
 const char = (name: keyof typeof GLYPH_CODEPOINTS) => String.fromCodePoint(GLYPH_CODEPOINTS[name])
 
 /** Bar 1: C5 then E5, quarters (or 16ths); the bracketed grace before the SECOND note. */
@@ -145,7 +145,7 @@ describe('BracketedGracePass — one bracketed grace before a note', () => {
   })
 
   it('⭐ with a GRACE group too, the before side reads [grace] (●) main — the grace clears the brackets', () => {
-    const { scene } = render(build({ bracketed: D5, grace: { step: 'G', alter: 0, octave: 4 } }).model)
+    const { scene } = render(build({ bracketed: D5, grace: { step: 'G', octave: 4 } }).model)
     const grace = sceneGroups(scene, GRACE_GROUP)[0]
     const graceX = sceneGroups(grace, 'notehead')[0].children.flatMap(c => (c.kind === 'text' ? [c.x * grace.placement.a] : []))[0]
     const note = sceneGroups(scene, BRACKETED_NOTE_GROUP)[0]
@@ -186,7 +186,7 @@ describe('BracketedGracePass — P3: bent INTO a grace, the beam splits', () => 
     model.addNote({ step: 'C', octave: 5, duration: 'q', measure: 1, beat: frac(0, 1) })
     const host = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
     const graces = (['G', 'A', 'C'] as const).map((step, i) =>
-      addGrace(model.getScore(), host.id, 'before', { step, alter: 0, octave: i === 2 ? 5 : 4 }, 'acciaccatura', { duration: '8' })!)
+      addGrace(model.getScore(), host.id, 'before', { step, octave: i === 2 ? 5 : 4 }, 'acciaccatura', { duration: '8' })!)
     return { model, host, graces }
   }
   const beams = (scene: Scene) => sceneGroups(sceneGroups(scene, GRACE_GROUP)[0], GRACE_BEAM_GROUP)
@@ -218,7 +218,7 @@ describe('BracketedGracePass — P3: bent INTO a grace, the beam splits', () => 
 
   it('…and with four graces, [g1 g2] (●) [g3 g4]: TWO beams, each the group\'s own form', () => {
     const { model, host, graces } = graced()
-    addGrace(model.getScore(), host.id, 'before', { step: 'D', alter: 0, octave: 5 }, 'acciaccatura', { duration: '8' })
+    addGrace(model.getScore(), host.id, 'before', { step: 'D', octave: 5 }, 'acciaccatura', { duration: '8' })
     addBracketed(model.getScore(), graces[2].pitches[0].id, 'before', D5)
     expect(beams(render(model).scene)).toHaveLength(2)
   })

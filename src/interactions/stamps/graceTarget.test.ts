@@ -18,7 +18,7 @@ function setup() {
   const e = model.addNote({ step: 'E', octave: 5, duration: 'q', measure: 1, beat: frac(1, 1) })
   const score = model.getScore()
   const g = (step: 'D' | 'F' | 'G') =>
-    addGrace(score, e.id, 'before', { step, alter: 0, octave: 5 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
+    addGrace(score, e.id, 'before', { step, octave: 5 }, 'appoggiatura', { duration: '8' })!.pitches[0].id
   const graces = [g('D'), g('F'), g('G')]
   const head = (id: string, left: number): ElementInfo =>
     ({ type: 'note', id, measure: 1, staff: 0, headX: left + 4, bbox: { x: left, y: 0, width: 8, height: 10 } }) as ElementInfo

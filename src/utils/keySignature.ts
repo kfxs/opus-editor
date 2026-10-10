@@ -7,11 +7,11 @@
  * a global would silently mean "the key at bar 1 beat 0", the conflation that made the old
  * `score.clef` bleed across staves.
  *
- * ⚠️⚠️ **THE DISCIPLINE THAT KEEPS THIS CHEAP: readers ask {@link keyAlterOf}, never the shape of
+ * ⚠️⚠️ **THE DISCIPLINE THAT KEEPS THIS CHEAP: readers ask {@link keyAlterationOf}, never the shape of
  * the list.** Every reader wants one of three things, and only the third needs a number:
  *
  *  1. **what a letter is altered to** — pitch resolution, playback, the trill auxiliary:
- *     {@link keyAlterOf} answers directly;
+ *     {@link keyAlterationOf} answers directly;
  *  2. **the printed order and position of the signs** — that is the list's own order, which is
  *     AUTHORED data (see below);
  *  3. **what the key is CALLED** — {@link fifthsOf}, which returns `null` when there is no
@@ -77,7 +77,7 @@
  * example draws C♯ on the third space (C5) and it sharpens the C at C4 as well. So:
  *
  *  - **SCOPE is per-LETTER, all octaves.** That is the rule, flatly, and it is what
- *    {@link keyAlterOf} implements.
+ *    {@link keyAlterationOf} implements.
  *  - **PLACEMENT is a staff position DERIVED from the letter and the clef** — {@link
  *    KeyAlteration.octave} overrides it and says nothing about which octaves are governed.
  *
@@ -112,7 +112,8 @@
  * @see docs/plans/key-signature-plan.md — the build (P1 is this file plus `Measure.keys`)
  * @see docs/research/key-signature-research.md — the five research passes behind every number in it
  */
-import type { Fraction, KeyChange, KeySignature, PitchAlter, PitchStep, Score } from '@/types/music'
+import type { Alteration, Fraction, KeyChange, KeySignature, PitchStep, Score } from '@/types/music'
+import { sameAlteration } from './alterationSigns'
 import { fracCreate, fracLt, fracLte, fracGt } from './fraction'
 
 const ZERO: Fraction = fracCreate(0, 1)
@@ -136,11 +137,11 @@ const FLAT_ORDER: readonly PitchStep[] = ['B', 'E', 'A', 'D', 'G', 'C', 'F']
  *
  * ⭐ THE reader. Ask this, not the list.
  */
-export function keyAlterOf(key: KeySignature, step: PitchStep): PitchAlter {
+export function keyAlterationOf(key: KeySignature, step: PitchStep): Alteration | undefined {
   for (const a of key.alterations) {
-    if (a.step === step) return a.alter
+    if (a.step === step) return a.alteration
   }
-  return 0
+  return undefined
 }
 
 /**
@@ -163,8 +164,8 @@ export function fifthsOf(key: KeySignature): number | null {
   if (key.alterations.length === 0) return 0
   if (key.alterations.length > 7) return null
 
-  const sharps = key.alterations.every(a => a.alter === 1)
-  const flats = key.alterations.every(a => a.alter === -1)
+  const sharps = key.alterations.every(a => sameAlteration(a.alteration, ['sharp']))
+  const flats = key.alterations.every(a => sameAlteration(a.alteration, ['flat']))
   if (!sharps && !flats) return null
 
   const order = sharps ? SHARP_ORDER : FLAT_ORDER
@@ -188,9 +189,9 @@ export function fifthsOf(key: KeySignature): number | null {
 export function keyFromFifths(n: number, mode: 'major' | 'minor' = 'major'): KeySignature {
   const count = Math.min(Math.abs(Math.trunc(n)), 7)
   const order = n > 0 ? SHARP_ORDER : FLAT_ORDER
-  const alter: PitchAlter = n > 0 ? 1 : -1
+  const alteration: Alteration = n > 0 ? ['sharp'] : ['flat']
   return {
-    alterations: count === 0 ? [] : order.slice(0, count).map(step => ({ step, alter })),
+    alterations: count === 0 ? [] : order.slice(0, count).map(step => ({ step, alteration })),
     mode,
   }
 }
@@ -257,7 +258,7 @@ export function keysEqual(a: KeySignature, b: KeySignature): boolean {
   if (a.alterations.length !== b.alterations.length) return false
   return a.alterations.every((x, i) => {
     const y = b.alterations[i]
-    return x.step === y.step && x.alter === y.alter && x.octave === y.octave
+    return x.step === y.step && sameAlteration(x.alteration, y.alteration) && x.octave === y.octave
   })
 }
 
