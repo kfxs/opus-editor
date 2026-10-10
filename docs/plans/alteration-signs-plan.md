@@ -250,6 +250,13 @@ them, MuseScore's form), so no gap number was needed; room rows from Bravura's b
 **K6 — quarter-tones heard (low priority, decision D).** The tuning answers half steps and the
 instrument detunes. WebAudioFont's player should take it — read in its source, ⛔ not yet heard.
 
+✅ **Built 2026-10-10.** `engine/audio/equalTemperament`'s rows are the TRUE quarter-tones: Stein's ¼♯ ¼♭ ±0.5, ¾♯ ¾♭
+±1.5, and Gould's arrows (K7) the plain sign moved ±0.5 — 24-EDO. Nothing else changed: the instrument already takes
+the key as it comes (`WebAudioFontInstrument.noteOn` → `queueWaveTable`, whose playback rate is
+`2^((100·pitch − detune)/1200)` and whose zone lookup is an inclusive range — read in `webaudiofont/npm/src/player.ts`).
+⚠️ A key number is therefore no longer always a whole piano key (60.5 = a quarter-tone above middle C). 👂 His check
+is HEARING one.
+
 
 **K7 — his Keypad: Gould's ARROW quarter-tones on `-` `4` `1` `0` `.`** (his ask, 2026-10-10: *"we are not
 changing the accidental palette … we are adding new accidentals … but we have no enough room in the keypad so we

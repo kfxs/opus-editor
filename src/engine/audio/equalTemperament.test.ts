@@ -2,6 +2,7 @@ import { signs } from '@/testing/signs'
 import { describe, it, expect } from 'vitest'
 import type { PitchStep } from '@/types/music'
 import { midiToSpelling, pitchToMidi, spellingToMidi } from './equalTemperament'
+import { ALTERATION_SIGNS } from '@/utils/alterationSigns'
 
 describe('equalTemperament', () => {
 
@@ -171,5 +172,30 @@ describe('pitchToMidi', () => {
     // can tell which was written (docs/how-it-works/tuning-systems-and-alteration.md).
     expect(pitchToMidi({ step: 'G', alteration: ['sharp'], octave: 4 })).toBe(68)
     expect(pitchToMidi({ step: 'A', alteration: ['flat'], octave: 4 })).toBe(68)
+  })
+})
+
+describe('K6 — the quarter-tones SOUND as quarter-tones (24-EDO)', () => {
+  it('⭐ Stein\'s four sit half a semitone from their neighbours', () => {
+    expect(spellingToMidi('C', ['quarterToneSharpStein'], 4)).toBe(60.5)
+    expect(spellingToMidi('C', ['quarterToneFlatStein'], 4)).toBe(59.5)
+    expect(spellingToMidi('C', ['threeQuarterTonesSharpStein'], 4)).toBe(61.5)
+    expect(spellingToMidi('C', ['threeQuarterTonesFlatZimmermann'], 4)).toBe(58.5)
+  })
+
+  it('⭐ Gould\'s arrows (K7): the plain sign moved a quarter-tone — ♯↓ is ¼♯, ♮↑ is ¼♯ too', () => {
+    expect(spellingToMidi('C', ['quarterToneSharpNaturalArrowUp'], 4)).toBe(60.5)
+    expect(spellingToMidi('C', ['quarterToneSharpArrowDown'], 4)).toBe(60.5)
+    expect(spellingToMidi('C', ['threeQuarterTonesSharpArrowUp'], 4)).toBe(61.5)
+    expect(spellingToMidi('C', ['quarterToneFlatArrowUp'], 4)).toBe(59.5)
+    expect(spellingToMidi('C', ['threeQuarterTonesFlatArrowDown'], 4)).toBe(58.5)
+  })
+
+  it('⭐ every sign of the table has a sound, and only the quarter-tones are fractional', () => {
+    for (const sign of ALTERATION_SIGNS) {
+      const semis = spellingToMidi('C', [sign.id], 4) - 60
+      expect(Number.isFinite(semis), sign.id).toBe(true)
+      expect(Math.abs(sign.rank) % 2 === 1 ? !Number.isInteger(semis) : Number.isInteger(semis), sign.id).toBe(true)
+    }
   })
 })

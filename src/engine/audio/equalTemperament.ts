@@ -7,8 +7,9 @@
  * staff's questions (`utils/pitchOrder`) — ⛔ never answer them here, where C♯ and D♭ are one key.
  * The core may not import this module (lint:boundary — "audio").
  *
- * ⚠️ A sign a tuning gives no value has no key number; the day a quarter-tone is stored, this table
- * gains its row or the sign plays as its nearest key (plan §2, "Sound").
+ * ⭐ A quarter-tone's key is FRACTIONAL (K6): 60.5 is a quarter-tone above middle C. ⛔ So a key number here is
+ * not always a piano key — the instrument detunes; anything wanting a whole key must say so (`midiToSpelling` is
+ * only ever handed whole ones).
  */
 
 import type { Alteration, AlterationSignId, PitchSpelling, PitchStep } from '@/types/music'
@@ -28,19 +29,20 @@ const SIGN_SEMITONES: Record<AlterationSignId, number> = {
   flat: -1,
   sharp: 1,
   doubleSharp: 2,
-  // ⭐ K4 — a quarter-tone plays as a NORMAL key until K6 detunes it: Sibelius without its plug-in (Robert Puff,
-  //    docs/research/sibelius-keypad.md: *"A natural and a quarter-sharp sound the same pitch"* — likewise sharp /
-  //    three-quarter sharp, flat / quarter flat). ⚠️ Rounded TOWARD the letter: ±½ → 0, ±1½ → ±1.
-  quarterToneSharpStein: 0,
-  quarterToneFlatStein: 0,
-  threeQuarterTonesSharpStein: 1,
-  threeQuarterTonesFlatZimmermann: -1,
-  // ⭐ K7 — the arrow quarter-tones, by the same rounding toward the letter.
-  quarterToneSharpNaturalArrowUp: 0,
-  quarterToneSharpArrowDown: 0,
-  threeQuarterTonesSharpArrowUp: 1,
-  quarterToneFlatArrowUp: 0,
-  threeQuarterTonesFlatArrowDown: -1,
+  // ⭐⭐ K6 — the QUARTER-TONES SOUND as quarter-tones: half a semitone, 24-EDO (equal temperament halved). K4 and
+  //    K7 played them as the nearest key (Sibelius without its plug-in); ⭐ the instrument takes a FRACTIONAL key —
+  //    WebAudioFont's `queueWaveTable` turns it into a playback rate, `2^((100·pitch − detune)/1200)` (read in
+  //    `webaudiofont/npm/src/player.ts`), so the detune IS the number. Stein's four…
+  quarterToneSharpStein: 0.5,
+  quarterToneFlatStein: -0.5,
+  threeQuarterTonesSharpStein: 1.5,
+  threeQuarterTonesFlatZimmermann: -1.5,
+  // …and Gould's arrows (K7): the plain sign moved a quarter-tone up or down.
+  quarterToneSharpNaturalArrowUp: 0.5,
+  quarterToneSharpArrowDown: 0.5,
+  threeQuarterTonesSharpArrowUp: 1.5,
+  quarterToneFlatArrowUp: -0.5,
+  threeQuarterTonesFlatArrowDown: -1.5,
 }
 
 /** How many semitones an alteration moves its letter, in equal temperament. */
