@@ -70,6 +70,13 @@ describe('entryOverwriteOps', () => {
       expect(alive(e)).toBe(true) // and finding deletes nothing
     })
 
+    it('⭐ an ENHARMONIC on the same beat is a CHORD too (M1): D♭ beside a C♯ keeps it', () => {
+      const cSharp = add('C', 0, 'q', { alter: 1 })
+      expect(findNotesToOverwrite(model, 1, frac(0, 1), 'q', { step: 'D', alter: -1, octave: 4 })).toEqual([])
+      expect(findNotesToOverwrite(model, 1, frac(0, 1), 'q', { step: 'C', alter: 1, octave: 4 }).map(n => n.id))
+        .toEqual([cSharp.id])
+    })
+
     it('a note starting strictly inside the new note\'s length goes; one starting at its end stays', () => {
       const [inside, atEnd] = [add('E', 1), add('G', 2)]
       const found = findNotesToOverwrite(model, 1, frac(0, 1), 'h', C4).map(n => n.id)

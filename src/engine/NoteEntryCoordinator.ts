@@ -12,7 +12,8 @@ import { fitRestDuration, slotLength, writtenLength } from '@/utils/durations'
 import type { Fraction } from '@/utils/fraction'
 import type { Note, NoteParams, Tuplet, TupletFormat, NoteDuration, ArticulationType, Accidental, PitchSpelling } from '@/types/music'
 import type { PixelCoordinates } from './rendering/renderTypes'
-import { formatPitch, spellingEnharmonic } from '@/utils/pitchSpelling'
+import { formatPitch } from '@/utils/pitchSpelling'
+import { samePitch } from '@/utils/pitchOrder'
 import { entryAlteration } from './models/entryAlteration'
 import { changeNote } from './models/durationChangeOps'
 import { applyTupletToNote, buildTupletWithFirstNote, clampToTupletRemainder, landInTuplet, tupletFitsBar } from './models/tupletEntryOps'
@@ -277,7 +278,7 @@ export class NoteEntryCoordinator {
         const notesAtBeat = notesInMeasure.filter(n => !n.isRest && fracEq(n.beat, finalBeat))
         if (notesAtBeat.length > 0) {
           // There are notes at this beat - check for collision
-          const hasSamePitch = notesAtBeat.some(n => !n.isRest && spellingEnharmonic({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling))
+          const hasSamePitch = notesAtBeat.some(n => !n.isRest && samePitch({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling))
           if (hasSamePitch) {
             console.warn('Same pitch collision at calculated beat')
             return null
@@ -360,7 +361,7 @@ export class NoteEntryCoordinator {
 
     // For non-overflow cases, update existing chord notes (same beat + voice + staff) to match duration
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && voiceOf(n) === entryVoice && staffOf(n) === entryStaff && fracEq(n.beat, finalBeat) && !spellingEnharmonic({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling))
+      .filter(n => !n.isRest && voiceOf(n) === entryVoice && staffOf(n) === entryStaff && fracEq(n.beat, finalBeat) && !samePitch({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling))
     for (const chordNote of existingChordNotes) {
       if (chordNote.duration !== duration) {
         this.getScoreModel().updateNote(chordNote.id, { duration })
@@ -448,7 +449,7 @@ export class NoteEntryCoordinator {
     const splitVoice = voiceOf(noteParams)
     const splitStaff = staffOf(noteParams)
     const existingChordNotes = this.getScoreModel().getNotesInMeasure(measureNumber)
-      .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && !spellingEnharmonic({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling) && !n.tiedTo)
+      .filter(n => !n.isRest && voiceOf(n) === splitVoice && staffOf(n) === splitStaff && fracEq(n.beat, finalBeat) && !samePitch({ step: n.step!, alter: n.alter ?? 0, octave: n.octave! }, spelling) && !n.tiedTo)
     // The slot crosses the barline as ONE chord: the heads already there, then the new one. Each
     // head's erosion of the next bar spares the others' continuations (`spanningNoteOps`).
     splitChordWithTie(this.getScoreModel(), existingChordNotes, duration, overflowAmount, dots)

@@ -4,7 +4,7 @@ import { collectScheduledNotes } from './playbackSchedule'
 import { fanMembers, DEFAULT_FAN_COUNT, DEFAULT_FAN_BEAMS } from '@/utils/fannedBeam'
 import { fracCreate as frac, fracToNumber } from '@/utils/fraction'
 import type { Score, FanMark } from '@/types/music'
-import { pitchToMidi } from '@/utils/pitchSpelling'
+import { pitchToMidi } from '@/engine/audio/equalTemperament'
 
 /**
  * A FAN SOUNDS (docs/plans/fanned-beams-plan.md §3, P3) — `count` attacks that speed up or slow down

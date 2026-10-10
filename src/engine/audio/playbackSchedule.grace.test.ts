@@ -3,7 +3,7 @@ import { ScoreModel } from '../models/ScoreModel'
 import { addGrace } from '../models/graceOps'
 import { collectScheduledNotes } from './playbackSchedule'
 import { fracCreate as frac } from '@/utils/fraction'
-import { pitchToMidi } from '@/utils/pitchSpelling'
+import { pitchToMidi } from '@/engine/audio/equalTemperament'
 import type { GraceForm } from '../models/graceOps'
 import type { NoteDuration } from '@/types/music'
 

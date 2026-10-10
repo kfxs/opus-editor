@@ -15,7 +15,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { BracketedGrace, ChordRest, NoteDuration, NotePitch, PitchSpelling, Score } from '@/types/music'
 import { dbg } from '@/utils/debug'
-import { spellingEnharmonic } from '@/utils/pitchSpelling'
+import { samePitch } from '@/utils/pitchOrder'
 import { chordStoredPitches } from '@/utils/fannedBeam'
 import { GRACE_SIDES, graceGroupOf } from '@/utils/graceNotes'
 import { BRACKETED_SIDES, bracketedKey, bracketedOf, type BracketedSide, type BracketedTarget } from '@/utils/bracketedGraces'
@@ -134,13 +134,13 @@ export function addBracketed(
 
 /**
  * A second head in an existing bracketed grace — a double-stop pre-bend (one bracket pair per head,
- * B9). @returns the new pitch, or null: not a bracketed pitch, or ⛔ a pitch it already HAS (by sound —
- * note entry's same-pitch rule).
+ * B9). @returns the new pitch, or null: not a bracketed pitch, or ⛔ a pitch it already HAS (as written —
+ * letter, signs, octave: note entry's same-pitch rule, `utils/pitchOrder.samePitch`).
  */
 export function addBracketedPitch(score: Score, bracketedPitchId: string, spelling: BracketedSpelling): NotePitch | null {
   const found = findBracketed(score, bracketedPitchId)
   if (!found) return null
-  if (found.bracketed.pitches.some(p => spellingEnharmonic(p, spelling))) {
+  if (found.bracketed.pitches.some(p => samePitch(p, spelling))) {
     dbg(`[bracketedGraceOps.addBracketedPitch] refused: it already shows ${spelling.step}${spelling.octave}`)
     return null
   }

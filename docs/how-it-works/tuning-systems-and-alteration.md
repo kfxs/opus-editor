@@ -12,7 +12,9 @@ include it.
 export type PitchAlter = -2 | -1 | 0 | 1 | 2   // -2 = 𝄫   -1 = ♭   0 = ♮   1 = ♯   2 = 𝄪
 ```
 
-The TYPE is an enumeration of **symbols**. `spellingToMidi` (`… + STEP_SEMITONES[step] + alter`) reads
+The TYPE is an enumeration of **symbols**. `spellingToMidi` (`… + STEP_SEMITONES[step] + alter` —
+since alteration-signs M1 it lives in `engine/audio/equalTemperament`, the first tuning, and nothing
+outside `engine/audio/` asks it) reads
 it as a **count of semitones**. In 12-TET those are the same number. Outside it they are not: a ♯ need
 not be 100 cents, and in several systems ♯ and ♭ are not mirror images.
 

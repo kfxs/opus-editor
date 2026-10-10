@@ -11,7 +11,7 @@ import { durationFlags } from '@/utils/durations'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { Score, TempoMark } from '@/types/music'
 import { buildTempoMap, beatsToSeconds, totalSeconds } from '@/utils/tempoMap'
-import { pitchToMidi } from '@/utils/pitchSpelling'
+import { pitchToMidi } from '@/engine/audio/equalTemperament'
 
 // MIDI reference: C4 = 60, C3 = 48, E4 = 64, G4 = 67.
 const C4 = 60, C3 = 48, E4 = 64

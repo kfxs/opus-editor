@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { playableFrom, type ScheduledNote } from './playbackSchedule'
 import { DEFAULT_TEMPO, type TempoSegment } from '@/utils/tempoMap'
-import { midiToSpelling, pitchToMidi } from '@/utils/pitchSpelling'
+import { midiToSpelling, pitchToMidi } from '@/engine/audio/equalTemperament'
 
 /**
  * PLAYING FROM A BAR — the origin shift, on its own.

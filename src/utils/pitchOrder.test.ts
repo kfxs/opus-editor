@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { PitchStep } from '@/types/music'
 import {
-  comparePitch, lowToHigh, MIDDLE_C_POSITION, octaveAbove, octaveNearest, pitchDirection, staffPosition,
+  comparePitch, lowToHigh, MIDDLE_C_POSITION, octaveAbove, octaveNearest, pitchDirection, samePitch, staffPosition,
 } from './pitchOrder'
 
 const p = (step: PitchStep, alter: number, octave: number) => ({ step, alter, octave })
@@ -38,6 +38,23 @@ describe('comparePitch — the staff first, then the rank', () => {
     expect(pitchDirection(p('C', 0, 4), p('D', 0, 4))).toBe(1)
     expect(pitchDirection(p('D', 0, 4), p('C', 0, 4))).toBe(-1)
     expect(pitchDirection(p('D', 1, 4), p('D', 1, 4))).toBe(0)
+  })
+})
+
+describe('samePitch — letter, signs and octave (M1)', () => {
+  it('the same written pitch', () => {
+    expect(samePitch(p('C', 1, 4), p('C', 1, 4))).toBe(true)
+    expect(samePitch(p('C', 0, 4), { step: 'C', octave: 4 })).toBe(true) // absent alter = natural
+  })
+
+  it('⭐ C♯ and D♭ are TWO pitches — only a tuning says they sound alike', () => {
+    expect(samePitch(p('C', 1, 4), p('D', -1, 4))).toBe(false)
+    expect(samePitch(p('G', 2, 4), p('A', 0, 4))).toBe(false)
+  })
+
+  it('another sign or another octave is another pitch', () => {
+    expect(samePitch(p('C', 1, 4), p('C', 0, 4))).toBe(false)
+    expect(samePitch(p('A', 0, 4), p('A', 0, 5))).toBe(false)
   })
 })
 

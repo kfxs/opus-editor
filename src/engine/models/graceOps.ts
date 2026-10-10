@@ -14,7 +14,8 @@ import type { BeamMode, Chord, GraceGroup, GraceNote, GraceSide, NoteDuration, N
 import { dbg } from '@/utils/debug'
 import { GRACE_SIDES, graceGroupOf, graceKey } from '@/utils/graceNotes'
 import { chordStoredPitches } from '@/utils/fannedBeam'
-import { spellingEnharmonic } from '@/utils/pitchSpelling'
+import { samePitch } from '@/utils/pitchOrder'
+import { formatPitch } from '@/utils/pitchSpelling'
 import { maxDots } from '@/utils/durations'
 import { findSlot, type FoundSlot } from './slotLookup'
 import { clearEngravingOverride, moveNoteOffsetKey } from './overrideOps'
@@ -95,8 +96,8 @@ export function addGrace(
  * ⭐ **A click in a grace's COLUMN adds its pitch: a grace CHORD** (P2a — note entry's chord rule).
  * The pitch is spelled as the caller spelled it; the grace takes the written value the click carries,
  * as a note-entry chord note brings its chord to the armed duration.
- * @returns the new pitch, or null when refused: not a grace, or ⛔ a pitch it already HAS (by sound —
- *   note entry's same-pitch rule).
+ * @returns the new pitch, or null when refused: not a grace, or ⛔ a pitch it already HAS (as written —
+ *   letter, signs, octave: note entry's same-pitch rule, `utils/pitchOrder.samePitch`).
  */
 export function addGracePitch(
   score: Score, gracePitchId: string, spelling: GraceSpelling, written?: GraceWritten,
@@ -104,8 +105,8 @@ export function addGracePitch(
   const found = findSlot(score, gracePitchId, { graceNotes: true })
   if (!found?.grace) return null
   const note = found.grace.note
-  if (note.pitches.some(p => spellingEnharmonic(p, spelling))) {
-    dbg(`[graceOps.addGracePitch] refused: the grace already sounds ${spelling.step}${spelling.octave}`)
+  if (note.pitches.some(p => samePitch(p, spelling))) {
+    dbg(`[graceOps.addGracePitch] refused: the grace already has ${formatPitch(spelling)}`)
     return null
   }
   const pitch = newGracePitch(spelling)

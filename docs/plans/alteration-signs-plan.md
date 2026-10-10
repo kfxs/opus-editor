@@ -66,6 +66,10 @@ clicked on C's line) — the registry now holds `staffPosition`; and undo labels
 **M1 — C♯ and D♭ are two pitches (the bug, its own commit).** The *"is this pitch already here"*
 sites — mouse entry, grace pitches, bracketed graces, entry overwrite — ask `samePitch`, which
 compares letter, signs and octave. ✔ Spec per site. 👁 His check: a chord holding both C♯ and D♭.
+✅ **Built 2026-10-10.** `pitchOrder.samePitch` (letter + signs + octave) at all five sites; the MIDI helpers
+(`spellingToMidi`, `pitchToMidi`, `midiToSpelling`) moved to `engine/audio/equalTemperament`, the first
+tuning, which the core may not import. Found on the way: a D♭ clicked on a C♯'s column did not merely
+fail to chord — it silently REPLACED the C♯ (`entryOverwriteOps` took it as "the same pitch").
 
 **M2 — the storage flips.** `alter` (number) becomes `alteration` (list) on the pitch, the flat
 `Note`, the entry parameters and `KeyAlteration`. The bar's accidental rule compares alterations

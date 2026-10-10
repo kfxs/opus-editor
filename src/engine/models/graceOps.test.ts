@@ -189,13 +189,19 @@ describe('graceOps', () => {
       expect(rhythm()).toEqual(before)
     })
 
-    it('⛔ refuses a pitch the grace already SOUNDS (an enharmonic too), and anything not a grace', () => {
+    it('⛔ refuses a pitch the grace already HAS (as written), and anything not a grace', () => {
       const host = quarter()
       const grace = graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', EIGHTH)!
       expect(graceOps.addGracePitch(score, grace.pitches[0].id, E4)).toBeNull()
-      expect(graceOps.addGracePitch(score, grace.pitches[0].id, { step: 'F', alter: -1, octave: 4 })).toBeNull()
       expect(graceOps.addGracePitch(score, host.id, D4)).toBeNull()
       expect(grace.pitches).toHaveLength(1)
+    })
+
+    it('⭐ an ENHARMONIC is another pitch (M1): F♭ joins an E', () => {
+      const host = quarter()
+      const grace = graceOps.addGrace(score, host.id, 'before', E4, 'appoggiatura', EIGHTH)!
+      expect(graceOps.addGracePitch(score, grace.pitches[0].id, { step: 'F', alter: -1, octave: 4 })).not.toBeNull()
+      expect(grace.pitches).toHaveLength(2)
     })
   })
 

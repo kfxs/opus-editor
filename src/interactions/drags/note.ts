@@ -44,7 +44,8 @@ import type { Fraction, Note } from '../../types/music'
 import { dbg } from '../../utils/debug'
 import { staffOf } from '../../utils/lanes'
 import { measureCapacityQuarters } from '../../utils/measureCapacity'
-import { formatPitch, spellingEnharmonic } from '../../utils/pitchSpelling'
+import { formatPitch } from '../../utils/pitchSpelling'
+import { samePitch } from '../../utils/pitchOrder'
 import type { EditorState } from '../state/EditorState'
 import { entryAlteration } from '../../engine/models/entryAlteration'
 import { isGraceNote } from '../../engine/models/graceOps'
@@ -140,7 +141,7 @@ export function beginNoteDrag(
     const alter = entryAlteration(
       eng.getScore(), { measure: note.measure, beat: note.beat, staff: note.staff }, step, octave)
     const from = { step: note.step!, alter: note.alter ?? 0, octave: note.octave! }
-    if (spellingEnharmonic({ step, alter, octave }, from)) return
+    if (samePitch({ step, alter, octave }, from)) return
     dbg(`Drag pitch change | ${formatPitch(from)} -> ${formatPitch({ step, alter, octave })}`)
     eng.updateNote(id, { step, alter, octave })
     host.render.renderScore()

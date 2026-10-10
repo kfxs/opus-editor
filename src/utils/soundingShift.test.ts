@@ -15,7 +15,7 @@ import { ScoreModel } from '@/engine/models/ScoreModel'
 import { addOttava } from '@/engine/models/ottavaOps'
 import { fracCreate as frac } from './fraction'
 import { applySoundingShift, soundingShiftAt, soundingShiftBySlot } from './soundingShift'
-import { pitchToMidi } from './pitchSpelling'
+import { pitchToMidi } from '@/engine/audio/equalTemperament'
 
 describe('soundingShiftAt — the position under an octave line', () => {
   let model: ScoreModel

@@ -16,7 +16,7 @@
  */
 import playerSource from 'webaudiofont/npm/dist/WebAudioFontPlayer.js?raw'
 import type { PitchSpelling } from '@/types/music'
-import { pitchToMidi } from '@/utils/pitchSpelling'
+import { pitchToMidi } from '@/engine/audio/equalTemperament'
 import type { InstrumentPlayer } from './InstrumentPlayer'
 
 /** The slice of the WebAudioFont API we actually call (the lib ships no TS types). */

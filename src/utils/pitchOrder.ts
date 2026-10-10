@@ -36,6 +36,17 @@ export function comparePitch(a: WrittenPitch, b: WrittenPitch): number {
     || alterationRank(signsOfAlter(a.alter)) - alterationRank(signsOfAlter(b.alter))
 }
 
+/**
+ * ⭐ **Are these the SAME pitch?** — the same letter, the same signs, the same octave. C♯ and D♭ are
+ * TWO pitches: they stand on different lines, and only a tuning (`engine/audio/`) could say they
+ * sound alike — in meantone they don't (M1; docs/plans/alteration-signs-plan.md).
+ */
+export function samePitch(a: WrittenPitch, b: WrittenPitch): boolean {
+  if (a.step !== b.step || a.octave !== b.octave) return false
+  const [x, y] = [signsOfAlter(a.alter), signsOfAlter(b.alter)]
+  return x.length === y.length && x.every((sign, i) => sign === y[i])
+}
+
 /** A copy, lowest written pitch first. */
 export function lowToHigh<T extends WrittenPitch>(pitches: readonly T[]): T[] {
   return [...pitches].sort(comparePitch)

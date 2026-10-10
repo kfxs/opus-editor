@@ -17,7 +17,7 @@ import { ScoreModel } from '../models/ScoreModel'
 import { addPedal } from '../models/pedalOps'
 import { collectScheduledNotes } from './playbackSchedule'
 import { fracCreate as frac } from '@/utils/fraction'
-import { pitchToMidi } from '@/utils/pitchSpelling'
+import { pitchToMidi } from '@/engine/audio/equalTemperament'
 
 /** Sounding length of the event attacked at `onset` (the first one, if several share it). */
 const lengthAt = (score: Score, onset: number) =>

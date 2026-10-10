@@ -4,7 +4,7 @@ import { collectScheduledNotes } from './playbackSchedule'
 import { TRILL_PERIOD_SECONDS } from './trillAttacks'
 import { fracCreate as frac } from '@/utils/fraction'
 import type { FanMark, Score } from '@/types/music'
-import { pitchToMidi } from '@/utils/pitchSpelling'
+import { pitchToMidi } from '@/engine/audio/equalTemperament'
 
 /**
  * ⭐⭐ **A TRILL SOUNDS** (docs/plans/trill-plan.md §7, P5) — one note becomes an alternation with the note

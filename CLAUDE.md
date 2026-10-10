@@ -311,6 +311,8 @@ src/
                           #   + `inheritedDefaults` / `inheritedFonts` (the numbers and faces
                           #   taken from VexFlow, today's values as sourced ROWS)
     audio/                # PlaybackEngine + InstrumentPlayer seam (WebAudioFont)
+                          #   + equalTemperament (⭐ THE FIRST TUNING — the ONLY place a written pitch
+                          #   becomes a key number; ⛔ never asked which is higher or the same)
   testing/          # SPEC SUPPORT shared across folders — `engineStubs` (the renderer + playback
                     #   `vi.mock` FACTORIES; ⛔ imports nothing of the engine's), `makeEngine`, `fakeSvg`.
                     #   ⛔ Only helpers whose BODIES were identical live here: a spec's `note()` /

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { CoordinateMapper } from './CoordinateMapper'
-import { spellingToMidi } from '@/utils/pitchSpelling'
+import { staffPosition } from '@/utils/pitchOrder'
 import { getMeasureDuration } from '@/utils/measureCapacity'
 
 describe('CoordinateMapper', () => {
@@ -145,21 +145,21 @@ describe('CoordinateMapper', () => {
       const spelling = mapper.pixelYToPitch(130, 1)
       expect(spelling.step).toBe('C')
       expect(spelling.octave).toBe(4)
-      expect(spellingToMidi(spelling.step, spelling.alter, spelling.octave)).toBe(60)
+      expect(staffPosition(spelling)).toBe(28) // middle C
     })
 
     it('should convert lower Y to higher pitch', () => {
       const spellingC = mapper.pixelYToPitch(130, 1)  // C4
       const spellingHigh = mapper.pixelYToPitch(80, 1)  // Higher on staff
-      expect(spellingToMidi(spellingHigh.step, spellingHigh.alter, spellingHigh.octave))
-        .toBeGreaterThan(spellingToMidi(spellingC.step, spellingC.alter, spellingC.octave))
+      expect(staffPosition(spellingHigh))
+        .toBeGreaterThan(staffPosition(spellingC))
     })
 
     it('should convert higher Y to lower pitch', () => {
       const spellingC = mapper.pixelYToPitch(130, 1)  // C4
       const spellingLow = mapper.pixelYToPitch(140, 1) // Lower on staff
-      expect(spellingToMidi(spellingLow.step, spellingLow.alter, spellingLow.octave))
-        .toBeLessThan(spellingToMidi(spellingC.step, spellingC.alter, spellingC.octave))
+      expect(staffPosition(spellingLow))
+        .toBeLessThan(staffPosition(spellingC))
     })
   })
 
@@ -179,8 +179,8 @@ describe('CoordinateMapper', () => {
 
       expect(position.measure).toBe(2)
       expect(position.beat).toBeGreaterThanOrEqual(0)
-      expect(spellingToMidi(position.spelling.step, position.spelling.alter, position.spelling.octave))
-        .toBeGreaterThan(60)
+      expect(staffPosition(position.spelling))
+        .toBeGreaterThan(28) // above middle C
     })
   })
 

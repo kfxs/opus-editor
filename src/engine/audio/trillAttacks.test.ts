@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { trillAttacks, TRILL_PERIOD_SECONDS } from './trillAttacks'
-import { midiToSpelling, pitchToMidi } from '@/utils/pitchSpelling'
+import { midiToSpelling, pitchToMidi } from '@/engine/audio/equalTemperament'
 
 /**
  * {@link trillAttacks} — the alternation itself, over two opaque pitches.

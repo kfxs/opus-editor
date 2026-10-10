@@ -18,7 +18,7 @@ import { ScoreModel } from '../models/ScoreModel'
 import { addOttava } from '../models/ottavaOps'
 import { collectScheduledNotes } from './playbackSchedule'
 import { fracCreate as frac } from '@/utils/fraction'
-import { pitchToMidi } from '@/utils/pitchSpelling'
+import { pitchToMidi } from '@/engine/audio/equalTemperament'
 
 const C4 = 60, C5 = 72, C6 = 84, C3 = 48, D5 = 74, E5 = 76, G5 = 79
 

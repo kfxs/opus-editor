@@ -155,11 +155,18 @@ describe('bracketedGraceOps', () => {
   })
 
   describe('addBracketedPitch — a second head (a double-stop pre-bend)', () => {
-    it('adds a head; ⛔ a pitch it already SHOWS (by sound) is refused', () => {
+    it('adds a head; ⛔ a pitch it already SHOWS (as written) is refused', () => {
       const host = quarter()
       const made = bracketedOps.addBracketed(score, host.id, 'before', Bb3)!
       expect(bracketedOps.addBracketedPitch(score, made.pitches[0].id, D5)).not.toBeNull()
-      expect(bracketedOps.addBracketedPitch(score, made.pitches[0].id, { step: 'A', alter: 1, octave: 3 })).toBeNull()
+      expect(bracketedOps.addBracketedPitch(score, made.pitches[0].id, Bb3)).toBeNull()
+      expect(made.pitches).toHaveLength(2)
+    })
+
+    it('⭐ an ENHARMONIC is another pitch (M1): A♯ joins a B♭', () => {
+      const host = quarter()
+      const made = bracketedOps.addBracketed(score, host.id, 'before', Bb3)!
+      expect(bracketedOps.addBracketedPitch(score, made.pitches[0].id, { step: 'A', alter: 1, octave: 3 })).not.toBeNull()
       expect(made.pitches).toHaveLength(2)
     })
   })
